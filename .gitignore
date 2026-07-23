@@ -1,0 +1,6 @@
+.env
+*.env
+leads.csv
+__pycache__/
+*.py
+.claude/
