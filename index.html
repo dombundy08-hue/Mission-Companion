@@ -1352,7 +1352,9 @@ function fmtDateTime(d){
   return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} — ${h}:${mm} ${ap}`;
 }
 function fmtDateShort(d){ return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
-function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* also escapes quotes: esc() is used inside value="..." attributes, where a raw
+   quote in a search box or term name would break out and corrupt the markup. */
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* ===================================================================
    API CALL  (Claude Haiku 4.5)
@@ -1480,7 +1482,10 @@ function flash(msg){
 /* ===================================================================
    MASTER RENDER
 =================================================================== */
+const VALID_TABS = ['journal','spanish','mastery','more','miracles','glossary','objections','email'];
 function render(){
+  // a stale/unknown activeTab would match no case below and leave a blank screen
+  if(!VALID_TABS.includes(activeTab)){ activeTab='journal'; setLS('activeTab', activeTab); }
   // sections opened from More keep the More button lit
   const navTab = MORE_TABS.includes(activeTab) ? 'more' : activeTab;
   document.querySelectorAll('#bottomnav button').forEach(b=>{
@@ -2381,6 +2386,7 @@ function addCustomCard(){
     keyPhrase:(key.trim()||ref.trim()), fullText:(full.trim()||key.trim()||ref.trim()),
     confidence:0, reviewCount:0, lastReviewed:null });
   saveDeck(deck);
+  pushCustomCards();               // keep card text in the cloud, not just locally
   setLS('scriptureCollection','Custom');
   flash('Card added to My Cards.');
   render();
@@ -2394,7 +2400,9 @@ function sbOnline(){ return !!sb && navigator.onLine; }
 function flashSaved(){ const t=document.getElementById('syncToast'); if(!t) return; t.classList.add('show'); clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove('show'),2000); }
 function showOfflineBanner(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.add('show'); }
 function hideOfflineBanner(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.remove('show'); }
-function markPending(){ pendingPush=true; showOfflineBanner(); }
+/* Only claim "you're offline" when actually offline. A transient Supabase error
+   still queues a retry, but shouldn't tell the user their connection is down. */
+function markPending(){ pendingPush=true; if(!navigator.onLine) showOfflineBanner(); }
 function parseVal(v){ if(v===null||v===undefined) return null; try{ return JSON.parse(v); }catch(e){ return v; } }
 
 /* ---- field mapping (local shape <-> table columns) ---- */
@@ -2459,11 +2467,45 @@ async function syncScripture(){
 async function putSetting(key, valueRaw){
   const value=JSON.stringify(valueRaw);
   try{
-    const ex=await sb.from('app_settings').select('id').eq('key',key).maybeSingle();
-    if(ex.data && ex.data.id){ const up=await sb.from('app_settings').update({value}).eq('id',ex.data.id); if(up.error) throw up.error; }
+    // limit(1) rather than maybeSingle(): a duplicate row would make maybeSingle
+    // throw and permanently wedge settings sync.
+    const ex=await sb.from('app_settings').select('id').eq('key',key).limit(1);
+    if(ex.error) throw ex.error;
+    const row=(ex.data||[])[0];
+    if(row && row.id){ const up=await sb.from('app_settings').update({value}).eq('id',row.id); if(up.error) throw up.error; }
     else { const ins=await sb.from('app_settings').insert({key, value}); if(ins.error) throw ins.error; }
     return true;
   }catch(e){ return false; }
+}
+
+/* Custom scripture cards live only in localStorage (scripture_progress has no
+   columns for card text), so without this they vanish on a new device. */
+function customCardPayload(deck){
+  return (deck||getDeck()).filter(c=>c.collection==='Custom')
+    .map(c=>({ id:c.id, reference:c.reference||'', keyPhrase:c.keyPhrase||'', fullText:c.fullText||'' }));
+}
+function pushCustomCards(){
+  const customs=customCardPayload();
+  if(customs.length) cloudSaveSetting('customScriptureCards', customs);
+}
+function mergeCustomCards(list){
+  if(!Array.isArray(list) || !list.length) return false;
+  const deck=getDeck();
+  const haveId=new Set(deck.map(c=>c.id));
+  const haveKey=new Set(deck.map(c=>(c.reference||'')+'|'+(c.keyPhrase||'')));
+  let maxId=deck.reduce((m,c)=>Math.max(m,c.id),0), dirty=false;
+  list.forEach(cc=>{
+    const k=(cc.reference||'')+'|'+(cc.keyPhrase||'');
+    if(haveKey.has(k)) return;                       // already here
+    let id=cc.id;
+    if(!id || haveId.has(id)) id=++maxId;            // avoid colliding with built-ins
+    deck.push({ id, collection:'Custom', reference:cc.reference||'',
+      keyPhrase:cc.keyPhrase||cc.reference||'', fullText:cc.fullText||'',
+      confidence:0, reviewCount:0, lastReviewed:null });
+    haveId.add(id); haveKey.add(k); maxId=Math.max(maxId,id); dirty=true;
+  });
+  if(dirty) saveDeck(deck);
+  return dirty;
 }
 async function syncSettings(){
   const res=await sb.from('app_settings').select('key,value');
@@ -2475,6 +2517,13 @@ async function syncSettings(){
   else { const lv=localStorage.getItem('lastBackupTimestamp'); if(lv) await putSetting('lastBackupTimestamp', lv); }
   if(map.has('emailVoiceExamples')){ const v=parseVal(map.get('emailVoiceExamples')); if(Array.isArray(v)) setLS('emailVoiceExamples', v); }
   else { const lv=getLS('emailVoiceExamples', null); if(Array.isArray(lv) && lv.length) await putSetting('emailVoiceExamples', lv); }
+  // custom scripture cards: pull any this device doesn't have, then push ours back
+  if(map.has('customScriptureCards')){ mergeCustomCards(parseVal(map.get('customScriptureCards'))); }
+  const mine=customCardPayload();
+  if(mine.length){
+    const cloudList=map.has('customScriptureCards') ? (parseVal(map.get('customScriptureCards'))||[]) : [];
+    if(mine.length!==cloudList.length) await putSetting('customScriptureCards', mine);
+  }
 }
 
 /* full load+merge — runs after login; best-effort (falls back to localStorage) */
@@ -2485,8 +2534,10 @@ async function cloudSyncAll(){
     await syncArrayTable('journalEntries','journal_entries', journalFromCloud, journalToCloud, journalNatKey);
     await syncArrayTable('miracleEntries','miracle_entries', miracleFromCloud, miracleToCloud, miracleNatKey);
     await syncArrayTable('glossaryTerms','glossary_terms', glossaryFromCloud, glossaryToCloud, glossaryNatKey);
-    await syncScripture();
+    // settings first: it restores custom scripture cards, which syncScripture
+    // then merges progress into. Reversed, restored cards lose their progress.
     await syncSettings();
+    await syncScripture();
     hideOfflineBanner();
   }catch(e){ /* keep localStorage; will retry on reconnect */ markPending(); }
 }
@@ -2538,8 +2589,9 @@ async function cloudSaveScripture(card){
   try{
     if(card.cloudId){ const up=await sb.from('scripture_progress').update({confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).eq('id',card.cloudId); if(up.error) throw up.error; }
     else {
-      const ex=await sb.from('scripture_progress').select('id').eq('scripture_id',card.id).maybeSingle();
-      if(ex.data && ex.data.id){ await sb.from('scripture_progress').update({confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).eq('id',ex.data.id); stampScripture(card.id, ex.data.id); }
+      const ex=await sb.from('scripture_progress').select('id').eq('scripture_id',card.id).limit(1);
+      const exRow=(ex.data||[])[0];
+      if(exRow && exRow.id){ await sb.from('scripture_progress').update({confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).eq('id',exRow.id); stampScripture(card.id, exRow.id); }
       else { const ins=await sb.from('scripture_progress').insert({scripture_id:card.id, confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).select('id').single(); if(ins.error) throw ins.error; stampScripture(card.id, ins.data.id); }
     }
     flashSaved(); hideOfflineBanner();
