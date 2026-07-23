@@ -439,6 +439,11 @@
       <button class="btn" id="settingsSave">Save</button>
     </div>
     <hr class="divider">
+    <label class="fld" for="voiceSelect">Workout Voice</label>
+    <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
+    <select class="text" id="voiceSelect" style="height:48px;"></select>
+    <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
+    <hr class="divider">
     <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
     <p style="margin-top:14px;margin-bottom:0;">Need help? 720-745-0911 or 720-745-3166.</p>
   </div>
@@ -1460,6 +1465,7 @@ document.getElementById('setupSave').addEventListener('click', ()=>{
 /* settings modal */
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
+  loadVoices();   // voices may have finished loading since page start
   document.getElementById('settingsModal').classList.add('show');
 });
 document.getElementById('settingsCancel').addEventListener('click', ()=>{
@@ -1472,6 +1478,101 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
   cloudSaveSetting('apiKey', k);
   document.getElementById('settingsModal').classList.remove('show');
   flash("API key updated.");
+});
+
+/* ===================================================================
+   VOICE — device speech synthesis for spoken step announcements.
+   Any feature that needs to talk should call speak(text).
+=================================================================== */
+let availableVoices = [];
+
+/* names that signal a higher-quality voice, checked in order */
+const VOICE_QUALITY_HINTS = ['enhanced','premium','natural','neural','siri'];
+const VOICE_KNOWN_GOOD = [
+  'Samantha','Ava','Allison','Alex','Serena','Karen','Moira','Daniel',      // Apple
+  'Microsoft Aria','Microsoft Jenny','Microsoft Guy','Microsoft Michelle',  // Windows neural
+  'Google US English','Google UK English Female','Google UK English Male'   // Chrome
+];
+
+function englishVoices(){
+  return availableVoices.filter(v => (v.lang||'').toLowerCase().startsWith('en'));
+}
+function pickBestVoice(list){
+  if(!list || !list.length) return null;
+  const byHint = list.find(v => VOICE_QUALITY_HINTS.some(h => (v.name||'').toLowerCase().includes(h)));
+  if(byHint) return byHint;
+  for(const good of VOICE_KNOWN_GOOD){
+    const m = list.find(v => (v.name||'').toLowerCase().includes(good.toLowerCase()));
+    if(m) return m;
+  }
+  return list.find(v=>v.default) || list[0];
+}
+/* the voice announcements should use: saved choice, else best guess */
+function currentVoice(){
+  const list = englishVoices();
+  if(!list.length) return null;
+  const want = localStorage.getItem('preferredVoiceName');
+  return list.find(v => v.name === want) || pickBestVoice(list);
+}
+function speakWith(voice, text, opts){
+  if(!('speechSynthesis' in window) || !text) return false;
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    if(voice){ u.voice = voice; u.lang = voice.lang; }
+    u.rate  = (opts && opts.rate)  || 1;
+    u.pitch = (opts && opts.pitch) || 1;
+    window.speechSynthesis.cancel();   // don't queue on top of a previous line
+    window.speechSynthesis.speak(u);
+    return true;
+  }catch(e){ return false; }
+}
+/* PUBLIC: spoken announcements call this. */
+function speak(text, opts){ return speakWith(currentVoice(), text, opts); }
+
+/* sync=false for the auto-picked default: it's a per-device guess, not a
+   deliberate choice, so it stays local until the user actually picks one.
+   (syncSettings still pushes it later if the cloud has nothing.) */
+function setPreferredVoice(name, notify, sync){
+  if(!name) return;
+  localStorage.setItem('preferredVoiceName', name);
+  if(sync !== false) cloudSaveSetting('preferredVoiceName', name);
+  if(notify) flash('Voice saved.');
+}
+function populateVoiceSelect(){
+  const sel = document.getElementById('voiceSelect');
+  if(!sel) return;
+  const list = englishVoices();
+  if(!list.length){
+    sel.innerHTML = '<option value="">No voices available on this device</option>';
+    return;
+  }
+  const cur = currentVoice();
+  sel.innerHTML = list.map(v =>
+    `<option value="${esc(v.name)}"${cur && v.name===cur.name ? ' selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`
+  ).join('');
+  // first run: persist the auto-pick so the choice is stable across reloads
+  if(!localStorage.getItem('preferredVoiceName') && cur) setPreferredVoice(cur.name, false, false);
+}
+/* getVoices() is empty on first call in most browsers; it fills in later
+   and fires 'voiceschanged'. Handle both. */
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  availableVoices = window.speechSynthesis.getVoices() || [];
+  populateVoiceSelect();
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+}
+
+document.getElementById('voiceSelect').addEventListener('change', function(){
+  if(this.value) setPreferredVoice(this.value, true);
+});
+document.getElementById('voiceTestBtn').addEventListener('click', ()=>{
+  const sel = document.getElementById('voiceSelect');
+  const chosen = englishVoices().find(v => v.name === (sel && sel.value)) || currentVoice();
+  const ok = speakWith(chosen, 'Nice work. Next up: twenty squats, then rest for thirty seconds.');
+  if(!ok) flash('Speech is not available on this device.');
 });
 
 /* ===================================================================
@@ -2561,18 +2662,36 @@ async function syncScripture(){
   if(dirty) saveDeck(deck);
 }
 
+/* Writes to the same settings key are serialized. Without this, two rapid
+   calls (e.g. an auto-selected default followed immediately by the user's own
+   choice) both SELECT, both find nothing, and both INSERT — leaving duplicate
+   rows and a value that reads back wrong. */
+const _settingWriteQueue = {};
 async function putSetting(key, valueRaw){
-  const value=JSON.stringify(valueRaw);
-  try{
-    // limit(1) rather than maybeSingle(): a duplicate row would make maybeSingle
-    // throw and permanently wedge settings sync.
-    const ex=await sb.from('app_settings').select('id').eq('key',key).limit(1);
-    if(ex.error) throw ex.error;
-    const row=(ex.data||[])[0];
-    if(row && row.id){ const up=await sb.from('app_settings').update({value}).eq('id',row.id); if(up.error) throw up.error; }
-    else { const ins=await sb.from('app_settings').insert({key, value}); if(ins.error) throw ins.error; }
-    return true;
-  }catch(e){ return false; }
+  const run = async () => {
+    const value=JSON.stringify(valueRaw);
+    try{
+      // limit(1) rather than maybeSingle(): a duplicate row would make maybeSingle
+      // throw and permanently wedge settings sync.
+      const ex=await sb.from('app_settings').select('id').eq('key',key);
+      if(ex.error) throw ex.error;
+      const rows=ex.data||[];
+      if(rows.length){
+        const up=await sb.from('app_settings').update({value}).eq('id',rows[0].id);
+        if(up.error) throw up.error;
+        // heal any duplicates left by an earlier race
+        for(let i=1;i<rows.length;i++){ try{ await sb.from('app_settings').delete().eq('id',rows[i].id); }catch(e){} }
+      } else {
+        const ins=await sb.from('app_settings').insert({key, value});
+        if(ins.error) throw ins.error;
+      }
+      return true;
+    }catch(e){ return false; }
+  };
+  const prev = _settingWriteQueue[key] || Promise.resolve();
+  const next = prev.then(run, run);
+  _settingWriteQueue[key] = next.catch(()=>{});
+  return next;
 }
 
 /* Custom scripture cards live only in localStorage (scripture_progress has no
@@ -2614,6 +2733,12 @@ async function syncSettings(){
   else { const lv=localStorage.getItem('lastBackupTimestamp'); if(lv) await putSetting('lastBackupTimestamp', lv); }
   if(map.has('emailVoiceExamples')){ const v=parseVal(map.get('emailVoiceExamples')); if(Array.isArray(v)) setLS('emailVoiceExamples', v); }
   else { const lv=getLS('emailVoiceExamples', null); if(Array.isArray(lv) && lv.length) await putSetting('emailVoiceExamples', lv); }
+  if(map.has('preferredVoiceName')){
+    const v=parseVal(map.get('preferredVoiceName'));
+    if(v) localStorage.setItem('preferredVoiceName', v);
+    populateVoiceSelect();
+  }
+  else { const lv=localStorage.getItem('preferredVoiceName'); if(lv) await putSetting('preferredVoiceName', lv); }
   // custom scripture cards: pull any this device doesn't have, then push ours back
   if(map.has('customScriptureCards')){ mergeCustomCards(parseVal(map.get('customScriptureCards'))); }
   const mine=customCardPayload();
