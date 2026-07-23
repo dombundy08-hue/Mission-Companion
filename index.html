@@ -96,10 +96,13 @@
   nav#bottomnav button{
     flex:1;background:transparent;border:none;color:#9aa4bd;
     display:flex;flex-direction:column;align-items:center;gap:2px;
-    padding:6px 2px;min-height:52px;border-radius:10px;font-size:11px;
+    padding:6px 1px;min-height:52px;border-radius:10px;font-size:9.5px;
     white-space:nowrap;overflow:hidden;
   }
-  nav#bottomnav button .ic{font-size:22px;line-height:1;}
+  nav#bottomnav button .ic{font-size:19px;line-height:1;}
+  /* fewer items in a section = roomier labels */
+  nav#bottomnav.few button{font-size:11px;padding:6px 2px;}
+  nav#bottomnav.few button .ic{font-size:22px;}
   nav#bottomnav button.active{color:var(--gold);}
   nav#bottomnav button.active .ic{transform:translateY(-1px);}
 
@@ -314,6 +317,34 @@
   }
   #offlineBanner.show{display:block;}
 
+  /* ---------- Top section switcher ---------- */
+  .sectionbtn{
+    display:flex;align-items:center;gap:7px;
+    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+    color:#fff;border-radius:11px;padding:8px 12px;min-height:44px;
+    font-size:16px;font-weight:700;
+  }
+  .sectionbtn:active{background:rgba(255,255,255,.2);}
+  .sectionbtn .sec-ic{font-size:19px;line-height:1;}
+  .sectionbtn .sec-ca{font-size:13px;color:var(--gold);margin-left:1px;}
+  .section-card{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:60px;
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    padding:12px;margin-bottom:9px;
+  }
+  .section-card.current{border-color:var(--navy);background:#f3f5fa;}
+  .section-card:active{background:#f4f2ec;}
+  .section-card .sc-ic{font-size:24px;width:32px;text-align:center;flex:none;}
+  .section-card .sc-tx{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+  .section-card .sc-lb{font-size:16px;font-weight:700;color:var(--navy);}
+  .section-card .sc-ds{font-size:13px;color:var(--muted);white-space:normal;line-height:1.3;}
+
+  /* ---------- Placeholder section ---------- */
+  .soon{background:var(--card);border:1px dashed #d8d3c4;border-radius:14px;padding:26px 18px;text-align:center;margin-bottom:14px;}
+  .soon .si{font-size:40px;margin-bottom:10px;}
+  .soon h3{margin:0 0 8px;color:var(--navy);font-size:19px;}
+  .soon p{margin:0 auto;color:var(--muted);font-size:15px;line-height:1.5;max-width:330px;}
+
   /* ---------- More menu cards ---------- */
   .more-card{
     display:flex;align-items:center;gap:13px;
@@ -375,17 +406,26 @@
 <!-- ============ APP ============ -->
 <div id="app">
   <header class="topbar">
-    <div class="title">✝️ Mission Companion</div>
+    <button class="sectionbtn" id="sectionBtn" aria-label="Switch section">
+      <span class="sec-ic" id="secIcon">✝️</span>
+      <span class="sec-nm" id="secName">Spiritual</span>
+      <span class="sec-ca">▾</span>
+    </button>
     <button class="gear" id="gearBtn" aria-label="Settings">⚙️</button>
   </header>
   <div id="offlineBanner">You're offline — entries are saving locally and will sync when you reconnect.</div>
   <main id="tab-content"></main>
-  <nav id="bottomnav">
-    <button data-tab="journal"><span class="ic">📓</span>Journal</button>
-    <button data-tab="spanish"><span class="ic">🗣️</span>Spanish</button>
-    <button data-tab="mastery"><span class="ic">📖</span>Mastery</button>
-    <button data-tab="more"><span class="ic">☰</span>More</button>
-  </nav>
+  <nav id="bottomnav"></nav>
+</div>
+
+<!-- section switcher (top "More") -->
+<div class="modal-back" id="sectionModal">
+  <div class="modal">
+    <h3>Sections</h3>
+    <p>Jump to another part of your life.</p>
+    <div id="sectionList"></div>
+    <button class="btn secondary" id="sectionCancel" style="margin-top:6px;">Cancel</button>
+  </div>
 </div>
 
 <!-- settings modal -->
@@ -1437,14 +1477,40 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
 /* ===================================================================
    NAV
 =================================================================== */
-/* Sections reached through the More menu (no bottom-nav button of their own) */
-const MORE_ITEMS = [
-  { tab:'miracles',   icon:'✨', label:'Miracles',   desc:"Capture answers to prayer while they're fresh." },
-  { tab:'glossary',   icon:'📖', label:'Glossary',   desc:'Your own words for gospel terms and principles.' },
-  { tab:'objections', icon:'🙋', label:'Objections', desc:'Practice real conversations with an investigator.' },
-  { tab:'email',      icon:'✉️', label:'Email',      desc:'Write your weekly family email in your voice.' }
-];
-const MORE_TABS = MORE_ITEMS.map(i=>i.tab);
+/* Two-level navigation:
+     top  = SECTION  (Spiritual / Exercise / Health ...)
+     bottom = the tabs belonging to the current section.
+   Adding a section here automatically gives it a bottom nav and a card in the
+   top switcher — no other wiring needed. */
+const SECTIONS = {
+  spiritual: {
+    label:'Spiritual', icon:'✝️', desc:'Journal, language, scripture and teaching.',
+    tabs:[
+      { id:'journal',    icon:'📓', label:'Journal' },
+      { id:'spanish',    icon:'🗣️', label:'Spanish' },
+      { id:'mastery',    icon:'📖', label:'Mastery' },
+      { id:'email',      icon:'✉️', label:'Email' },
+      { id:'objections', icon:'🙋', label:'Objections' },
+      { id:'glossary',   icon:'📔', label:'Glossary' },
+      { id:'miracles',   icon:'✨', label:'Miracles' }
+    ]
+  },
+  exercise: {
+    label:'Exercise', icon:'💪', desc:'Training, movement and daily activity.',
+    tabs:[ { id:'exercise-home', icon:'💪', label:'Exercise' } ]
+  },
+  health: {
+    label:'Health', icon:'🍎', desc:'Food, sleep and how you feel.',
+    tabs:[ { id:'health-home', icon:'🍎', label:'Health' } ]
+  }
+};
+const SECTION_KEYS = Object.keys(SECTIONS);
+let activeSection = 'spiritual';
+
+function sectionOf(tab){
+  return SECTION_KEYS.find(k=> SECTIONS[k].tabs.some(t=>t.id===tab)) || 'spiritual';
+}
+function sectionTabs(sec){ return (SECTIONS[sec]||SECTIONS.spiritual).tabs; }
 
 /* reset volatile sub-views on tab switch (same rules as before) */
 function resetTabState(tab){
@@ -1455,17 +1521,53 @@ function resetTabState(tab){
   if(tab==='mastery'){ state.mastery.view='home'; state.mastery.flipped=false; }
 }
 
-/* single navigation path used by the bottom nav, the More cards and Back */
+/* single navigation path used by the bottom nav and the section switcher */
 function goToTab(tab){
   activeTab = tab;
+  activeSection = sectionOf(tab);
   setLS('activeTab', activeTab);
+  setLS('activeSection', activeSection);
   resetTabState(tab);
   window.scrollTo(0,0);
   render();
 }
+function goToSection(sec){
+  if(!SECTIONS[sec]) sec='spiritual';
+  activeSection = sec;
+  setLS('activeSection', sec);
+  goToTab(sectionTabs(sec)[0].id);          // land on the section's first tab
+}
 
-document.querySelectorAll('#bottomnav button').forEach(b=>{
-  b.addEventListener('click', ()=> goToTab(b.dataset.tab));
+/* bottom nav is rebuilt per section */
+function renderBottomNav(){
+  const nav=document.getElementById('bottomnav');
+  const tabs=sectionTabs(activeSection);
+  nav.classList.toggle('few', tabs.length<=4);
+  nav.innerHTML = tabs.map(t=>
+    `<button data-tab="${t.id}" class="${t.id===activeTab?'active':''}"><span class="ic">${t.icon}</span>${esc(t.label)}</button>`
+  ).join('');
+  nav.querySelectorAll('button').forEach(b=> b.onclick=()=> goToTab(b.dataset.tab));
+}
+
+/* top switcher */
+function openSectionModal(){
+  const list=document.getElementById('sectionList');
+  list.innerHTML = SECTION_KEYS.map(k=>{
+    const s=SECTIONS[k];
+    return `<button class="section-card ${k===activeSection?'current':''}" data-sec="${k}">
+      <span class="sc-ic">${s.icon}</span>
+      <span class="sc-tx"><span class="sc-lb">${esc(s.label)}</span><span class="sc-ds">${esc(s.desc)}</span></span>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('[data-sec]').forEach(b=> b.onclick=()=>{
+    document.getElementById('sectionModal').classList.remove('show');
+    goToSection(b.dataset.sec);
+  });
+  document.getElementById('sectionModal').classList.add('show');
+}
+document.getElementById('sectionBtn').addEventListener('click', openSectionModal);
+document.getElementById('sectionCancel').addEventListener('click', ()=>{
+  document.getElementById('sectionModal').classList.remove('show');
 });
 
 /* ===================================================================
@@ -1482,15 +1584,20 @@ function flash(msg){
 /* ===================================================================
    MASTER RENDER
 =================================================================== */
-const VALID_TABS = ['journal','spanish','mastery','more','miracles','glossary','objections','email'];
+const VALID_TABS = SECTION_KEYS.reduce((a,k)=> a.concat(SECTIONS[k].tabs.map(t=>t.id)), []);
 function render(){
-  // a stale/unknown activeTab would match no case below and leave a blank screen
+  // a stale/unknown activeTab would match nothing below and leave a blank screen
   if(!VALID_TABS.includes(activeTab)){ activeTab='journal'; setLS('activeTab', activeTab); }
-  // sections opened from More keep the More button lit
-  const navTab = MORE_TABS.includes(activeTab) ? 'more' : activeTab;
-  document.querySelectorAll('#bottomnav button').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tab===navTab);
-  });
+  activeSection = sectionOf(activeTab);
+  setLS('activeSection', activeSection);
+
+  // top switcher reflects the current section
+  const s=SECTIONS[activeSection];
+  document.getElementById('secIcon').textContent=s.icon;
+  document.getElementById('secName').textContent=s.label;
+
+  renderBottomNav();
+
   const c = document.getElementById('tab-content');
   switch(activeTab){
     case 'journal':   renderJournal(c); break;
@@ -1500,32 +1607,22 @@ function render(){
     case 'objections':renderObjections(c); break;
     case 'email':     renderEmail(c); break;
     case 'mastery':   renderMastery(c); break;
-    case 'more':      renderMore(c); break;
-  }
-  // "← Back" to the More menu, added after the section renders so the
-  // existing render functions stay untouched. Skipped while Glossary is in
-  // its edit view, which already shows its own back button to the list.
-  if(MORE_TABS.includes(activeTab) && !(activeTab==='glossary' && state.glossary.view==='edit')){
-    c.insertAdjacentHTML('afterbegin', '<button class="linkbtn" id="moreBack" style="text-align:left;width:auto;">← Back</button>');
-    const mb=document.getElementById('moreBack');
-    if(mb) mb.onclick=()=> goToTab('more');
+    default:          renderPlaceholder(c); break;   // Exercise / Health, etc.
   }
 }
 
-/* ===================================================================
-   MORE MENU
-=================================================================== */
-function renderMore(c){
-  let html = `<h2 class="tabtitle">More</h2>`;
-  MORE_ITEMS.forEach(it=>{
-    html += `<button class="more-card" data-more="${it.tab}">
-      <span class="more-ic">${it.icon}</span>
-      <span class="more-tx"><span class="more-lb">${esc(it.label)}</span><span class="more-ds">${esc(it.desc)}</span></span>
-      <span class="more-ch">›</span>
-    </button>`;
-  });
-  c.innerHTML = html;
-  c.querySelectorAll('[data-more]').forEach(b=> b.onclick=()=> goToTab(b.dataset.more));
+/* Sections that have no features built yet still render a real screen. */
+function renderPlaceholder(c){
+  const s=SECTIONS[activeSection];
+  c.innerHTML = `<h2 class="tabtitle">${s.icon} ${esc(s.label)}</h2>
+    <div class="soon">
+      <div class="si">${s.icon}</div>
+      <h3>Nothing here yet</h3>
+      <p>${esc(s.label)} is set up and ready — it just needs its features built.
+         Tell Claude what you want to track here and it will appear along the bottom.</p>
+    </div>
+    <button class="btn secondary" id="phSwitch">Switch section</button>`;
+  const b=document.getElementById('phSwitch'); if(b) b.onclick=openSectionModal;
 }
 
 /* ===================================================================
