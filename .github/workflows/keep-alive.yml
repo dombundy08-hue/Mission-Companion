@@ -1,0 +1,38 @@
+name: Supabase Keep-Alive
+
+# Supabase free-tier projects auto-pause after 7 days with no database
+# activity. This makes a harmless read-only request every 3 days so the
+# Mission Companion database never pauses, even when the phone sits locked.
+
+on:
+  schedule:
+    # Every 3 days at 12:00 UTC. Cron has no true "every 3 days", so we pin
+    # specific days of the month — gaps never exceed 3 days, well under the
+    # 7-day pause window, so a missed run or two is harmless.
+    - cron: "0 12 1,4,7,10,13,16,19,22,25,28 * *"
+  workflow_dispatch: {}   # allows manual runs from the Actions tab
+
+# The publishable key is already embedded in the public index.html and is
+# safe to expose (RLS-protected, data-API only). No secrets are used here.
+env:
+  SUPABASE_URL: "https://mxlfwmwjkanvsjimralh.supabase.co"
+  SUPABASE_KEY: "sb_publishable_8HpSPjIDolxclSxlp4OQxw_GDC6XoOL"
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          echo "Pinging Supabase to keep the project awake..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/app_settings?select=key&limit=1")
+          echo "HTTP status: ${STATUS}"
+          if [ "${STATUS}" = "200" ]; then
+            echo "Keep-alive succeeded."
+          else
+            echo "Keep-alive FAILED — expected 200, got ${STATUS}"
+            exit 1
+          fi
