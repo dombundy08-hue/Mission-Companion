@@ -96,10 +96,10 @@
   nav#bottomnav button{
     flex:1;background:transparent;border:none;color:#9aa4bd;
     display:flex;flex-direction:column;align-items:center;gap:2px;
-    padding:6px 1px;min-height:52px;border-radius:10px;font-size:9.5px;
+    padding:6px 1px;min-height:52px;border-radius:10px;font-size:10.5px;
     white-space:nowrap;overflow:hidden;
   }
-  nav#bottomnav button .ic{font-size:19px;line-height:1;}
+  nav#bottomnav button .ic{font-size:20px;line-height:1;}
   /* fewer items in a section = roomier labels */
   nav#bottomnav.few button{font-size:11px;padding:6px 2px;}
   nav#bottomnav.few button .ic{font-size:22px;}
@@ -1750,12 +1750,11 @@ const SECTIONS = {
     label:'Spiritual', icon:'✝️', desc:'Journal, language, scripture and teaching.',
     tabs:[
       { id:'journal',    icon:'📓', label:'Journal' },
+      { id:'miracles',   icon:'✨', label:'Miracles' },
+      { id:'objections', icon:'🙋', label:'Objections' },
       { id:'spanish',    icon:'🗣️', label:'Spanish' },
       { id:'mastery',    icon:'📖', label:'Mastery' },
-      { id:'email',      icon:'✉️', label:'Email' },
-      { id:'objections', icon:'🙋', label:'Objections' },
-      { id:'glossary',   icon:'📔', label:'Glossary' },
-      { id:'miracles',   icon:'✨', label:'Miracles' }
+      { id:'email',      icon:'✉️', label:'Email' }
     ]
   },
   exercise: {
@@ -1786,7 +1785,6 @@ function sectionTabs(sec){ return (SECTIONS[sec]||SECTIONS.spiritual).tabs; }
 /* reset volatile sub-views on tab switch (same rules as before) */
 function resetTabState(tab){
   if(tab==='journal'){ state.journal.view='list'; state.journal.readId=null; }
-  if(tab==='glossary'){ state.glossary.view='list'; state.glossary.editId=null; state.glossary.success=false; }
   if(tab==='spanish'){ state.spanish.error=false; }
   if(tab==='objections'){ state.objections.error=false; }
   if(tab==='mastery'){ state.mastery.view='home'; state.mastery.flipped=false; }
@@ -1877,7 +1875,6 @@ function render(){
   switch(activeTab){
     case 'journal':   renderJournal(c); break;
     case 'miracles':  renderMiracles(c); break;
-    case 'glossary':  renderGlossary(c); break;
     case 'spanish':   renderSpanish(c); break;
     case 'objections':renderObjections(c); break;
     case 'email':     renderEmail(c); break;
@@ -4160,7 +4157,6 @@ async function cloudSyncAll(){
   try{
     await syncArrayTable('journalEntries','journal_entries', journalFromCloud, journalToCloud, journalNatKey);
     await syncArrayTable('miracleEntries','miracle_entries', miracleFromCloud, miracleToCloud, miracleNatKey);
-    await syncArrayTable('glossaryTerms','glossary_terms', glossaryFromCloud, glossaryToCloud, glossaryNatKey);
     // settings first: it restores custom scripture cards, which syncScripture
     // then merges progress into. Reversed, restored cards lose their progress.
     await syncSettings();
@@ -4189,7 +4185,6 @@ async function flushPending(){
   if(!sbOnline()) return;
   try{
     await cloudSyncAll();
-    for(const t of getLS('glossaryTerms',[])){ if(t.cloudId){ try{ await sb.from('glossary_terms').update(glossaryToCloud(t)).eq('id',t.cloudId); }catch(e){} } }
     for(const c of getDeck()){ if(c.cloudId){ try{ await sb.from('scripture_progress').update({confidence:c.confidence||0, review_count:c.reviewCount||0, last_reviewed:c.lastReviewed||null}).eq('id',c.cloudId); }catch(e){} } }
     const ak=localStorage.getItem('apiKey'); if(ak) await putSetting('apiKey', ak);
     const lb=localStorage.getItem('lastBackupTimestamp'); if(lb) await putSetting('lastBackupTimestamp', lb);
@@ -4307,7 +4302,10 @@ async function startApp(){
    BOOT
 =================================================================== */
 (function init(){
+  // Glossary feature was removed — drop any leftover local data on every device.
+  localStorage.removeItem('glossaryTerms');
   activeTab = getLS('activeTab','journal') || 'journal';
+  if(activeTab==='glossary') activeTab='journal';
   if(localStorage.getItem('authenticated')==='true'){ startApp(); }
   else { showLock(); }
 })();
