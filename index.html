@@ -2578,14 +2578,8 @@ function renderHealthToday(c){
       <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
       <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
     </div>
-    <div class="snap-block">
-      <div class="snap-stat"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">/ ${g.calories}</span></span></div>
-      ${goalBar(calAvg, g.calories)}
-    </div>
-    <div class="snap-block">
-      <div class="snap-stat"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'/ '+proteinGoal+'g':''}</span></span></div>
-      ${proteinGoal!=null?goalBar(protAvg, proteinGoal):''}
-    </div>
+    <div class="snap-row"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">· goal ${g.calories}</span>${statusDot(statusColor(calAvg,g.calories))}</span></div>
+    <div class="snap-row"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'· goal '+proteinGoal+'g':''}</span>${proteinGoal!=null?statusDot(statusColor(protAvg,proteinGoal)):''}</span></div>
     <div class="snap-row"><span class="sl">Sleep <span class="sg">avg</span></span><span class="sv">${sleepAvg==null?dash:round1(sleepAvg)+' hrs'} <span class="sg">· goal ${g.sleep}</span>${statusDot(statusColor(sleepAvg,g.sleep))}</span></div>
     <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:Math.round(waterAvg)+' oz'} <span class="sg">· goal ${g.water}</span>${statusDot(statusColor(waterAvg,g.water))}</span></div>
     <div class="snap-row"><span class="sl">Mood <span class="sg">avg</span></span><span class="sv">${moodAvg==null?dash:round1(moodAvg)+'/5'}</span></div>
