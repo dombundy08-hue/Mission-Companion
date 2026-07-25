@@ -395,6 +395,7 @@
   .rep-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;display:flex;flex-direction:column;gap:6px;min-height:132px;}
   .rep-card.complete{background:#f1f4ef;border-color:#d6e2cf;opacity:.72;}
   .rep-card .rep-name{font-size:15px;font-weight:700;color:var(--navy);line-height:1.25;word-break:break-word;}
+  .rep-card .rep-target{display:inline-block;font-size:12px;font-weight:700;color:var(--gold-dark);margin-left:6px;white-space:nowrap;}
   .rep-card .rep-note{font-size:12px;color:var(--muted);line-height:1.3;}
   .rep-card .rep-count{font-size:13px;color:var(--gold-dark);font-weight:700;margin-top:auto;}
   .rep-btn{width:100%;min-height:46px;border:none;border-radius:11px;background:var(--gold);color:#1a2744;font-size:15px;font-weight:700;box-shadow:0 2px 0 var(--gold-dark);}
@@ -405,6 +406,9 @@
   /* ---------- Health ---------- */
   .snap-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
   .snap-card .ph{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;}
+  .snap-toggle{display:flex;gap:6px;margin-bottom:12px;}
+  .snap-toggle button{flex:1;min-height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:14px;font-weight:600;color:var(--navy);}
+  .snap-toggle button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
   .snap-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:15px;}
   .snap-row:first-of-type{border-top:none;}
   .snap-row .sl{color:#3a4150;}
@@ -1535,7 +1539,7 @@ const state = {
   workout:{ view:'pick', kind:'timed', routineId:null, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
   repWorkout:{ routineId:null, counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
   routines:{ view:'list', editId:null, draftSteps:[], draftReps:[] },
-  health:{ editingGoals:false, foodText:'', foodPhase:'input', foodEst:null, foodBusy:false, foodErr:false }
+  health:{ editingGoals:false, foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false, snapRange:'week' }
 };
 
 /* ===================================================================
@@ -1975,6 +1979,7 @@ function repEditRow(s,i,n){
     </div>
     <div class="rep-edit-fields">
       <label>Sets<input class="text rsets" type="number" min="1" max="50" value="${parseInt(s.sets,10)||3}"></label>
+      <label>Reps<input class="text rreps" type="number" min="1" max="200" placeholder="—" value="${s.reps!=null&&s.reps!==''?parseInt(s.reps,10):''}"></label>
       <label>Rest (sec)<input class="text rrest" type="number" min="0" max="600" value="${parseInt(s.rest,10)||0}"></label>
     </div>
     <input class="text rnote" placeholder="Note (optional) — e.g. 12 reps, each side" value="${esc(s.note||'')}">
@@ -2000,12 +2005,16 @@ function renderRoutineRepEdit(c){
   </div>`;
   c.innerHTML=html;
 
-  const readReps=()=>[...c.querySelectorAll('.rep-edit')].map(row=>({
-    name:row.querySelector('.rname').value.trim(),
-    sets:Math.max(1, parseInt(row.querySelector('.rsets').value,10)||1),
-    rest:Math.max(0, parseInt(row.querySelector('.rrest').value,10)||0),
-    note:row.querySelector('.rnote').value.trim()
-  }));
+  const readReps=()=>[...c.querySelectorAll('.rep-edit')].map(row=>{
+    const repsRaw=row.querySelector('.rreps').value;
+    return {
+      name:row.querySelector('.rname').value.trim(),
+      sets:Math.max(1, parseInt(row.querySelector('.rsets').value,10)||1),
+      reps:repsRaw===''?null:Math.max(1, parseInt(repsRaw,10)||0),
+      rest:Math.max(0, parseInt(row.querySelector('.rrest').value,10)||0),
+      note:row.querySelector('.rnote').value.trim()
+    };
+  });
 
   const stashName=()=>{ const n=document.getElementById('rrName'); if(n) st.draftName=n.value; };
   document.getElementById('rrBack').onclick=()=>{ st.view='list'; render(); };
@@ -2022,7 +2031,7 @@ function renderRoutineRepEdit(c){
     if(!name){ alert('Give the routine a name.'); return; }
     const reps=readReps().filter(s=>s.name);
     if(!reps.length){ alert('Add at least one exercise with a name.'); return; }
-    const steps=reps.map(s=>({ type:'rep', name:s.name, sets:s.sets, rest:s.rest, note:s.note }));
+    const steps=reps.map(s=>({ type:'rep', name:s.name, sets:s.sets, reps:s.reps, rest:s.rest, note:s.note }));
     const arr=getRoutines();
     let saved;
     if(existing){ const i=arr.findIndex(x=>x.id===existing.id); arr[i]={...arr[i], name, steps}; saved=arr[i]; }
@@ -2339,8 +2348,9 @@ function repCardHtml(r,i){
   if(complete) btn=`<button class="rep-btn done" disabled>Done ✓</button>`;
   else if(resting) btn=`<button class="rep-btn resting" disabled>Rest ${fmtClock(rw.restLeft[i])}</button>`;
   else btn=`<button class="rep-btn" data-log="${i}">Log Set</button>`;
+  const repTag = (s.reps!=null && s.reps!=='') ? `<span class="rep-target">× ${parseInt(s.reps,10)} reps</span>` : '';
   return `<div class="rep-card ${complete?'complete':''}" id="repCard-${i}">
-    <div class="rep-name">${esc(s.name)}</div>
+    <div class="rep-name">${esc(s.name)}${repTag}</div>
     ${s.note?`<div class="rep-note">${esc(s.note)}</div>`:''}
     <div class="rep-count" id="repCount-${i}">Set ${done} of ${target}</div>
     <div id="repBtn-${i}">${btn}</div>
@@ -2491,33 +2501,46 @@ function renderHealthToday(c){
   if(!getGoals() || state.health.editingGoals) return renderHealthSetup(c);
   const g=getGoals();
 
-  // --- snapshot (weekly, informational only) ---
-  const foodSums={}; getLS('healthFood',[]).forEach(e=>{ if(e.timestamp>=daysAgoTs(7)) foodSums[e.entryDate]=(foodSums[e.entryDate]||0)+(e.calories||0); });
+  // --- snapshot (informational only; week or month window) ---
+  const range=state.health.snapRange==='month'?'month':'week';
+  const days=range==='month'?30:7;
+  const foodSums={}, protSums={};
+  getLS('healthFood',[]).forEach(e=>{ if(e.timestamp>=daysAgoTs(days)){
+    foodSums[e.entryDate]=(foodSums[e.entryDate]||0)+(e.calories||0);
+    protSums[e.entryDate]=(protSums[e.entryDate]||0)+(e.protein||0);
+  }});
   const calAvg=avgOf(Object.values(foodSums));
-  const sleepAvg=avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(7)&&e.hours!=null).map(e=>+e.hours));
-  const waterAvg=avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(7)&&e.cups!=null).map(e=>+e.cups));
-  const moodAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(7)&&e.score!=null).map(e=>+e.score));
-  const wt=weightTrend();
+  const protAvg=avgOf(Object.values(protSums));
+  const sleepAvg=avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours));
+  const waterAvg=avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(days)).map(waterOz));
+  const moodAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null).map(e=>+e.score));
+  const wt=weightTrend(days);
+  const proteinGoal=(g.protein!=null?g.protein:null);
 
   const dash='—';
   let html=`<h2 class="tabtitle">🍎 Today</h2>`;
-  html+=`<div class="snap-card"><div class="ph">This week</div>
+  html+=`<div class="snap-card">
+    <div class="snap-toggle">
+      <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
+      <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
+    </div>
     <div class="snap-row"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">· goal ${g.calories}</span></span></div>
+    <div class="snap-row"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'· goal '+proteinGoal+'g':''}</span></span></div>
     <div class="snap-row"><span class="sl">Sleep <span class="sg">avg</span></span><span class="sv">${sleepAvg==null?dash:round1(sleepAvg)+' hrs'} <span class="sg">· goal ${g.sleep} hrs</span></span></div>
-    <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:round1(waterAvg)+' cups'} <span class="sg">· goal ${g.water} cups</span></span></div>
+    <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:Math.round(waterAvg)+' oz'} <span class="sg">· goal ${g.water} oz</span></span></div>
     <div class="snap-row"><span class="sl">Mood <span class="sg">avg</span></span><span class="sv">${moodAvg==null?dash:round1(moodAvg)+'/5'}</span></div>
     <div class="snap-row"><span class="sl">Weight</span><span class="sv">${esc(wt.label)}</span></div>
   </div>`;
 
-  // --- water counter ---
-  const wRow=todaysRow('healthWater'); const cups=wRow?(wRow.cups||0):0;
+  // --- water counter (ounces) ---
+  const wRow=todaysRow('healthWater'); const oz=waterOz(wRow);
   html+=`<div class="card">
     <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:2px;">💧 Water today</div>
-    <div class="muted" style="margin-bottom:6px;">Goal: ${g.water} cups</div>
+    <div class="muted" style="margin-bottom:6px;">Goal: ${g.water} oz</div>
     <div class="counter-wrap">
-      <button class="counter-btn minus" id="wMinus">−</button>
-      <div class="counter-num">${cups}<span class="cu"> cups</span></div>
-      <button class="counter-btn" id="wPlus">＋</button>
+      <button class="counter-btn minus" id="wMinus">−8</button>
+      <div class="counter-num">${oz}<span class="cu"> oz</span></div>
+      <button class="counter-btn" id="wPlus">＋8</button>
     </div>
   </div>`;
 
@@ -2533,8 +2556,9 @@ function renderHealthToday(c){
   html+=`<button class="linkbtn" id="hEditGoals">Edit health profile &amp; goals</button>`;
   c.innerHTML=html;
 
-  document.getElementById('wPlus').onclick=()=>{ const r=todaysRow('healthWater'); saveDayRow('healthWater','cups',(r?r.cups||0:0)+1); render(); };
-  document.getElementById('wMinus').onclick=()=>{ const r=todaysRow('healthWater'); saveDayRow('healthWater','cups',Math.max(0,(r?r.cups||0:0)-1)); render(); };
+  document.getElementById('wPlus').onclick=()=>{ saveDayRow('healthWater','oz',waterOz(todaysRow('healthWater'))+8); render(); };
+  document.getElementById('wMinus').onclick=()=>{ saveDayRow('healthWater','oz',Math.max(0,waterOz(todaysRow('healthWater'))-8)); render(); };
+  c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
   c.querySelectorAll('[data-mood]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','score',parseInt(b.dataset.mood,10)); render(); flash('Mood saved.'); });
   document.getElementById('hEditGoals').onclick=()=>{ state.health.editingGoals=true; render(); };
 }
@@ -2579,16 +2603,22 @@ function renderHealthSetup(c){
         <option value="moderate"${p.activity==='moderate'?' selected':''}>Moderate — 3–5 days/week</option>
         <option value="active"${p.activity==='active'?' selected':''}>Active — 6–7 days/week</option>
       </select>
+      <label class="checkrow" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;">
+        <input type="checkbox" id="hMuscle" ${p.muscular?'checked':''} style="width:22px;height:22px;flex:none;margin-top:1px;">
+        <span style="font-size:14.5px;color:#3a4150;line-height:1.4;">I carry more muscle than average for my height/weight <span class="opt" style="color:var(--muted);">(raises calorie &amp; protein targets)</span></span>
+      </label>
       <button class="btn secondary" id="hSuggest" style="margin-top:14px;">Suggest goals from profile</button>
     </div>
     <div class="card">
       <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:6px;">Daily goals <span class="opt" style="font-weight:400;color:var(--muted);">(editable)</span></div>
       <label class="fld">Calories</label>
       <input class="text" id="gCal" type="number" min="800" max="6000" value="${esc(g?g.calories:'')}">
+      <label class="fld">Protein (g)</label>
+      <input class="text" id="gProtein" type="number" min="0" max="400" value="${esc(g&&g.protein!=null?g.protein:'')}">
       <label class="fld">Sleep (hours)</label>
       <input class="text" id="gSleep" type="number" min="3" max="12" step="0.5" value="${esc(g?g.sleep:'7.5')}">
-      <label class="fld">Water (cups)</label>
-      <input class="text" id="gWater" type="number" min="1" max="20" value="${esc(g?g.water:'8')}">
+      <label class="fld">Water (oz)</label>
+      <input class="text" id="gWater" type="number" min="8" max="200" step="8" value="${esc(g?g.water:'64')}">
       <button class="btn" id="hSaveGoals" style="margin-top:14px;">Save Goals</button>
     </div>`;
   c.innerHTML=html;
@@ -2602,7 +2632,8 @@ function renderHealthSetup(c){
     heightIn:document.getElementById('hIn')?document.getElementById('hIn').value:'',
     heightCm:document.getElementById('hCm')?document.getElementById('hCm').value:'',
     weight:document.getElementById('hWeight').value,
-    activity:document.getElementById('hActivity').value
+    activity:document.getElementById('hActivity').value,
+    muscular:document.getElementById('hMuscle').checked
   });
   document.getElementById('hUnits').onchange=function(){
     document.getElementById('hHeightImp').style.display=this.value==='metric'?'none':'';
@@ -2610,19 +2641,24 @@ function renderHealthSetup(c){
     document.querySelector('label[for]')?null:null;
   };
   document.getElementById('hSuggest').onclick=()=>{
-    const cal=computeCalorieGoal(readProfile());
-    if(cal==null){ alert('Fill in age, height and weight to suggest a calorie goal.'); return; }
+    const prof=readProfile();
+    const base=computeCalorieGoal(prof);
+    if(base==null){ alert('Fill in age, height and weight to suggest a calorie goal.'); return; }
+    const cal = prof.muscular ? Math.round(base*1.10) : base;   // ~10% higher for higher muscle mass
     document.getElementById('gCal').value=cal;
+    const lb=bodyWeightLb(prof);
+    if(lb){ const perLb = prof.muscular ? 1.0 : 0.7; document.getElementById('gProtein').value=Math.round(lb*perLb); }
     if(!document.getElementById('gSleep').value) document.getElementById('gSleep').value='7.5';
-    if(!document.getElementById('gWater').value) document.getElementById('gWater').value='8';
+    if(!document.getElementById('gWater').value) document.getElementById('gWater').value='64';
     flash('Suggested — edit any of them.');
   };
   document.getElementById('hSaveGoals').onclick=()=>{
     const cal=parseInt(document.getElementById('gCal').value,10);
+    const protein=parseInt(document.getElementById('gProtein').value,10);
     const sleep=parseFloat(document.getElementById('gSleep').value);
     const water=parseInt(document.getElementById('gWater').value,10);
     if(!cal){ alert('Enter a calorie goal (or tap “Suggest goals from profile”).'); return; }
-    const goals={ profile:readProfile(), calories:cal, sleep:isNaN(sleep)?7.5:sleep, water:isNaN(water)?8:water };
+    const goals={ profile:readProfile(), calories:cal, protein:isNaN(protein)?null:protein, sleep:isNaN(sleep)?7.5:sleep, water:isNaN(water)?64:water };
     setLS('healthGoals', goals);
     cloudSaveSetting('healthGoals', goals);
     state.health.editingGoals=false;
@@ -2636,28 +2672,35 @@ function renderHealthFood(c){
   const today=isoDate();
   const items=getLS('healthFood',[]).filter(e=>e.entryDate===today).sort((a,b)=>b.timestamp-a.timestamp);
   const total=items.reduce((s,e)=>s+(e.calories||0),0);
+  const totalProt=items.reduce((s,e)=>s+(e.protein||0),0);
 
   let html=`<h2 class="tabtitle">🍽️ Food</h2>
     <div class="card">
       <label class="fld">What did you eat?</label>
       <textarea class="area" id="foodText" placeholder="e.g. chicken and rice, big plate">${esc(st.foodText||'')}</textarea>`;
   if(st.foodPhase==='confirm'){
-    if(st.foodErr){ html+=`<div class="muted" style="margin:10px 0 4px;color:var(--danger);">Couldn't estimate automatically — enter the calories yourself.</div>`; }
-    html+=`<label class="fld">Estimated calories <span class="opt">(edit if needed)</span></label>
-      <input class="text" id="foodCal" type="number" min="0" max="5000" value="${esc(st.foodEst==null?'':st.foodEst)}">
+    if(st.foodErr){ html+=`<div class="muted" style="margin:10px 0 4px;color:var(--danger);">Couldn't estimate automatically — enter the numbers yourself.</div>`; }
+    html+=`<div class="halfrow" style="margin-top:10px;">
+        <div><label class="fld" style="margin-top:0;">Calories</label>
+          <input class="text" id="foodCal" type="number" min="0" max="5000" value="${esc(st.foodEst==null?'':st.foodEst)}"></div>
+        <div><label class="fld" style="margin-top:0;">Protein (g)</label>
+          <input class="text" id="foodProt" type="number" min="0" max="300" value="${esc(st.foodProtEst==null?'':st.foodProtEst)}"></div>
+      </div>
+      <div class="opt" style="color:var(--muted);font-size:13px;margin-top:6px;">Estimates — edit either before saving.</div>
       <div class="btn-row" style="margin-top:12px;">
         <button class="btn secondary" id="foodCancel">Cancel</button>
         <button class="btn" id="foodSave">Save</button>
       </div>`;
   } else {
-    html+=`<button class="btn" id="foodEstimate" style="margin-top:12px;">${st.foodBusy?'Estimating…':'Estimate Calories'}</button>`;
+    html+=`<button class="btn" id="foodEstimate" style="margin-top:12px;">${st.foodBusy?'Estimating…':'Estimate Calories &amp; Protein'}</button>`;
   }
   html+=`</div>`;
 
-  html+=`<div class="snap-card"><div class="ph">Today · ${total} cal</div>`;
+  html+=`<div class="snap-card"><div class="ph">Today · ${total} cal · ${Math.round(totalProt)}g protein</div>`;
   if(!items.length){ html+=`<div class="muted">Nothing logged yet today.</div>`; }
   else items.forEach(e=>{
-    html+=`<div class="food-item"><span class="fd">${esc(e.description||'')}</span><span class="fc">${e.calories||0}</span><button class="fx" data-fdel="${e.id}">✕</button></div>`;
+    const macros = `${e.calories||0} cal${e.protein!=null?' · '+Math.round(e.protein)+'g':''}`;
+    html+=`<div class="food-item"><span class="fd">${esc(e.description||'')}</span><span class="fc">${macros}</span><button class="fx" data-fdel="${e.id}">✕</button></div>`;
   });
   html+=`</div>`;
   c.innerHTML=html;
@@ -2670,28 +2713,35 @@ function renderHealthFood(c){
     const desc=(document.getElementById('foodText').value||'').trim();
     if(!desc){ alert('Describe what you ate first.'); return; }
     st.foodText=desc; st.foodBusy=true; st.foodErr=false; render();
-    let cal=null, err=false;
+    let cal=null, prot=null, err=false;
     try{
-      const sys="You estimate calories. The user describes a meal. Reply with ONLY a single integer — your best estimate of total calories. No words, no units, no ranges.";
-      const txt=await callClaude(sys, [{role:'user', content:desc}], 20);
-      const m=(txt||'').match(/\d{2,5}/);
-      if(m) cal=parseInt(m[0],10); else err=true;
+      const sys="You are a careful, knowledgeable nutrition-estimation assistant. From a short meal description, reason about the likely portion size, preparation method, and typical ingredients, then estimate the total calories and total protein in grams for the whole meal described. Account for cooking oils and sauces implied by the preparation. Respond with ONLY a compact JSON object and nothing else, in the form {\"calories\": <integer>, \"protein\": <integer grams>}.";
+      const txt=await callClaude(sys, [{role:'user', content:desc}], 60);
+      let obj=null;
+      const jm=(txt||'').match(/\{[\s\S]*\}/);
+      if(jm){ try{ obj=JSON.parse(jm[0]); }catch(e){} }
+      if(obj && obj.calories!=null){ cal=parseInt(obj.calories,10); prot=(obj.protein!=null?parseInt(obj.protein,10):null); }
+      else { const nums=(txt||'').match(/\d{1,5}/g); if(nums&&nums.length){ cal=parseInt(nums[0],10); if(nums[1]) prot=parseInt(nums[1],10); } else err=true; }
+      if(isNaN(cal)) { cal=null; err=true; }
+      if(prot!=null && isNaN(prot)) prot=null;
     }catch(e){ err=true; }
-    st.foodBusy=false; st.foodErr=err; st.foodEst=cal; st.foodPhase='confirm'; render();
+    st.foodBusy=false; st.foodErr=err; st.foodEst=cal; st.foodProtEst=prot; st.foodPhase='confirm'; render();
   };
 
   const cancel=document.getElementById('foodCancel');
-  if(cancel) cancel.onclick=()=>{ st.foodPhase='input'; st.foodEst=null; st.foodErr=false; render(); };
+  if(cancel) cancel.onclick=()=>{ st.foodPhase='input'; st.foodEst=null; st.foodProtEst=null; st.foodErr=false; render(); };
   const save=document.getElementById('foodSave');
   if(save) save.onclick=()=>{
     const desc=(st.foodText||'').trim();
     const cal=parseInt(document.getElementById('foodCal').value,10);
+    const protRaw=document.getElementById('foodProt').value;
+    const prot=protRaw===''?null:parseInt(protRaw,10);
     if(!desc){ alert('Describe what you ate.'); return; }
     if(isNaN(cal)){ alert('Enter a calorie number.'); return; }
-    const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:desc, calories:cal };
+    const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:desc, calories:cal, protein:(prot==null||isNaN(prot))?null:prot };
     const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood',arr);
     cloudSaveHealth('healthFood', row);
-    st.foodText=''; st.foodEst=null; st.foodPhase='input'; st.foodErr=false;
+    st.foodText=''; st.foodEst=null; st.foodProtEst=null; st.foodPhase='input'; st.foodErr=false;
     render(); flash('Logged.');
   };
 
@@ -2704,15 +2754,22 @@ function renderHealthFood(c){
 }
 
 /* ---------- body: weight (+trend) and sleep ---------- */
-function weightTrend(){
-  const pts=getLS('healthWeight',[]).filter(e=>e.timestamp>=daysAgoTs(30)&&e.weight!=null).sort((a,b)=>a.timestamp-b.timestamp);
+function weightTrend(days){
+  days = days || 30;
+  const pts=getLS('healthWeight',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.weight!=null).sort((a,b)=>a.timestamp-b.timestamp);
   const unit=(getGoals()&&getGoals().profile&&getGoals().profile.units==='metric')?'kg':'lb';
+  const span=`over ${days} days`;
   if(pts.length<2) return { label:'not enough data yet', pts, unit };
   const delta=pts[pts.length-1].weight - pts[0].weight;
   const dir = delta>0.3?'trending up' : delta<-0.3?'trending down' : 'holding steady';
   const amt = Math.abs(Math.round(delta*10)/10);
-  const label = dir==='holding steady' ? 'holding steady over 30 days' : `${dir} ${amt} ${unit} over 30 days`;
+  const label = dir==='holding steady' ? `holding steady ${span}` : `${dir} ${amt} ${unit} ${span}`;
   return { label, dir, delta, pts, unit };
+}
+/* bodyweight in lb, from whichever units the profile uses */
+function bodyWeightLb(p){
+  const w=parseFloat(p&&p.weight); if(!w) return null;
+  return (p.units==='metric') ? w*2.20462 : w;
 }
 function sparkline(pts){
   if(pts.length<2) return '';
@@ -3708,10 +3765,14 @@ async function cloudSaveWorkoutLog(e){
 
 /* health log tables — also optional; missing tables never break other sync */
 let healthTablesOk = true;
+let foodProteinOk = true;   // set false when the health_food_log.protein column is absent
+/* ounces helper — tolerates any legacy rows that stored cups */
+function waterOz(row){ if(!row) return 0; if(row.oz!=null) return +row.oz; if(row.cups!=null) return (+row.cups)*8; return 0; }
 const HEALTH_LOGS = {
   healthFood:   { table:'health_food_log',     day:false,
-    toCloud:r=>({entry_date:r.entryDate, description:r.description||'', calories:parseInt(r.calories,10)||0}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0}),
+    toCloud:r=>{ const o={entry_date:r.entryDate, description:r.description||'', calories:parseInt(r.calories,10)||0};
+                 if(foodProteinOk && r.protein!=null && r.protein!=='') o.protein=parseFloat(r.protein)||0; return o; },
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0, protein:(r.protein==null?null:r.protein)}),
     nat:r=>r.entryDate+'|'+(r.description||'')+'|'+(r.calories||0) },
   healthWeight: { table:'health_weight_log',    day:true,
     toCloud:r=>({entry_date:r.entryDate, weight:r.weight}),
@@ -3722,15 +3783,16 @@ const HEALTH_LOGS = {
     from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), hours:r.hours}),
     nat:r=>r.entryDate },
   healthWater:  { table:'health_hydration_log', day:true,
-    toCloud:r=>({entry_date:r.entryDate, cups:parseInt(r.cups,10)||0}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), cups:r.cups||0}),
+    /* stored in the existing int "cups" column, but the value is now ounces */
+    toCloud:r=>({entry_date:r.entryDate, cups:parseInt(r.oz,10)||0}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups||0}),
     nat:r=>r.entryDate },
   healthMood:   { table:'health_mood_log',      day:true,
     toCloud:r=>({entry_date:r.entryDate, score:parseInt(r.score,10)||0}),
     from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), score:r.score||0}),
     nat:r=>r.entryDate }
 };
-async function cloudSaveHealth(localKey, row){
+async function cloudSaveHealth(localKey, row, _retry){
   const cfg=HEALTH_LOGS[localKey];
   if(!cfg || !cloudReady || !sbOnline() || !healthTablesOk) return;
   try{
@@ -3745,7 +3807,12 @@ async function cloudSaveHealth(localKey, row){
       const ins=await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single(); if(ins.error) throw ins.error; stamp(localKey,x=>x.id===row.id&&!x.cloudId,ins.data.id);
     }
     flashSaved();
-  }catch(e){ if(String(e&&e.message||e).toLowerCase().includes('schema cache')) healthTablesOk=false; }
+  }catch(e){
+    const msg=String(e&&e.message||e).toLowerCase();
+    // only a MISSING TABLE disables health sync; a missing protein column just drops protein and retries
+    if(!_retry && msg.includes('protein')){ foodProteinOk=false; return cloudSaveHealth(localKey, row, true); }
+    if(msg.includes('could not find the table')) healthTablesOk=false;
+  }
 }
 
 /* ---- generic array table: pull+merge (dedupe by natural key), then push local-only rows ---- */
@@ -3901,6 +3968,8 @@ async function cloudSyncAll(){
       workoutTablesOk = true;
     }catch(e){ workoutTablesOk = false; }
     try{
+      // is the protein column present? gate protein in the food payload accordingly
+      try{ const pp=await sb.from('health_food_log').select('protein').limit(1); foodProteinOk = !pp.error; }catch(e){ foodProteinOk=false; }
       for(const k in HEALTH_LOGS){ const c=HEALTH_LOGS[k]; await syncArrayTable(k, c.table, c.from, c.toCloud, c.nat); }
       healthTablesOk = true;
     }catch(e){ healthTablesOk = false; }
