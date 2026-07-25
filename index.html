@@ -417,6 +417,26 @@
   .status-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:8px;vertical-align:middle;}
   .dot-green{background:#3f7a4f;} .dot-gray{background:#9aa1ac;} .dot-red{background:#b1483a;}
   .ceil-note{background:#f6f5f1;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:14px;color:#4a4f59;font-size:14px;line-height:1.5;}
+  .dot-none{background:#e2e0d8;}
+
+  /* weight entries list */
+  .wt-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);}
+  .wt-item .wd{font-size:14px;color:#3a4150;}
+  .wt-item .wv{font-weight:700;color:var(--navy);margin-left:auto;}
+
+  /* Stats ring */
+  .stat-ring{position:relative;width:min(300px,82vw);aspect-ratio:1;margin:8px auto 6px;}
+  .stat-ring .ring-bg{position:absolute;inset:16%;border-radius:50%;border:3px solid var(--line);}
+  .ring-node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;width:82px;}
+  .ring-node .rdot{width:26px;height:26px;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .ring-node .rl{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .ring-node .rv{font-size:14px;color:var(--navy);font-weight:800;}
+  .rn-top{left:50%;top:8%;} .rn-right{left:92%;top:50%;} .rn-bottom{left:50%;top:92%;} .rn-left{left:8%;top:50%;}
+  .ring-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:44%;}
+  .ring-center .rc-l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+  .ring-center .rc-v{font-size:22px;font-weight:800;color:var(--navy);line-height:1.1;}
+  .ring-center .rc-s{font-size:11px;color:var(--muted);}
+  .ring-legend{font-size:12px;line-height:1.45;text-align:center;margin-top:6px;}
   .snap-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:15px;}
   .snap-row:first-of-type{border-top:none;}
   .snap-row .sl{color:#3a4150;}
@@ -1559,7 +1579,7 @@ const state = {
   workout:{ view:'pick', kind:'timed', routineId:null, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
   repWorkout:{ routineId:null, counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
   routines:{ view:'list', editId:null, draftSteps:[], draftReps:[] },
-  health:{ editingGoals:false, snapRange:'week',
+  health:{ editingGoals:false, snapRange:'week', weightListOpen:false,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false }
 };
@@ -1770,7 +1790,8 @@ const SECTIONS = {
     tabs:[
       { id:'health', icon:'🍎', label:'Today' },
       { id:'hfood',  icon:'🍽️', label:'Food' },
-      { id:'hbody',  icon:'⚖️', label:'Body' }
+      { id:'hbody',  icon:'⚖️', label:'Body' },
+      { id:'hstats', icon:'📊', label:'Stats' }
     ]
   }
 };
@@ -1885,6 +1906,7 @@ function render(){
     case 'health':    renderHealthToday(c); break;
     case 'hfood':     renderHealthFood(c); break;
     case 'hbody':     renderHealthBody(c); break;
+    case 'hstats':    renderHealthStats(c); break;
     default:          renderPlaceholder(c); break;   // future sections
   }
 }
@@ -2971,7 +2993,85 @@ function sparkline(pts){
     <circle cx="${sx(last.timestamp).toFixed(1)}" cy="${sy(last.weight).toFixed(1)}" r="3.5" fill="#1a2744"/>
   </svg>`;
 }
+function fmtEntryDate(s){
+  const p=String(s||'').split('-');
+  if(p.length!==3) return s||'';
+  return fmtDateShort(new Date(+p[0], +p[1]-1, +p[2]));
+}
+/* same averaging logic the Today snapshot uses — shared so Stats matches exactly */
+function healthAverages(days){
+  const foodSums={}, protSums={};
+  getLS('healthFood',[]).forEach(e=>{ if(e.timestamp>=daysAgoTs(days)){
+    foodSums[e.entryDate]=(foodSums[e.entryDate]||0)+(e.calories||0);
+    protSums[e.entryDate]=(protSums[e.entryDate]||0)+(e.protein||0);
+  }});
+  return {
+    cal:  avgOf(Object.values(foodSums)),
+    prot: avgOf(Object.values(protSums)),
+    sleep:avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours)),
+    water:avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(days)).map(waterOz)),
+    mood: avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score)),
+    energy:avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.energy!=null&&e.energy>0).map(e=>+e.energy))
+  };
+}
+function ringNode(cls, label, valueText, color){
+  return `<div class="ring-node ${cls}"><span class="rdot dot-${color||'none'}"></span><span class="rl">${label}</span><span class="rv">${valueText}</span></div>`;
+}
+/* ---------- Stats: visual grouping of the SAME dots — no combined score ---------- */
+function renderHealthStats(c){
+  const g=getGoals();
+  if(!g){ c.innerHTML=`<h2 class="tabtitle">📊 Stats</h2><div class="soon"><div class="si">📊</div><h3>Set up goals first</h3><p>Add your goals on the Today tab and your stats will appear here.</p></div>`; return; }
+  const range=state.health.snapRange==='month'?'month':'week';
+  const days=range==='month'?30:7;
+  const a=healthAverages(days);
+  const wt=weightTrend(days);
+  const proteinGoal=(g.protein!=null?g.protein:null);
+  const dash='—';
+
+  // reuse the EXACT status logic (statusColor) — unchanged
+  const cCal  = statusColor(a.cal,   g.calories);
+  const cProt = proteinGoal!=null ? statusColor(a.prot, proteinGoal) : null;
+  const cSleep= statusColor(a.sleep, g.sleep);
+  const cWater= statusColor(a.water, g.water);
+
+  const mRow=todaysRow('healthMood');
+  const moodToday=mRow&&mRow.score?mRow.score:null;
+  const energyToday=mRow&&mRow.energy?mRow.energy:null;
+
+  const arrow = wt.dir==='trending up'?'↑' : wt.dir==='trending down'?'↓' : (wt.pts.length>=2?'→':'');
+  const wdelta = wt.pts.length>=2 ? Math.abs(Math.round((wt.pts[wt.pts.length-1].weight-wt.pts[0].weight)*10)/10) : null;
+
+  let html=`<h2 class="tabtitle">📊 Stats</h2>
+    <div class="snap-toggle" style="margin-bottom:14px;">
+      <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
+      <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
+    </div>
+    <div class="card">
+      <div class="stat-ring">
+        <div class="ring-bg"></div>
+        ${ringNode('rn-top','Calories', a.cal==null?dash:Math.round(a.cal), cCal)}
+        ${ringNode('rn-right','Protein', a.prot==null?dash:Math.round(a.prot)+'g', cProt)}
+        ${ringNode('rn-bottom','Sleep', a.sleep==null?dash:round1(a.sleep)+'h', cSleep)}
+        ${ringNode('rn-left','Water', a.water==null?dash:Math.round(a.water)+'oz', cWater)}
+        <div class="ring-center">
+          <div class="rc-l">Weight</div>
+          <div class="rc-v">${wdelta==null?dash:arrow+' '+wdelta}</div>
+          <div class="rc-s">${wdelta==null?'':esc(wt.unit)+' · '+days+'d'}</div>
+        </div>
+      </div>
+      <div class="ring-legend muted">Each dot compares one metric to its own goal — green near or at it, gray moderately off, red well off. This simply groups your existing numbers in one place.</div>
+    </div>
+    <div class="card" style="display:flex;gap:12px;">
+      <div style="flex:1;text-align:center;"><div class="muted" style="font-size:13px;">Mood today</div><div style="font-size:24px;font-weight:800;color:var(--navy);">${moodToday==null?dash:moodToday+'/5'}</div></div>
+      <div style="flex:1;text-align:center;"><div class="muted" style="font-size:13px;">Energy today</div><div style="font-size:24px;font-weight:800;color:var(--navy);">${energyToday==null?dash:energyToday+'/5'}</div></div>
+    </div>
+    <div class="trend-txt muted" style="text-align:center;">Weight is ${esc(wt.label)}.</div>`;
+  c.innerHTML=html;
+  c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
+}
+
 function renderHealthBody(c){
+  const st=state.health;
   const g=getGoals();
   const unit=(g&&g.profile&&g.profile.units==='metric')?'kg':'lb';
   const wRow=todaysRow('healthWeight'); const sRow=todaysRow('healthSleep');
@@ -2988,6 +3088,16 @@ function renderHealthBody(c){
     html+=`<div class="spark">${sparkline(wt.pts)}</div><div class="trend-txt">Weight is <b>${esc(wt.label)}</b>.</div>`;
   } else {
     html+=`<div class="trend-txt muted">Log your weight on a few different days to see a 30-day trend.</div>`;
+  }
+  // expandable list of every stored weight entry
+  const weights=getLS('healthWeight',[]).slice().sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+  html+=`<hr class="divider" style="margin:14px 0 10px;">
+    <button class="linkbtn" id="wtToggle" style="text-align:left;width:auto;padding-left:0;">${st.weightListOpen?'▾':'▸'} View all entries (${weights.length})</button>`;
+  if(st.weightListOpen){
+    if(!weights.length){ html+=`<div class="muted" style="padding:4px 0;">No weight entries yet.</div>`; }
+    else weights.forEach(e=>{
+      html+=`<div class="wt-item"><span class="wd">${esc(fmtEntryDate(e.entryDate))}</span><span class="wv">${esc(e.weight)} ${unit}</span><button class="fx" data-wtdel="${e.id}">✕</button></div>`;
+    });
   }
   html+=`</div>`;
 
@@ -3006,6 +3116,15 @@ function renderHealthBody(c){
     if(isNaN(v)){ alert('Enter your weight.'); return; }
     saveDayRow('healthWeight','weight',v); render(); flash('Weight saved.');
   };
+  const wtT=document.getElementById('wtToggle');
+  if(wtT) wtT.onclick=()=>{ st.weightListOpen=!st.weightListOpen; render(); };
+  c.querySelectorAll('[data-wtdel]').forEach(b=>b.onclick=()=>{
+    const e=getLS('healthWeight',[]).find(x=>x.id===b.dataset.wtdel);
+    if(!confirm('Delete this weight entry?')) return;
+    cloudDeleteRow('health_weight_log', e);   // removes from Supabase if it was synced
+    setLS('healthWeight', getLS('healthWeight',[]).filter(x=>x.id!==b.dataset.wtdel));
+    render();                                  // trend + text recalculate from what's left
+  });
   document.getElementById('bSleepSave').onclick=()=>{
     const v=parseFloat(document.getElementById('bSleep').value);
     if(isNaN(v)){ alert('Enter hours of sleep.'); return; }
