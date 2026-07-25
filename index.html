@@ -434,6 +434,15 @@
   .food-item .fd{flex:1;min-width:0;font-size:15px;color:#3a4150;word-break:break-word;}
   .food-item .fc{font-weight:700;color:var(--navy);white-space:nowrap;}
   .food-item .fx{border:none;background:none;color:var(--danger);font-size:18px;font-weight:700;width:34px;height:34px;flex:none;}
+  .est-tag{display:inline-block;font-size:10.5px;font-weight:700;color:#8a6d1f;background:#f7f0dc;border-radius:20px;padding:1px 7px;margin-left:4px;vertical-align:middle;}
+  .food-modes{display:flex;gap:8px;margin-bottom:12px;}
+  .food-modes button{flex:1;min-height:44px;border:1px solid var(--line);background:#fff;border-radius:11px;font-size:14px;font-weight:700;color:var(--navy);}
+  .food-modes button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .usda-res{width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;align-items:center;}
+  .usda-res:active{background:#f4f2ec;}
+  .usda-res .un{font-size:14.5px;color:var(--navy);font-weight:600;line-height:1.3;word-break:break-word;}
+  .usda-res .um{font-size:12px;color:var(--muted);white-space:nowrap;flex:none;}
+  .serving-chip{border:1px solid var(--gold);background:#fbf5e6;color:var(--gold-dark);border-radius:20px;padding:8px 12px;font-size:13px;font-weight:700;margin:0 8px 8px 0;}
   .halfrow{display:flex;gap:10px;}
   .halfrow > div{flex:1;}
 
@@ -532,7 +541,10 @@
     <h3>Settings</h3>
     <p>Update your Anthropic API key. Stored only on this device.</p>
     <input id="settingsKey" type="password" placeholder="Anthropic API key" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="btn-row">
+    <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
+    <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
+    <div class="btn-row" style="margin-top:12px;">
       <button class="btn secondary" id="settingsCancel">Cancel</button>
       <button class="btn" id="settingsSave">Save</button>
     </div>
@@ -1539,7 +1551,9 @@ const state = {
   workout:{ view:'pick', kind:'timed', routineId:null, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
   repWorkout:{ routineId:null, counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
   routines:{ view:'list', editId:null, draftSteps:[], draftReps:[] },
-  health:{ editingGoals:false, foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false, snapRange:'week' }
+  health:{ editingGoals:false, snapRange:'week',
+    foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
+    foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false }
 };
 
 /* ===================================================================
@@ -1567,6 +1581,7 @@ document.getElementById('setupSave').addEventListener('click', ()=>{
 /* settings modal */
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
+  document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
   loadVoices();   // voices may have finished loading since page start
   document.getElementById('settingsModal').classList.add('show');
 });
@@ -1578,8 +1593,11 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
   if(!k){ alert("Please enter your API key."); return; }
   localStorage.setItem('apiKey', k);
   cloudSaveSetting('apiKey', k);
+  const u = document.getElementById('settingsUsda').value.trim();
+  if(u){ localStorage.setItem('usdaApiKey', u); cloudSaveSetting('usdaApiKey', u); }
+  else { localStorage.removeItem('usdaApiKey'); }
   document.getElementById('settingsModal').classList.remove('show');
-  flash("API key updated.");
+  flash("Settings updated.");
 });
 
 /* ===================================================================
@@ -2667,47 +2685,178 @@ function renderHealthSetup(c){
 }
 
 /* ---------- food ---------- */
+/* USDA FoodData Central search. Values in search results are per 100g;
+   we pull Energy (nutrientNumber 208, kcal) and Protein (203, g). */
+async function usdaSearch(query){
+  const key=localStorage.getItem('usdaApiKey');
+  if(!key) throw new Error('nokey');
+  const url='https://api.nal.usda.gov/fdc/v1/foods/search?api_key='+encodeURIComponent(key)
+    +'&query='+encodeURIComponent(query)+'&pageSize=20';
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('status '+res.status);
+  const data=await res.json();
+  return (data.foods||[]).map(f=>{
+    let kcal=null, prot=null;
+    (f.foodNutrients||[]).forEach(n=>{
+      const num=String(n.nutrientNumber||(n.nutrient&&n.nutrient.number)||'');
+      const unit=String(n.unitName||'').toUpperCase();
+      if(num==='208' && unit==='KCAL' && kcal==null) kcal=n.value;
+      if(num==='203' && prot==null) prot=n.value;
+    });
+    const servG = (f.servingSize && /^g$/i.test(f.servingSizeUnit||'')) ? f.servingSize : null;
+    return { name:f.description||'', kcal100:kcal, prot100:prot, servingSize:servG, servingText:f.householdServingFullText||'' };
+  }).filter(f=> f.name && f.kcal100!=null && f.prot100!=null);   // need both, cleanly
+}
+
+async function doUsdaSearch(){
+  const st=state.health;
+  const box=document.getElementById('usdaQuery');
+  const q=(box?box.value:'').trim();
+  if(!q){ return; }
+  st.foodQuery=q; st.foodSearching=true; st.foodSearchErr=''; st.foodResults=null; render();
+  try{ st.foodResults=await usdaSearch(q); }
+  catch(e){
+    const m=String(e&&e.message||e);
+    st.foodResults=[];
+    st.foodSearchErr = m==='nokey' ? 'Add your USDA key in Settings first.'
+      : (/\b40[13]\b/.test(m) ? 'USDA key was rejected — check it in Settings.'
+      : 'Search failed. Check your connection and try again.');
+  }
+  st.foodSearching=false; render();
+}
+
 function renderHealthFood(c){
   const st=state.health;
   const today=isoDate();
   const items=getLS('healthFood',[]).filter(e=>e.entryDate===today).sort((a,b)=>b.timestamp-a.timestamp);
   const total=items.reduce((s,e)=>s+(e.calories||0),0);
   const totalProt=items.reduce((s,e)=>s+(e.protein||0),0);
+  const hasUsda=!!localStorage.getItem('usdaApiKey');
 
   let html=`<h2 class="tabtitle">🍽️ Food</h2>
-    <div class="card">
+    <div class="food-modes">
+      <button data-fmode="search" class="${st.foodMode==='search'?'on':''}">🔍 Search Food</button>
+      <button data-fmode="estimate" class="${st.foodMode==='estimate'?'on':''}">✏️ Rough Estimate</button>
+    </div>`;
+
+  if(st.foodMode==='search'){
+    if(!hasUsda){
+      html+=`<div class="card">
+        <div class="muted" style="line-height:1.5;">Food search uses the free USDA FoodData Central database. Add your USDA API key in Settings (⚙️) to turn it on — a quick, free signup.</div>
+        <button class="btn secondary" id="openSettingsForKey" style="margin-top:12px;">Open Settings</button>
+        <div class="muted" style="margin-top:10px;font-size:13px;">Or use “Rough Estimate” above for a quick AI guess.</div>
+      </div>`;
+    } else if(st.foodPick){
+      const p=st.foodPick;
+      const grams=st.foodGrams!==''?parseFloat(st.foodGrams):(p.servingSize||100);
+      const cal=Math.round((p.kcal100||0)*grams/100);
+      const prot=Math.round((p.prot100||0)*grams/100);
+      html+=`<div class="card">
+        <button class="linkbtn" id="pickBack" style="text-align:left;width:auto;padding-left:0;">← Back to results</button>
+        <div style="font-size:16px;font-weight:700;color:var(--navy);margin:2px 0 3px;">${esc(p.name)}</div>
+        <div class="muted" style="margin-bottom:10px;">${Math.round(p.kcal100)} cal · ${Math.round(p.prot100)}g protein per 100g</div>`;
+      if(p.servingSize){ html+=`<button class="serving-chip" id="servingChip">1 serving (${Math.round(p.servingSize)}g)${p.servingText?' · '+esc(p.servingText):''}</button>`; }
+      html+=`<label class="fld">Amount (grams)</label>
+        <input class="text" id="foodGrams" type="number" min="1" max="4000" placeholder="e.g. 140" value="${esc(st.foodGrams!==''?st.foodGrams:(p.servingSize||''))}">
+        <div class="halfrow" style="margin-top:10px;">
+          <div><label class="fld" style="margin-top:0;">Calories</label><input class="text" id="foodCal2" type="number" value="${cal}"></div>
+          <div><label class="fld" style="margin-top:0;">Protein (g)</label><input class="text" id="foodProt2" type="number" value="${prot}"></div>
+        </div>
+        <div class="opt" style="color:var(--muted);font-size:12.5px;margin-top:6px;">Scaled from the database — edit if needed.</div>
+        <button class="btn" id="foodSaveDb" style="margin-top:12px;">Save</button>
+      </div>`;
+    } else {
+      html+=`<div class="card">
+        <label class="fld">Search foods</label>
+        <div class="chat-input-row">
+          <input class="text" id="usdaQuery" placeholder="e.g. chicken breast" value="${esc(st.foodQuery||'')}" style="flex:1;">
+          <button class="btn" id="usdaSearchBtn" style="width:auto;min-width:92px;">${st.foodSearching?'…':'Search'}</button>
+        </div>`;
+      if(st.foodSearchErr){ html+=`<div class="muted" style="margin-top:10px;color:var(--danger);">${esc(st.foodSearchErr)}</div>`; }
+      if(st.foodResults){
+        if(!st.foodResults.length && !st.foodSearchErr){ html+=`<div class="muted" style="margin-top:10px;">No results with full calorie &amp; protein data — try a simpler term.</div>`; }
+        else if(st.foodResults.length){
+          html+=`<div style="margin-top:12px;">`;
+          st.foodResults.forEach((f,i)=>{ html+=`<button class="usda-res" data-pick="${i}"><span class="un">${esc(f.name)}</span><span class="um">${Math.round(f.kcal100)} cal · ${Math.round(f.prot100)}g /100g</span></button>`; });
+          html+=`</div>`;
+        }
+      }
+      html+=`</div>`;
+    }
+  } else {
+    // Rough Estimate (AI) — fallback
+    html+=`<div class="card">
+      <div class="muted" style="margin-bottom:6px;font-size:13px;">A quick AI guess for foods that aren't in the database. Less precise — these save marked “~ est.”</div>
       <label class="fld">What did you eat?</label>
       <textarea class="area" id="foodText" placeholder="e.g. chicken and rice, big plate">${esc(st.foodText||'')}</textarea>`;
-  if(st.foodPhase==='confirm'){
-    if(st.foodErr){ html+=`<div class="muted" style="margin:10px 0 4px;color:var(--danger);">Couldn't estimate automatically — enter the numbers yourself.</div>`; }
-    html+=`<div class="halfrow" style="margin-top:10px;">
-        <div><label class="fld" style="margin-top:0;">Calories</label>
-          <input class="text" id="foodCal" type="number" min="0" max="5000" value="${esc(st.foodEst==null?'':st.foodEst)}"></div>
-        <div><label class="fld" style="margin-top:0;">Protein (g)</label>
-          <input class="text" id="foodProt" type="number" min="0" max="300" value="${esc(st.foodProtEst==null?'':st.foodProtEst)}"></div>
-      </div>
-      <div class="opt" style="color:var(--muted);font-size:13px;margin-top:6px;">Estimates — edit either before saving.</div>
-      <div class="btn-row" style="margin-top:12px;">
-        <button class="btn secondary" id="foodCancel">Cancel</button>
-        <button class="btn" id="foodSave">Save</button>
-      </div>`;
-  } else {
-    html+=`<button class="btn" id="foodEstimate" style="margin-top:12px;">${st.foodBusy?'Estimating…':'Estimate Calories &amp; Protein'}</button>`;
+    if(st.foodPhase==='confirm'){
+      if(st.foodErr){ html+=`<div class="muted" style="margin:10px 0 4px;color:var(--danger);">Couldn't estimate automatically — enter the numbers yourself.</div>`; }
+      html+=`<div class="halfrow" style="margin-top:10px;">
+          <div><label class="fld" style="margin-top:0;">Calories</label><input class="text" id="foodCal" type="number" min="0" max="5000" value="${esc(st.foodEst==null?'':st.foodEst)}"></div>
+          <div><label class="fld" style="margin-top:0;">Protein (g)</label><input class="text" id="foodProt" type="number" min="0" max="300" value="${esc(st.foodProtEst==null?'':st.foodProtEst)}"></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px;">
+          <button class="btn secondary" id="foodCancel">Cancel</button>
+          <button class="btn" id="foodSave">Save estimate</button>
+        </div>`;
+    } else {
+      html+=`<button class="btn" id="foodEstimate" style="margin-top:12px;">${st.foodBusy?'Estimating…':'Estimate Calories &amp; Protein'}</button>`;
+    }
+    html+=`</div>`;
   }
-  html+=`</div>`;
 
+  // today list — database vs estimate visually distinguished
   html+=`<div class="snap-card"><div class="ph">Today · ${total} cal · ${Math.round(totalProt)}g protein</div>`;
   if(!items.length){ html+=`<div class="muted">Nothing logged yet today.</div>`; }
   else items.forEach(e=>{
-    const macros = `${e.calories||0} cal${e.protein!=null?' · '+Math.round(e.protein)+'g':''}`;
-    html+=`<div class="food-item"><span class="fd">${esc(e.description||'')}</span><span class="fc">${macros}</span><button class="fx" data-fdel="${e.id}">✕</button></div>`;
+    const gramsTxt=e.grams?` <span class="opt" style="color:var(--muted);font-size:12px;">${Math.round(e.grams)}g</span>`:'';
+    const estTag=e.source==='estimate'?` <span class="est-tag">~ est.</span>`:'';
+    const macros=`${e.calories||0} cal${e.protein!=null?' · '+Math.round(e.protein)+'g':''}`;
+    html+=`<div class="food-item"><span class="fd">${esc(e.description||'')}${gramsTxt}${estTag}</span><span class="fc">${macros}</span><button class="fx" data-fdel="${e.id}">✕</button></div>`;
   });
   html+=`</div>`;
   c.innerHTML=html;
 
-  const ta=document.getElementById('foodText');
-  if(ta) ta.oninput=()=>{ st.foodText=ta.value; };
+  // shared bindings
+  c.querySelectorAll('[data-fmode]').forEach(b=>b.onclick=()=>{ st.foodMode=b.dataset.fmode; render(); });
+  c.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{
+    const e=getLS('healthFood',[]).find(x=>x.id===b.dataset.fdel);
+    cloudDeleteRow('health_food_log', e);
+    setLS('healthFood', getLS('healthFood',[]).filter(x=>x.id!==b.dataset.fdel));
+    render();
+  });
 
+  // --- search-mode bindings ---
+  const openS=document.getElementById('openSettingsForKey');
+  if(openS) openS.onclick=()=>{ document.getElementById('settingsKey').value=localStorage.getItem('apiKey')||''; document.getElementById('settingsUsda').value=localStorage.getItem('usdaApiKey')||''; document.getElementById('settingsModal').classList.add('show'); };
+  const qbox=document.getElementById('usdaQuery');
+  if(qbox){ qbox.oninput=()=>{ st.foodQuery=qbox.value; }; qbox.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doUsdaSearch(); } }); }
+  const sbtn=document.getElementById('usdaSearchBtn'); if(sbtn) sbtn.onclick=doUsdaSearch;
+  c.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ st.foodPick=st.foodResults[parseInt(b.dataset.pick,10)]; st.foodGrams=st.foodPick.servingSize?String(st.foodPick.servingSize):''; render(); });
+  const back=document.getElementById('pickBack'); if(back) back.onclick=()=>{ st.foodPick=null; render(); };
+  const chip=document.getElementById('servingChip'); if(chip) chip.onclick=()=>{ st.foodGrams=String(st.foodPick.servingSize); render(); };
+  const gIn=document.getElementById('foodGrams');
+  if(gIn) gIn.oninput=()=>{ st.foodGrams=gIn.value; const p=st.foodPick; const grams=parseFloat(gIn.value)||0;
+    const cc=document.getElementById('foodCal2'), pc=document.getElementById('foodProt2');
+    if(cc) cc.value=Math.round((p.kcal100||0)*grams/100);
+    if(pc) pc.value=Math.round((p.prot100||0)*grams/100); };
+  const saveDb=document.getElementById('foodSaveDb');
+  if(saveDb) saveDb.onclick=()=>{
+    const p=st.foodPick;
+    const grams=parseFloat(document.getElementById('foodGrams').value);
+    const cal=parseInt(document.getElementById('foodCal2').value,10);
+    const prot=parseInt(document.getElementById('foodProt2').value,10);
+    if(isNaN(grams)||grams<=0){ alert('Enter the amount in grams.'); return; }
+    if(isNaN(cal)){ alert('Calories are missing.'); return; }
+    const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:p.name, grams, calories:cal, protein:isNaN(prot)?null:prot, source:'database' };
+    const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood',arr);
+    cloudSaveHealth('healthFood', row);
+    st.foodPick=null; st.foodGrams=''; st.foodResults=null; st.foodQuery='';
+    render(); flash('Logged.');
+  };
+
+  // --- estimate-mode bindings ---
+  const ta=document.getElementById('foodText'); if(ta) ta.oninput=()=>{ st.foodText=ta.value; };
   const est=document.getElementById('foodEstimate');
   if(est) est.onclick=async()=>{
     const desc=(document.getElementById('foodText').value||'').trim();
@@ -2717,17 +2866,15 @@ function renderHealthFood(c){
     try{
       const sys="You are a careful, knowledgeable nutrition-estimation assistant. From a short meal description, reason about the likely portion size, preparation method, and typical ingredients, then estimate the total calories and total protein in grams for the whole meal described. Account for cooking oils and sauces implied by the preparation. Respond with ONLY a compact JSON object and nothing else, in the form {\"calories\": <integer>, \"protein\": <integer grams>}.";
       const txt=await callClaude(sys, [{role:'user', content:desc}], 60);
-      let obj=null;
-      const jm=(txt||'').match(/\{[\s\S]*\}/);
+      let obj=null; const jm=(txt||'').match(/\{[\s\S]*\}/);
       if(jm){ try{ obj=JSON.parse(jm[0]); }catch(e){} }
       if(obj && obj.calories!=null){ cal=parseInt(obj.calories,10); prot=(obj.protein!=null?parseInt(obj.protein,10):null); }
       else { const nums=(txt||'').match(/\d{1,5}/g); if(nums&&nums.length){ cal=parseInt(nums[0],10); if(nums[1]) prot=parseInt(nums[1],10); } else err=true; }
-      if(isNaN(cal)) { cal=null; err=true; }
+      if(isNaN(cal)){ cal=null; err=true; }
       if(prot!=null && isNaN(prot)) prot=null;
     }catch(e){ err=true; }
     st.foodBusy=false; st.foodErr=err; st.foodEst=cal; st.foodProtEst=prot; st.foodPhase='confirm'; render();
   };
-
   const cancel=document.getElementById('foodCancel');
   if(cancel) cancel.onclick=()=>{ st.foodPhase='input'; st.foodEst=null; st.foodProtEst=null; st.foodErr=false; render(); };
   const save=document.getElementById('foodSave');
@@ -2738,19 +2885,12 @@ function renderHealthFood(c){
     const prot=protRaw===''?null:parseInt(protRaw,10);
     if(!desc){ alert('Describe what you ate.'); return; }
     if(isNaN(cal)){ alert('Enter a calorie number.'); return; }
-    const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:desc, calories:cal, protein:(prot==null||isNaN(prot))?null:prot };
+    const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:desc, calories:cal, protein:(prot==null||isNaN(prot))?null:prot, source:'estimate' };
     const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood',arr);
     cloudSaveHealth('healthFood', row);
     st.foodText=''; st.foodEst=null; st.foodProtEst=null; st.foodPhase='input'; st.foodErr=false;
     render(); flash('Logged.');
   };
-
-  c.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{
-    const e=getLS('healthFood',[]).find(x=>x.id===b.dataset.fdel);
-    cloudDeleteRow('health_food_log', e);
-    setLS('healthFood', getLS('healthFood',[]).filter(x=>x.id!==b.dataset.fdel));
-    render();
-  });
 }
 
 /* ---------- body: weight (+trend) and sleep ---------- */
@@ -3766,13 +3906,18 @@ async function cloudSaveWorkoutLog(e){
 /* health log tables — also optional; missing tables never break other sync */
 let healthTablesOk = true;
 let foodProteinOk = true;   // set false when the health_food_log.protein column is absent
+let foodGramsOk = true;     // health_food_log.grams column present?
+let foodSourceOk = true;    // health_food_log.source column present?
 /* ounces helper — tolerates any legacy rows that stored cups */
 function waterOz(row){ if(!row) return 0; if(row.oz!=null) return +row.oz; if(row.cups!=null) return (+row.cups)*8; return 0; }
 const HEALTH_LOGS = {
   healthFood:   { table:'health_food_log',     day:false,
     toCloud:r=>{ const o={entry_date:r.entryDate, description:r.description||'', calories:parseInt(r.calories,10)||0};
-                 if(foodProteinOk && r.protein!=null && r.protein!=='') o.protein=parseFloat(r.protein)||0; return o; },
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0, protein:(r.protein==null?null:r.protein)}),
+                 if(foodProteinOk && r.protein!=null && r.protein!=='') o.protein=parseFloat(r.protein)||0;
+                 if(foodGramsOk && r.grams!=null && r.grams!=='') o.grams=parseFloat(r.grams)||0;
+                 if(foodSourceOk && r.source) o.source=r.source;
+                 return o; },
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0, protein:(r.protein==null?null:r.protein), grams:(r.grams==null?null:r.grams), source:(r.source||null)}),
     nat:r=>r.entryDate+'|'+(r.description||'')+'|'+(r.calories||0) },
   healthWeight: { table:'health_weight_log',    day:true,
     toCloud:r=>({entry_date:r.entryDate, weight:r.weight}),
@@ -3809,8 +3954,13 @@ async function cloudSaveHealth(localKey, row, _retry){
     flashSaved();
   }catch(e){
     const msg=String(e&&e.message||e).toLowerCase();
-    // only a MISSING TABLE disables health sync; a missing protein column just drops protein and retries
-    if(!_retry && msg.includes('protein')){ foodProteinOk=false; return cloudSaveHealth(localKey, row, true); }
+    // a MISSING OPTIONAL COLUMN just drops that field and retries; only a missing TABLE disables health sync
+    const n=(_retry||0);
+    let flipped=false;
+    if(msg.includes('protein') && foodProteinOk){ foodProteinOk=false; flipped=true; }
+    if(msg.includes('grams')   && foodGramsOk){   foodGramsOk=false;   flipped=true; }
+    if(msg.includes('source')  && foodSourceOk){  foodSourceOk=false;  flipped=true; }
+    if(flipped && n<3) return cloudSaveHealth(localKey, row, n+1);
     if(msg.includes('could not find the table')) healthTablesOk=false;
   }
 }
@@ -3926,6 +4076,8 @@ async function syncSettings(){
   const res=await sb.from('app_settings').select('key,value');
   if(res.error) throw res.error;
   const map=new Map((res.data||[]).map(r=>[r.key, r.value]));
+  if(map.has('usdaApiKey')){ const v=parseVal(map.get('usdaApiKey')); if(v) localStorage.setItem('usdaApiKey', v); }
+  else { const lv=localStorage.getItem('usdaApiKey'); if(lv) await putSetting('usdaApiKey', lv); }
   if(map.has('apiKey')){ const v=parseVal(map.get('apiKey')); if(v) localStorage.setItem('apiKey', v); }
   else { const lv=localStorage.getItem('apiKey'); if(lv) await putSetting('apiKey', lv); }
   if(map.has('lastBackupTimestamp')){ const v=parseVal(map.get('lastBackupTimestamp')); if(v) localStorage.setItem('lastBackupTimestamp', v); }
@@ -3968,8 +4120,10 @@ async function cloudSyncAll(){
       workoutTablesOk = true;
     }catch(e){ workoutTablesOk = false; }
     try{
-      // is the protein column present? gate protein in the food payload accordingly
+      // which optional food columns exist? gate the payload accordingly
       try{ const pp=await sb.from('health_food_log').select('protein').limit(1); foodProteinOk = !pp.error; }catch(e){ foodProteinOk=false; }
+      try{ const gp=await sb.from('health_food_log').select('grams').limit(1);   foodGramsOk   = !gp.error; }catch(e){ foodGramsOk=false; }
+      try{ const sp=await sb.from('health_food_log').select('source').limit(1);  foodSourceOk  = !sp.error; }catch(e){ foodSourceOk=false; }
       for(const k in HEALTH_LOGS){ const c=HEALTH_LOGS[k]; await syncArrayTable(k, c.table, c.from, c.toCloud, c.nat); }
       healthTablesOk = true;
     }catch(e){ healthTablesOk = false; }
