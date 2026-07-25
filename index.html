@@ -409,6 +409,14 @@
   .snap-toggle{display:flex;gap:6px;margin-bottom:12px;}
   .snap-toggle button{flex:1;min-height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:14px;font-weight:600;color:var(--navy);}
   .snap-toggle button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .snap-block{padding:9px 0;border-top:1px solid var(--line);}
+  .snap-block:first-of-type{border-top:none;}
+  .snap-stat{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+  .hbar{height:10px;background:#ece9e0;border-radius:6px;overflow:hidden;margin-top:7px;}
+  .hbar>span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#d4b65a);border-radius:6px;transition:width .3s;}
+  .status-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:8px;vertical-align:middle;}
+  .dot-green{background:#3f7a4f;} .dot-gray{background:#9aa1ac;} .dot-red{background:#b1483a;}
+  .ceil-note{background:#f6f5f1;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:14px;color:#4a4f59;font-size:14px;line-height:1.5;}
   .snap-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:15px;}
   .snap-row:first-of-type{border-top:none;}
   .snap-row .sl{color:#3a4150;}
@@ -2514,6 +2522,33 @@ function saveDayRow(localKey, field, value){
   return row;
 }
 
+/* fill bar toward a goal (no pass/fail colour) */
+function goalBar(value, goal){
+  const pct=(value!=null && goal)? Math.max(0,Math.min(100, value/goal*100)) : 0;
+  return `<div class="hbar"><span style="width:${pct}%"></span></div>`;
+}
+/* green (near/at goal) · gray (moderately off) · red (severely off) — grace band */
+function statusColor(value, goal){
+  if(value==null || !goal) return null;
+  const r=value/goal;
+  if(r>=0.85 && r<=1.4) return 'green';
+  if(r<0.6 || r>1.6) return 'red';
+  return 'gray';
+}
+function statusDot(color){ return color? `<span class="status-dot dot-${color}"></span>` : ''; }
+/* neutral weight-ceiling notice: 7-day rolling avg, needs 3+ days so one spike can't trip it */
+function weightCeilingNotice(){
+  const g=getGoals();
+  if(!g || g.weightCeiling==null || g.weightCeiling==='') return null;
+  const ceil=parseFloat(g.weightCeiling); if(!ceil) return null;
+  const pts=getLS('healthWeight',[]).filter(e=>e.timestamp>=daysAgoTs(7)&&e.weight!=null);
+  if(pts.length<3) return null;                 // not enough sustained data
+  const avg=avgOf(pts.map(e=>+e.weight)); if(avg==null) return null;
+  const metric=(g.profile&&g.profile.units==='metric');
+  const avgLb=metric? avg*2.20462 : avg;        // ceiling is in lb
+  return avgLb>ceil ? 'Your weight has been trending above the level you set.' : null;
+}
+
 /* ---------- dispatch ---------- */
 function renderHealthToday(c){
   if(!getGoals() || state.health.editingGoals) return renderHealthSetup(c);
@@ -2531,7 +2566,8 @@ function renderHealthToday(c){
   const protAvg=avgOf(Object.values(protSums));
   const sleepAvg=avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours));
   const waterAvg=avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(days)).map(waterOz));
-  const moodAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null).map(e=>+e.score));
+  const moodAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score));
+  const energyAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.energy!=null&&e.energy>0).map(e=>+e.energy));
   const wt=weightTrend(days);
   const proteinGoal=(g.protein!=null?g.protein:null);
 
@@ -2542,13 +2578,22 @@ function renderHealthToday(c){
       <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
       <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
     </div>
-    <div class="snap-row"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">· goal ${g.calories}</span></span></div>
-    <div class="snap-row"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'· goal '+proteinGoal+'g':''}</span></span></div>
-    <div class="snap-row"><span class="sl">Sleep <span class="sg">avg</span></span><span class="sv">${sleepAvg==null?dash:round1(sleepAvg)+' hrs'} <span class="sg">· goal ${g.sleep} hrs</span></span></div>
-    <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:Math.round(waterAvg)+' oz'} <span class="sg">· goal ${g.water} oz</span></span></div>
+    <div class="snap-block">
+      <div class="snap-stat"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">/ ${g.calories}</span></span></div>
+      ${goalBar(calAvg, g.calories)}
+    </div>
+    <div class="snap-block">
+      <div class="snap-stat"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'/ '+proteinGoal+'g':''}</span></span></div>
+      ${proteinGoal!=null?goalBar(protAvg, proteinGoal):''}
+    </div>
+    <div class="snap-row"><span class="sl">Sleep <span class="sg">avg</span></span><span class="sv">${sleepAvg==null?dash:round1(sleepAvg)+' hrs'} <span class="sg">· goal ${g.sleep}</span>${statusDot(statusColor(sleepAvg,g.sleep))}</span></div>
+    <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:Math.round(waterAvg)+' oz'} <span class="sg">· goal ${g.water}</span>${statusDot(statusColor(waterAvg,g.water))}</span></div>
     <div class="snap-row"><span class="sl">Mood <span class="sg">avg</span></span><span class="sv">${moodAvg==null?dash:round1(moodAvg)+'/5'}</span></div>
+    <div class="snap-row"><span class="sl">Energy <span class="sg">avg</span></span><span class="sv">${energyAvg==null?dash:round1(energyAvg)+'/5'}</span></div>
     <div class="snap-row"><span class="sl">Weight</span><span class="sv">${esc(wt.label)}</span></div>
   </div>`;
+  const ceilNote=weightCeilingNotice();
+  if(ceilNote){ html+=`<div class="ceil-note">${esc(ceilNote)}</div>`; }
 
   // --- water counter (ounces) ---
   const wRow=todaysRow('healthWater'); const oz=waterOz(wRow);
@@ -2562,13 +2607,17 @@ function renderHealthToday(c){
     </div>
   </div>`;
 
-  // --- mood ---
-  const mRow=todaysRow('healthMood'); const mood=mRow?mRow.score:0;
+  // --- mood + energy (two independent 1-5 scales, no colour) ---
+  const mRow=todaysRow('healthMood');
+  const mood=mRow&&mRow.score?mRow.score:0;
+  const energy=mRow&&mRow.energy?mRow.energy:0;
   html+=`<div class="card">
-    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:6px;">🙂 Mood &amp; energy today</div>
-    <div class="tap5" id="moodRow">
-      ${[1,2,3,4,5].map(n=>`<button data-mood="${n}" class="${mood===n?'on':''}">${n}</button>`).join('')}
-    </div>
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:6px;">🙂 Mood today</div>
+    <div class="tap5">${[1,2,3,4,5].map(n=>`<button data-mood="${n}" class="${mood===n?'on':''}">${n}</button>`).join('')}</div>
+  </div>`;
+  html+=`<div class="card">
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:6px;">⚡ Energy today</div>
+    <div class="tap5">${[1,2,3,4,5].map(n=>`<button data-energy="${n}" class="${energy===n?'on':''}">${n}</button>`).join('')}</div>
   </div>`;
 
   html+=`<button class="linkbtn" id="hEditGoals">Edit health profile &amp; goals</button>`;
@@ -2578,6 +2627,7 @@ function renderHealthToday(c){
   document.getElementById('wMinus').onclick=()=>{ saveDayRow('healthWater','oz',Math.max(0,waterOz(todaysRow('healthWater'))-8)); render(); };
   c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
   c.querySelectorAll('[data-mood]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','score',parseInt(b.dataset.mood,10)); render(); flash('Mood saved.'); });
+  c.querySelectorAll('[data-energy]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','energy',parseInt(b.dataset.energy,10)); render(); flash('Energy saved.'); });
   document.getElementById('hEditGoals').onclick=()=>{ state.health.editingGoals=true; render(); };
 }
 
@@ -2637,6 +2687,9 @@ function renderHealthSetup(c){
       <input class="text" id="gSleep" type="number" min="3" max="12" step="0.5" value="${esc(g?g.sleep:'7.5')}">
       <label class="fld">Water (oz)</label>
       <input class="text" id="gWater" type="number" min="8" max="200" step="8" value="${esc(g?g.water:'64')}">
+      <label class="fld">Weight ceiling (lb) <span class="opt">(optional)</span></label>
+      <input class="text" id="gCeiling" type="number" min="0" max="700" placeholder="leave blank to disable" value="${esc(g&&g.weightCeiling!=null?g.weightCeiling:'')}">
+      <div class="opt" style="color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.4;">If set, a quiet note appears only when your 7-day average is above this.</div>
       <button class="btn" id="hSaveGoals" style="margin-top:14px;">Save Goals</button>
     </div>`;
   c.innerHTML=html;
@@ -2675,8 +2728,10 @@ function renderHealthSetup(c){
     const protein=parseInt(document.getElementById('gProtein').value,10);
     const sleep=parseFloat(document.getElementById('gSleep').value);
     const water=parseInt(document.getElementById('gWater').value,10);
+    const ceilRaw=document.getElementById('gCeiling').value;
+    const ceiling=ceilRaw===''?null:parseFloat(ceilRaw);
     if(!cal){ alert('Enter a calorie goal (or tap “Suggest goals from profile”).'); return; }
-    const goals={ profile:readProfile(), calories:cal, protein:isNaN(protein)?null:protein, sleep:isNaN(sleep)?7.5:sleep, water:isNaN(water)?64:water };
+    const goals={ profile:readProfile(), calories:cal, protein:isNaN(protein)?null:protein, sleep:isNaN(sleep)?7.5:sleep, water:isNaN(water)?64:water, weightCeiling:(ceiling==null||isNaN(ceiling))?null:ceiling };
     setLS('healthGoals', goals);
     cloudSaveSetting('healthGoals', goals);
     state.health.editingGoals=false;
@@ -3908,6 +3963,7 @@ let healthTablesOk = true;
 let foodProteinOk = true;   // set false when the health_food_log.protein column is absent
 let foodGramsOk = true;     // health_food_log.grams column present?
 let foodSourceOk = true;    // health_food_log.source column present?
+let moodEnergyOk = true;    // health_mood_log.energy column present?
 /* ounces helper — tolerates any legacy rows that stored cups */
 function waterOz(row){ if(!row) return 0; if(row.oz!=null) return +row.oz; if(row.cups!=null) return (+row.cups)*8; return 0; }
 const HEALTH_LOGS = {
@@ -3933,8 +3989,9 @@ const HEALTH_LOGS = {
     from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups||0}),
     nat:r=>r.entryDate },
   healthMood:   { table:'health_mood_log',      day:true,
-    toCloud:r=>({entry_date:r.entryDate, score:parseInt(r.score,10)||0}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), score:r.score||0}),
+    toCloud:r=>{ const o={entry_date:r.entryDate, score:(r.score!=null?parseInt(r.score,10):null)};
+                 if(moodEnergyOk) o.energy=(r.energy!=null?parseInt(r.energy,10):null); return o; },
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), score:(r.score==null?null:r.score), energy:(r.energy==null?null:r.energy)}),
     nat:r=>r.entryDate }
 };
 async function cloudSaveHealth(localKey, row, _retry){
@@ -3960,6 +4017,7 @@ async function cloudSaveHealth(localKey, row, _retry){
     if(msg.includes('protein') && foodProteinOk){ foodProteinOk=false; flipped=true; }
     if(msg.includes('grams')   && foodGramsOk){   foodGramsOk=false;   flipped=true; }
     if(msg.includes('source')  && foodSourceOk){  foodSourceOk=false;  flipped=true; }
+    if(msg.includes('energy')  && moodEnergyOk){  moodEnergyOk=false;  flipped=true; }
     if(flipped && n<3) return cloudSaveHealth(localKey, row, n+1);
     if(msg.includes('could not find the table')) healthTablesOk=false;
   }
@@ -4124,6 +4182,7 @@ async function cloudSyncAll(){
       try{ const pp=await sb.from('health_food_log').select('protein').limit(1); foodProteinOk = !pp.error; }catch(e){ foodProteinOk=false; }
       try{ const gp=await sb.from('health_food_log').select('grams').limit(1);   foodGramsOk   = !gp.error; }catch(e){ foodGramsOk=false; }
       try{ const sp=await sb.from('health_food_log').select('source').limit(1);  foodSourceOk  = !sp.error; }catch(e){ foodSourceOk=false; }
+      try{ const ep=await sb.from('health_mood_log').select('energy').limit(1);  moodEnergyOk  = !ep.error; }catch(e){ moodEnergyOk=false; }
       for(const k in HEALTH_LOGS){ const c=HEALTH_LOGS[k]; await syncArrayTable(k, c.table, c.from, c.toCloud, c.nat); }
       healthTablesOk = true;
     }catch(e){ healthTablesOk = false; }
