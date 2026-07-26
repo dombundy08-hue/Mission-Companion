@@ -4019,6 +4019,8 @@ function dayKey(offset){
   return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
 }
 function getStreak(){ const s=getLS('scriptureStreak', {count:0,last:null}); return (s&&typeof s==='object')?s:{count:0,last:null}; }
+/* dayKey isn't zero-padded, so compare streak recency by parsed date, not string */
+function streakTime(s){ if(!s||!s.last) return 0; const p=String(s.last).split('-').map(Number); return p.length===3? new Date(p[0],p[1]-1,p[2]).getTime():0; }
 function effectiveStreak(){
   const s=getStreak();
   if(!s.last) return 0;
@@ -4031,6 +4033,7 @@ function markStreak(){
   else if(s.last===dayKey(-1)){ s.count=(s.count||0)+1; s.last=t; }
   else { s.count=1; s.last=t; }
   setLS('scriptureStreak', s);
+  cloudSaveSetting('scriptureStreak', s);   // sync streak across devices
 }
 
 /* weighted selection — lower confidence returns far more often */
@@ -4472,6 +4475,13 @@ async function syncSettings(){
   else { const lv=localStorage.getItem('preferredVoiceName'); if(lv) await putSetting('preferredVoiceName', lv); }
   if(map.has('healthGoals')){ const v=parseVal(map.get('healthGoals')); if(v && typeof v==='object') setLS('healthGoals', v); }
   else { const lv=getLS('healthGoals', null); if(lv && typeof lv==='object') await putSetting('healthGoals', lv); }
+  // scripture streak: keep the one with the most recent activity across devices
+  if(map.has('scriptureStreak')){
+    const cloud=parseVal(map.get('scriptureStreak')); const local=getLS('scriptureStreak', null);
+    const ct=streakTime(cloud), lt=streakTime(local);
+    let pick = ct>lt ? cloud : (lt>ct ? local : (((cloud&&cloud.count)||0)>=((local&&local.count)||0)?cloud:local));
+    if(pick){ setLS('scriptureStreak', pick); if(pick!==cloud) await putSetting('scriptureStreak', pick); }
+  } else { const lv=getLS('scriptureStreak', null); if(lv) await putSetting('scriptureStreak', lv); }
   // custom scripture cards: pull any this device doesn't have, then push ours back
   if(map.has('customScriptureCards')){ mergeCustomCards(parseVal(map.get('customScriptureCards'))); }
   const mine=customCardPayload();
@@ -4479,6 +4489,23 @@ async function syncSettings(){
     const cloudList=map.has('customScriptureCards') ? (parseVal(map.get('customScriptureCards'))||[]) : [];
     if(mine.length!==cloudList.length) await putSetting('customScriptureCards', mine);
   }
+}
+
+/* When a previously-missing column becomes available, existing cloud rows are
+   missing that field (it was dropped on the way up). Re-push each local health
+   row's full payload once, so values like electrolytes/energy backfill.
+   Guarded by a signature of which optional columns exist — runs once per change. */
+async function healthBackfill(){
+  if(!sbOnline()) return;
+  const sig=[foodProteinOk,foodGramsOk,foodSourceOk,moodEnergyOk,hydroElectrolytesOk].map(b=>b?1:0).join('');
+  if(getLS('healthBackfillSig','')===sig) return;   // already backfilled for this column set
+  for(const k in HEALTH_LOGS){
+    const cfg=HEALTH_LOGS[k];
+    for(const row of getLS(k,[])){
+      if(row.cloudId){ try{ await sb.from(cfg.table).update(cfg.toCloud(row)).eq('id',row.cloudId); }catch(e){} }
+    }
+  }
+  setLS('healthBackfillSig', sig);
 }
 
 /* full load+merge — runs after login; best-effort (falls back to localStorage) */
@@ -4506,6 +4533,7 @@ async function cloudSyncAll(){
       try{ const ep=await sb.from('health_mood_log').select('energy').limit(1);  moodEnergyOk  = !ep.error; }catch(e){ moodEnergyOk=false; }
       try{ const yp=await sb.from('health_hydration_log').select('electrolytes').limit(1); hydroElectrolytesOk = !yp.error; }catch(e){ hydroElectrolytesOk=false; }
       for(const k in HEALTH_LOGS){ const c=HEALTH_LOGS[k]; await syncArrayTable(k, c.table, c.from, c.toCloud, c.nat); }
+      await healthBackfill();   // push field values that were dropped while a column was missing
       healthTablesOk = true;
     }catch(e){ healthTablesOk = false; }
     hideOfflineBanner();
