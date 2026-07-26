@@ -437,6 +437,31 @@
   .ring-center .rc-v{font-size:22px;font-weight:800;color:var(--navy);line-height:1.1;}
   .ring-center .rc-s{font-size:11px;color:var(--muted);}
   .ring-legend{font-size:12px;line-height:1.45;text-align:center;margin-top:6px;}
+  .stat-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:12.5px;color:#4a4f59;margin-bottom:12px;}
+  .stat-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .stat-legend .status-dot{margin-left:0;width:10px;height:10px;}
+
+  /* electrolytes — compact, next to water */
+  .elyte-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
+  .elyte-row .el-lbl{font-size:13.5px;color:#3a4150;}
+  .elyte-row .el-lbl b{color:var(--navy);}
+  .elyte-btn{margin-left:auto;min-height:36px;padding:0 12px;border:1px solid var(--gold);background:#fbf5e6;color:var(--gold-dark);border-radius:20px;font-size:13px;font-weight:700;}
+  .elyte-btn.minus{margin-left:0;border-color:var(--line);background:#eef0f4;color:var(--navy);}
+
+  /* symptom check-in */
+  .symptom-btns{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:4px;}
+  .symptom-btns button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--navy);}
+  .symptom-btns button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .symptom-data{background:#f7f6f2;border-radius:11px;padding:11px 13px;margin:10px 0 8px;}
+  .symptom-data .sd-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px;}
+  .sd-row{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:#3a4150;padding:3px 0;}
+  .symptom-disclaimer{font-size:12px;color:var(--muted);line-height:1.45;border-top:1px solid var(--line);padding-top:9px;margin-top:4px;}
+
+  /* food source tags */
+  .src-tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:1px 6px;border-radius:20px;margin-left:5px;vertical-align:middle;}
+  .src-tag.usda{background:#eef1f6;color:var(--navy);}
+  .src-tag.off{background:#f7f0dc;color:var(--gold-dark);}
+  .food-src-head{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:12px 0 6px;}
   .snap-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:15px;}
   .snap-row:first-of-type{border-top:none;}
   .snap-row .sl{color:#3a4150;}
@@ -572,7 +597,11 @@
     <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
     <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
     <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
-    <div class="btn-row" style="margin-top:12px;">
+    <label class="checkrow" style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;">
+      <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
+      <span style="font-size:14px;color:#3a4150;">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
+    </label>
+    <div class="btn-row" style="margin-top:14px;">
       <button class="btn secondary" id="settingsCancel">Cancel</button>
       <button class="btn" id="settingsSave">Save</button>
     </div>
@@ -1579,7 +1608,7 @@ const state = {
   workout:{ view:'pick', kind:'timed', routineId:null, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
   repWorkout:{ routineId:null, counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
   routines:{ view:'list', editId:null, draftSteps:[], draftReps:[] },
-  health:{ editingGoals:false, snapRange:'week', weightListOpen:false,
+  health:{ editingGoals:false, snapRange:'week', weightListOpen:false, symptom:null,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false }
 };
@@ -1610,6 +1639,7 @@ document.getElementById('setupSave').addEventListener('click', ()=>{
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
   document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
+  document.getElementById('settingsOff').checked = localStorage.getItem('offEnabled')!=='0';   // default on
   loadVoices();   // voices may have finished loading since page start
   document.getElementById('settingsModal').classList.add('show');
 });
@@ -1624,6 +1654,7 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
   const u = document.getElementById('settingsUsda').value.trim();
   if(u){ localStorage.setItem('usdaApiKey', u); cloudSaveSetting('usdaApiKey', u); }
   else { localStorage.removeItem('usdaApiKey'); }
+  localStorage.setItem('offEnabled', document.getElementById('settingsOff').checked ? '1' : '0');
   document.getElementById('settingsModal').classList.remove('show');
   flash("Settings updated.");
 });
@@ -2568,6 +2599,41 @@ function weightCeilingNotice(){
   return avgLb>ceil ? 'Your weight has been trending above the level you set.' : null;
 }
 
+/* symptom check-in: taps map to the user's own recent logged numbers */
+const SYMPTOMS=[
+  {key:'headache',   label:'Headache'},
+  {key:'lightheaded',label:'Light-headed'},
+  {key:'tired',      label:'Tired / fatigued'},
+  {key:'thirsty',    label:'Thirsty'},
+  {key:'sore',       label:'Sore / muscle soreness'},
+  {key:'lowmood',    label:'Low mood / irritable'},
+  {key:'sleepq',     label:'Trouble sleeping'}
+];
+function recentRows(localKey, n){ return getLS(localKey,[]).slice().sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,n); }
+function symptomData(key){
+  const line=(a,b)=>`<div class="sd-row"><span>${esc(a)}</span><span>${esc(b)}</span></div>`;
+  const none=m=>`<div class="muted">${m}</div>`;
+  let title='', body='';
+  if(key==='headache'||key==='lightheaded'||key==='thirsty'){
+    title='Recent water & electrolytes';
+    const r=recentRows('healthWater',3);
+    body = r.length ? r.map(e=>line(fmtEntryDate(e.entryDate), waterOz(e)+' oz · '+electroOf(e)+' electrolyte'+(electroOf(e)===1?'':'s'))).join('') : none('No water logged recently.');
+  } else if(key==='tired'||key==='sleepq'){
+    title='Recent sleep';
+    const r=recentRows('healthSleep',4).filter(e=>e.hours!=null);
+    body = r.length ? r.map(e=>line(fmtEntryDate(e.entryDate), e.hours+' hrs')).join('') : none('No sleep logged recently.');
+  } else if(key==='sore'){
+    title='Recent workouts';
+    const r=recentRows('workoutLog',4);
+    body = r.length ? r.map(e=>line(e.routineName||'Workout', fmtClock(e.durationSec||0))).join('') : none('No workouts logged recently.');
+  } else if(key==='lowmood'){
+    title='Recent mood';
+    const r=recentRows('healthMood',5).filter(e=>e.score);
+    body = r.length ? r.map(e=>line(fmtEntryDate(e.entryDate), e.score+'/5')).join('') : none('No mood logged recently.');
+  }
+  return `<div class="sd-title">${esc(title)}</div>${body}`;
+}
+
 /* ---------- dispatch ---------- */
 function renderHealthToday(c){
   if(!getGoals() || state.health.editingGoals) return renderHealthSetup(c);
@@ -2609,7 +2675,7 @@ function renderHealthToday(c){
   if(ceilNote){ html+=`<div class="ceil-note">${esc(ceilNote)}</div>`; }
 
   // --- water counter (ounces) ---
-  const wRow=todaysRow('healthWater'); const oz=waterOz(wRow);
+  const wRow=todaysRow('healthWater'); const oz=waterOz(wRow); const el=electroOf(wRow);
   html+=`<div class="card">
     <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:2px;">💧 Water today</div>
     <div class="muted" style="margin-bottom:6px;">Goal: ${g.water} oz</div>
@@ -2617,6 +2683,11 @@ function renderHealthToday(c){
       <button class="counter-btn minus" id="wMinus">−8</button>
       <div class="counter-num">${oz}<span class="cu"> oz</span></div>
       <button class="counter-btn" id="wPlus">＋8</button>
+    </div>
+    <div class="elyte-row">
+      <span class="el-lbl">⚡ Electrolytes: <b>${el}</b></span>
+      ${el>0?`<button class="elyte-btn minus" id="elMinus">−1</button>`:''}
+      <button class="elyte-btn" id="elPlus">＋ Electrolytes</button>
     </div>
   </div>`;
 
@@ -2633,11 +2704,25 @@ function renderHealthToday(c){
     <div class="tap5">${[1,2,3,4,5].map(n=>`<button data-energy="${n}" class="${energy===n?'on':''}">${n}</button>`).join('')}</div>
   </div>`;
 
+  // --- symptom check-in (shows your own recent numbers, no diagnosis) ---
+  const sy=state.health.symptom;
+  html+=`<div class="card">
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:8px;">How are you feeling?</div>
+    <div class="symptom-btns">
+      ${SYMPTOMS.map(s=>`<button data-symp="${s.key}" class="${sy===s.key?'on':''}">${esc(s.label)}</button>`).join('')}
+    </div>
+    ${sy?`<div class="symptom-data">${symptomData(sy)}</div>`:''}
+    <div class="symptom-disclaimer">This just shows your own recent numbers — not medical advice. If something feels severe, sudden, or doesn't go away, please see a doctor or your mission nurse line.</div>
+  </div>`;
+
   html+=`<button class="linkbtn" id="hEditGoals">Edit health profile &amp; goals</button>`;
   c.innerHTML=html;
 
   document.getElementById('wPlus').onclick=()=>{ saveDayRow('healthWater','oz',waterOz(todaysRow('healthWater'))+8); render(); };
   document.getElementById('wMinus').onclick=()=>{ saveDayRow('healthWater','oz',Math.max(0,waterOz(todaysRow('healthWater'))-8)); render(); };
+  document.getElementById('elPlus').onclick=()=>{ saveDayRow('healthWater','electrolytes',electroOf(todaysRow('healthWater'))+1); render(); };
+  { const em=document.getElementById('elMinus'); if(em) em.onclick=()=>{ saveDayRow('healthWater','electrolytes',Math.max(0,electroOf(todaysRow('healthWater'))-1)); render(); }; }
+  c.querySelectorAll('[data-symp]').forEach(b=>b.onclick=()=>{ state.health.symptom = (state.health.symptom===b.dataset.symp)?null:b.dataset.symp; render(); });
   c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
   c.querySelectorAll('[data-mood]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','score',parseInt(b.dataset.mood,10)); render(); flash('Mood saved.'); });
   c.querySelectorAll('[data-energy]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','energy',parseInt(b.dataset.energy,10)); render(); flash('Energy saved.'); });
@@ -2677,6 +2762,8 @@ function renderHealthSetup(c){
       </div>
       <label class="fld">Current weight (${units==='metric'?'kg':'lb'})</label>
       <input class="text" id="hWeight" type="number" min="50" max="600" value="${esc(p.weight||'')}">
+      <label class="fld">Goal weight (lb) <span class="opt">(optional)</span></label>
+      <input class="text" id="hGoalWeight" type="number" min="50" max="600" placeholder="blank = maintenance" value="${esc(p.goalWeight!=null?p.goalWeight:'')}">
       <label class="fld">Activity level</label>
       <select class="text" id="hActivity" style="height:48px;">
         <option value="sedentary"${p.activity==='sedentary'?' selected':''}>Sedentary — little exercise</option>
@@ -2717,7 +2804,8 @@ function renderHealthSetup(c){
     heightCm:document.getElementById('hCm')?document.getElementById('hCm').value:'',
     weight:document.getElementById('hWeight').value,
     activity:document.getElementById('hActivity').value,
-    muscular:document.getElementById('hMuscle').checked
+    muscular:document.getElementById('hMuscle').checked,
+    goalWeight:document.getElementById('hGoalWeight')?document.getElementById('hGoalWeight').value:''
   });
   document.getElementById('hUnits').onchange=function(){
     document.getElementById('hHeightImp').style.display=this.value==='metric'?'none':'';
@@ -2728,7 +2816,14 @@ function renderHealthSetup(c){
     const prof=readProfile();
     const base=computeCalorieGoal(prof);
     if(base==null){ alert('Fill in age, height and weight to suggest a calorie goal.'); return; }
-    const cal = prof.muscular ? Math.round(base*1.10) : base;   // ~10% higher for higher muscle mass
+    let cal = prof.muscular ? Math.round(base*1.10) : base;   // maintenance (~10% higher for higher muscle mass)
+    // deficit/surplus toward a goal weight: ~500 cal/day = ~1 lb/week
+    const goalW=parseFloat(prof.goalWeight);
+    const curLb=bodyWeightLb(prof);
+    if(goalW && curLb){
+      if(goalW < curLb-0.5) cal -= 500;
+      else if(goalW > curLb+0.5) cal += 500;
+    }
     document.getElementById('gCal').value=cal;
     const lb=bodyWeightLb(prof);
     if(lb){ const perLb = prof.muscular ? 1.0 : 0.7; document.getElementById('gProtein').value=Math.round(lb*perLb); }
@@ -2776,19 +2871,52 @@ async function usdaSearch(query){
   }).filter(f=> f.name && f.kcal100!=null && f.prot100!=null);   // need both, cleanly
 }
 
-async function doUsdaSearch(){
+/* Open Food Facts — free, no key, good for branded/packaged items. Per-100g values. */
+async function offSearch(query){
+  // world.openfoodfacts.net returns proper CORS headers for browsers (the .org cgi endpoint does not)
+  const url='https://world.openfoodfacts.net/cgi/search.pl?search_terms='+encodeURIComponent(query)
+    +'&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments,serving_quantity';
+  const res=await fetch(url);
+  if(!res.ok) throw new Error('status '+res.status);
+  const data=await res.json();
+  return (data.products||[]).map(p=>{
+    const n=p.nutriments||{};
+    const kcal=n['energy-kcal_100g'];
+    const prot=n['proteins_100g'];
+    const brand=(p.brands||'').split(',')[0].trim();
+    const pname=(p.product_name||'').trim();
+    const name = brand && pname ? (brand+' — '+pname) : (pname||brand);
+    return { name, kcal100:(kcal!=null?+kcal:null), prot100:(prot!=null?+prot:null),
+             servingSize:(p.serving_quantity?+p.serving_quantity:null), servingText:'', source:'off' };
+  }).filter(f=> f.name && f.kcal100!=null && f.prot100!=null);
+}
+
+/* combined food search: USDA (if key) + Open Food Facts (if toggle on) */
+async function doFoodSearch(){
   const st=state.health;
   const box=document.getElementById('usdaQuery');
   const q=(box?box.value:'').trim();
   if(!q){ return; }
+  const hasUsda=!!localStorage.getItem('usdaApiKey');
+  const offOn=localStorage.getItem('offEnabled')!=='0';   // default on
   st.foodQuery=q; st.foodSearching=true; st.foodSearchErr=''; st.foodResults=null; render();
-  try{ st.foodResults=await usdaSearch(q); }
-  catch(e){
-    const m=String(e&&e.message||e);
-    st.foodResults=[];
-    st.foodSearchErr = m==='nokey' ? 'Add your USDA key in Settings first.'
-      : (/\b40[13]\b/.test(m) ? 'USDA key was rejected — check it in Settings.'
-      : 'Search failed. Check your connection and try again.');
+
+  const out=[]; let usdaRejected=false, anyFail=false, ran=0;
+  if(hasUsda){
+    ran++;
+    try{ (await usdaSearch(q)).forEach(f=> out.push({...f, source:'usda'})); }
+    catch(e){ anyFail=true; if(/\b40[13]\b/.test(String(e&&e.message||e))) usdaRejected=true; }
+  }
+  if(offOn){
+    ran++;
+    try{ (await offSearch(q)).forEach(f=> out.push(f)); }
+    catch(e){ anyFail=true; }
+  }
+  st.foodResults=out;
+  if(!out.length){
+    if(ran===0) st.foodSearchErr='Add a USDA key or enable Open Food Facts in Settings.';
+    else if(usdaRejected && !offOn) st.foodSearchErr='USDA key was rejected — check it in Settings.';
+    else if(anyFail) st.foodSearchErr='Search failed. Check your connection and try again.';
   }
   st.foodSearching=false; render();
 }
@@ -2800,6 +2928,8 @@ function renderHealthFood(c){
   const total=items.reduce((s,e)=>s+(e.calories||0),0);
   const totalProt=items.reduce((s,e)=>s+(e.protein||0),0);
   const hasUsda=!!localStorage.getItem('usdaApiKey');
+  const offOn=localStorage.getItem('offEnabled')!=='0';
+  const canSearch=hasUsda||offOn;   // OFF needs no key
 
   let html=`<h2 class="tabtitle">🍽️ Food</h2>
     <div class="food-modes">
@@ -2808,9 +2938,9 @@ function renderHealthFood(c){
     </div>`;
 
   if(st.foodMode==='search'){
-    if(!hasUsda){
+    if(!canSearch){
       html+=`<div class="card">
-        <div class="muted" style="line-height:1.5;">Food search uses the free USDA FoodData Central database. Add your USDA API key in Settings (⚙️) to turn it on — a quick, free signup.</div>
+        <div class="muted" style="line-height:1.5;">Food search uses the free USDA database and Open Food Facts. Add your USDA key and/or enable Open Food Facts in Settings (⚙️).</div>
         <button class="btn secondary" id="openSettingsForKey" style="margin-top:12px;">Open Settings</button>
         <div class="muted" style="margin-top:10px;font-size:13px;">Or use “Rough Estimate” above for a quick AI guess.</div>
       </div>`;
@@ -2845,7 +2975,10 @@ function renderHealthFood(c){
         if(!st.foodResults.length && !st.foodSearchErr){ html+=`<div class="muted" style="margin-top:10px;">No results with full calorie &amp; protein data — try a simpler term.</div>`; }
         else if(st.foodResults.length){
           html+=`<div style="margin-top:12px;">`;
-          st.foodResults.forEach((f,i)=>{ html+=`<button class="usda-res" data-pick="${i}"><span class="un">${esc(f.name)}</span><span class="um">${Math.round(f.kcal100)} cal · ${Math.round(f.prot100)}g /100g</span></button>`; });
+          st.foodResults.forEach((f,i)=>{
+            const tag = f.source==='off' ? '<span class="src-tag off">Brand</span>' : '<span class="src-tag usda">USDA</span>';
+            html+=`<button class="usda-res" data-pick="${i}"><span class="un">${esc(f.name)}${tag}</span><span class="um">${Math.round(f.kcal100)} cal · ${Math.round(f.prot100)}g /100g</span></button>`;
+          });
           html+=`</div>`;
         }
       }
@@ -2898,8 +3031,8 @@ function renderHealthFood(c){
   const openS=document.getElementById('openSettingsForKey');
   if(openS) openS.onclick=()=>{ document.getElementById('settingsKey').value=localStorage.getItem('apiKey')||''; document.getElementById('settingsUsda').value=localStorage.getItem('usdaApiKey')||''; document.getElementById('settingsModal').classList.add('show'); };
   const qbox=document.getElementById('usdaQuery');
-  if(qbox){ qbox.oninput=()=>{ st.foodQuery=qbox.value; }; qbox.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doUsdaSearch(); } }); }
-  const sbtn=document.getElementById('usdaSearchBtn'); if(sbtn) sbtn.onclick=doUsdaSearch;
+  if(qbox){ qbox.oninput=()=>{ st.foodQuery=qbox.value; }; qbox.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doFoodSearch(); } }); }
+  const sbtn=document.getElementById('usdaSearchBtn'); if(sbtn) sbtn.onclick=doFoodSearch;
   c.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ st.foodPick=st.foodResults[parseInt(b.dataset.pick,10)]; st.foodGrams=st.foodPick.servingSize?String(st.foodPick.servingSize):''; render(); });
   const back=document.getElementById('pickBack'); if(back) back.onclick=()=>{ st.foodPick=null; render(); };
   const chip=document.getElementById('servingChip'); if(chip) chip.onclick=()=>{ st.foodGrams=String(st.foodPick.servingSize); render(); };
@@ -3041,7 +3174,13 @@ function renderHealthStats(c){
   const arrow = wt.dir==='trending up'?'↑' : wt.dir==='trending down'?'↓' : (wt.pts.length>=2?'→':'');
   const wdelta = wt.pts.length>=2 ? Math.abs(Math.round((wt.pts[wt.pts.length-1].weight-wt.pts[0].weight)*10)/10) : null;
 
+  const spanTxt = days+' days';
   let html=`<h2 class="tabtitle">📊 Stats</h2>
+    <div class="stat-legend">
+      <span><span class="status-dot dot-green"></span> Green: on target</span>
+      <span><span class="status-dot dot-gray"></span> Gray: somewhat off</span>
+      <span><span class="status-dot dot-red"></span> Red: notably high or low</span>
+    </div>
     <div class="snap-toggle" style="margin-bottom:14px;">
       <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
       <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
@@ -3050,13 +3189,13 @@ function renderHealthStats(c){
       <div class="stat-ring">
         <div class="ring-bg"></div>
         ${ringNode('rn-top','Calories', a.cal==null?dash:Math.round(a.cal), cCal)}
-        ${ringNode('rn-right','Protein', a.prot==null?dash:Math.round(a.prot)+'g', cProt)}
-        ${ringNode('rn-bottom','Sleep', a.sleep==null?dash:round1(a.sleep)+'h', cSleep)}
-        ${ringNode('rn-left','Water', a.water==null?dash:Math.round(a.water)+'oz', cWater)}
+        ${ringNode('rn-right','Protein', a.prot==null?dash:Math.round(a.prot)+' g', cProt)}
+        ${ringNode('rn-bottom','Sleep', a.sleep==null?dash:round1(a.sleep)+' hrs', cSleep)}
+        ${ringNode('rn-left','Water', a.water==null?dash:Math.round(a.water)+' oz', cWater)}
         <div class="ring-center">
           <div class="rc-l">Weight</div>
           <div class="rc-v">${wdelta==null?dash:arrow+' '+wdelta}</div>
-          <div class="rc-s">${wdelta==null?'':esc(wt.unit)+' · '+days+'d'}</div>
+          <div class="rc-s">${wdelta==null?'':esc(wt.unit)+' · '+spanTxt}</div>
         </div>
       </div>
       <div class="ring-legend muted">Each dot compares one metric to its own goal — green near or at it, gray moderately off, red well off. This simply groups your existing numbers in one place.</div>
@@ -4074,6 +4213,8 @@ let foodProteinOk = true;   // set false when the health_food_log.protein column
 let foodGramsOk = true;     // health_food_log.grams column present?
 let foodSourceOk = true;    // health_food_log.source column present?
 let moodEnergyOk = true;    // health_mood_log.energy column present?
+let hydroElectrolytesOk = true;  // health_hydration_log.electrolytes column present?
+function electroOf(row){ return row && row.electrolytes!=null ? +row.electrolytes : 0; }
 /* ounces helper — tolerates any legacy rows that stored cups */
 function waterOz(row){ if(!row) return 0; if(row.oz!=null) return +row.oz; if(row.cups!=null) return (+row.cups)*8; return 0; }
 const HEALTH_LOGS = {
@@ -4095,8 +4236,9 @@ const HEALTH_LOGS = {
     nat:r=>r.entryDate },
   healthWater:  { table:'health_hydration_log', day:true,
     /* stored in the existing int "cups" column, but the value is now ounces */
-    toCloud:r=>({entry_date:r.entryDate, cups:parseInt(r.oz,10)||0}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups||0}),
+    toCloud:r=>{ const o={entry_date:r.entryDate, cups:parseInt(r.oz,10)||0};
+                 if(hydroElectrolytesOk && r.electrolytes!=null) o.electrolytes=parseInt(r.electrolytes,10)||0; return o; },
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups||0, electrolytes:(r.electrolytes==null?null:r.electrolytes)}),
     nat:r=>r.entryDate },
   healthMood:   { table:'health_mood_log',      day:true,
     toCloud:r=>{ const o={entry_date:r.entryDate, score:(r.score!=null?parseInt(r.score,10):null)};
@@ -4128,6 +4270,7 @@ async function cloudSaveHealth(localKey, row, _retry){
     if(msg.includes('grams')   && foodGramsOk){   foodGramsOk=false;   flipped=true; }
     if(msg.includes('source')  && foodSourceOk){  foodSourceOk=false;  flipped=true; }
     if(msg.includes('energy')  && moodEnergyOk){  moodEnergyOk=false;  flipped=true; }
+    if(msg.includes('electrolytes') && hydroElectrolytesOk){ hydroElectrolytesOk=false; flipped=true; }
     if(flipped && n<3) return cloudSaveHealth(localKey, row, n+1);
     if(msg.includes('could not find the table')) healthTablesOk=false;
   }
@@ -4292,6 +4435,7 @@ async function cloudSyncAll(){
       try{ const gp=await sb.from('health_food_log').select('grams').limit(1);   foodGramsOk   = !gp.error; }catch(e){ foodGramsOk=false; }
       try{ const sp=await sb.from('health_food_log').select('source').limit(1);  foodSourceOk  = !sp.error; }catch(e){ foodSourceOk=false; }
       try{ const ep=await sb.from('health_mood_log').select('energy').limit(1);  moodEnergyOk  = !ep.error; }catch(e){ moodEnergyOk=false; }
+      try{ const yp=await sb.from('health_hydration_log').select('electrolytes').limit(1); hydroElectrolytesOk = !yp.error; }catch(e){ hydroElectrolytesOk=false; }
       for(const k in HEALTH_LOGS){ const c=HEALTH_LOGS[k]; await syncArrayTable(k, c.table, c.from, c.toCloud, c.nat); }
       healthTablesOk = true;
     }catch(e){ healthTablesOk = false; }
