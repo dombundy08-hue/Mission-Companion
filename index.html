@@ -2581,6 +2581,21 @@ function statusColor(value, goal){
   if(r<0.6 || r>1.6) return 'red';
   return 'gray';
 }
+/* Calories use an absolute band: on track only within ±500 cal of goal */
+function calStatusColor(value, goal){
+  if(value==null || !goal) return null;
+  const d=Math.abs(value-goal);
+  if(d<=500) return 'green';
+  if(d<=1000) return 'gray';
+  return 'red';
+}
+function calStatusWord(value, goal){
+  if(value==null || !goal) return '';
+  const d=value-goal, ad=Math.abs(d);
+  if(ad<=500) return 'On track';
+  if(d<0) return ad<=1000 ? 'Below goal' : 'Well below goal';
+  return ad<=1000 ? 'Above goal' : 'Well above goal';
+}
 function statusDot(color){ return color? `<span class="status-dot dot-${color}"></span>` : ''; }
 /* neutral weight-ceiling notice: 7-day rolling avg, needs 3+ days so one spike can't trip it */
 function weightCeilingNotice(){
@@ -2685,7 +2700,7 @@ function renderHealthToday(c){
       <button data-range="week" class="${range==='week'?'on':''}">This Week</button>
       <button data-range="month" class="${range==='month'?'on':''}">This Month</button>
     </div>
-    <div class="snap-row"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">· goal ${g.calories}</span>${statusDot(statusColor(calAvg,g.calories))}</span></div>
+    <div class="snap-row"><span class="sl">Calories <span class="sg">avg/day</span></span><span class="sv">${calAvg==null?dash:Math.round(calAvg)} <span class="sg">· goal ${g.calories}</span>${statusDot(calStatusColor(calAvg,g.calories))}</span></div>
     <div class="snap-row"><span class="sl">Protein <span class="sg">avg/day</span></span><span class="sv">${protAvg==null?dash:Math.round(protAvg)+'g'} <span class="sg">${proteinGoal!=null?'· goal '+proteinGoal+'g':''}</span>${proteinGoal!=null?statusDot(statusColor(protAvg,proteinGoal)):''}</span></div>
     <div class="snap-row"><span class="sl">Sleep <span class="sg">avg</span></span><span class="sv">${sleepAvg==null?dash:round1(sleepAvg)+' hrs'} <span class="sg">· goal ${g.sleep}</span>${statusDot(statusColor(sleepAvg,g.sleep))}</span></div>
     <div class="snap-row"><span class="sl">Water <span class="sg">avg</span></span><span class="sv">${waterAvg==null?dash:Math.round(waterAvg)+' oz'} <span class="sg">· goal ${g.water}</span>${statusDot(statusColor(waterAvg,g.water))}</span></div>
@@ -3224,8 +3239,9 @@ function renderHealthStats(c){
     const goalTxt = m.goal!=null ? `goal ${m.goal}${m.unit}` : '';
     let statusHtml='';
     if(m.goal!=null && m.val!=null){
-      const color=statusColor(m.val,m.goal);        // unchanged color logic
-      const word=statusWord(m.val,m.goal);
+      const isCal = m.name==='Calories';            // Calories use the tighter ±500 band
+      const color = isCal ? calStatusColor(m.val,m.goal) : statusColor(m.val,m.goal);
+      const word  = isCal ? calStatusWord(m.val,m.goal)  : statusWord(m.val,m.goal);
       const scls = color==='green'?'s-green':color==='red'?'s-red':'s-gray';
       statusHtml = `<span class="status-dot dot-${color}"></span><span class="mc-status ${scls}">${word}</span>`;
     } else if(m.goal==null && m.val!=null){
