@@ -410,34 +410,15 @@
   .snap-toggle{display:flex;gap:6px;margin-bottom:12px;}
   .snap-toggle button{flex:1;min-height:40px;border:1px solid var(--line);background:#fff;border-radius:10px;font-size:14px;font-weight:600;color:var(--navy);}
   .snap-toggle button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
-  .snap-block{padding:9px 0;border-top:1px solid var(--line);}
-  .snap-block:first-of-type{border-top:none;}
-  .snap-stat{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
-  .hbar{height:10px;background:#ece9e0;border-radius:6px;overflow:hidden;margin-top:7px;}
-  .hbar>span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#d4b65a);border-radius:6px;transition:width .3s;}
   .status-dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:8px;vertical-align:middle;}
   .dot-green{background:#3f7a4f;} .dot-gray{background:#9aa1ac;} .dot-red{background:#b1483a;}
   .ceil-note{background:#f6f5f1;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:14px;color:#4a4f59;font-size:14px;line-height:1.5;}
-  .dot-none{background:#e2e0d8;}
 
   /* weight entries list */
   .wt-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);}
   .wt-item .wd{font-size:14px;color:#3a4150;}
   .wt-item .wv{font-weight:700;color:var(--navy);margin-left:auto;}
 
-  /* Stats ring */
-  .stat-ring{position:relative;width:min(300px,82vw);aspect-ratio:1;margin:8px auto 6px;}
-  .stat-ring .ring-bg{position:absolute;inset:16%;border-radius:50%;border:3px solid var(--line);}
-  .ring-node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;width:82px;}
-  .ring-node .rdot{width:26px;height:26px;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.12);}
-  .ring-node .rl{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
-  .ring-node .rv{font-size:14px;color:var(--navy);font-weight:800;}
-  .rn-top{left:50%;top:8%;} .rn-right{left:92%;top:50%;} .rn-bottom{left:50%;top:92%;} .rn-left{left:8%;top:50%;}
-  .ring-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;width:44%;}
-  .ring-center .rc-l{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
-  .ring-center .rc-v{font-size:22px;font-weight:800;color:var(--navy);line-height:1.1;}
-  .ring-center .rc-s{font-size:11px;color:var(--muted);}
-  .ring-legend{font-size:12px;line-height:1.45;text-align:center;margin-top:6px;}
   /* Stats: card-per-metric list */
   .stat-legend2{background:#f7f6f2;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:14px;font-size:13px;color:#4a4f59;}
   .stat-legend2 div{display:flex;align-items:center;gap:8px;padding:2px 0;line-height:1.4;}
@@ -455,9 +436,6 @@
   .metric-card .mc-trend{font-size:16px;font-weight:700;color:var(--navy);}
   .metric-card .status-dot{margin-left:0;}
 
-  .stat-legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:12.5px;color:#4a4f59;margin-bottom:12px;}
-  .stat-legend span{display:inline-flex;align-items:center;gap:5px;}
-  .stat-legend .status-dot{margin-left:0;width:10px;height:10px;}
 
   /* electrolytes — compact, next to water */
   .elyte-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
@@ -2595,10 +2573,6 @@ function saveDayRow(localKey, field, value){
 }
 
 /* fill bar toward a goal (no pass/fail colour) */
-function goalBar(value, goal){
-  const pct=(value!=null && goal)? Math.max(0,Math.min(100, value/goal*100)) : 0;
-  return `<div class="hbar"><span style="width:${pct}%"></span></div>`;
-}
 /* green (near/at goal) · gray (moderately off) · red (severely off) — grace band */
 function statusColor(value, goal){
   if(value==null || !goal) return null;
@@ -3192,9 +3166,6 @@ function healthAverages(days){
     mood: avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score)),
     energy:avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.energy!=null&&e.energy>0).map(e=>+e.energy))
   };
-}
-function ringNode(cls, label, valueText, color){
-  return `<div class="ring-node ${cls}"><span class="rdot dot-${color||'none'}"></span><span class="rl">${label}</span><span class="rv">${valueText}</span></div>`;
 }
 /* ---------- Stats: visual grouping of the SAME dots — no combined score ---------- */
 /* plain-language status word — derived from the SAME ratio bands as statusColor (color logic unchanged) */
