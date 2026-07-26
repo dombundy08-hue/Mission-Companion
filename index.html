@@ -2650,8 +2650,8 @@ function symptomData(key){
   // 2) then the recent numbers most relevant to that particular symptom
   let detail='';
   if(key==='headache'||key==='lightheaded'){
-    const w=recentRows('healthWater',3);
-    detail=`<div class="sd-title">Water &amp; electrolytes · recent</div>${ w.length ? w.map(e=>line(fmtEntryDate(e.entryDate), waterOz(e)+' oz · '+electroOf(e)+' elec')).join('') : none('No water logged recently.') }`;
+    const w=waterDailyTotals(3);
+    detail=`<div class="sd-title">Water &amp; electrolytes · recent</div>${ w.length ? w.map(d=>line(fmtEntryDate(d.entryDate), Math.round(d.oz)+' oz · '+d.el+' elec')).join('') : none('No water logged recently.') }`;
   } else if(key==='tired'||key==='sleepq'){
     const s=recentRows('healthSleep',4).filter(e=>e.hours!=null);
     const en=recentRows('healthMood',3).filter(e=>e.energy);
@@ -2687,7 +2687,7 @@ function renderHealthToday(c){
   const calAvg=avgOf(Object.values(foodSums));
   const protAvg=avgOf(Object.values(protSums));
   const sleepAvg=avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours));
-  const waterAvg=avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(days)).map(waterOz));
+  const waterAvg=avgOf(Object.values(waterDayMap(days)).map(d=>d.oz));
   const moodAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score));
   const energyAvg=avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.energy!=null&&e.energy>0).map(e=>+e.energy));
   const wt=weightTrend(days);
@@ -2712,7 +2712,7 @@ function renderHealthToday(c){
   if(ceilNote){ html+=`<div class="ceil-note">${esc(ceilNote)}</div>`; }
 
   // --- water counter (ounces) ---
-  const wRow=todaysRow('healthWater'); const oz=waterOz(wRow); const el=electroOf(wRow);
+  const oz=waterTotal(); const el=electroTotal();
   html+=`<div class="card">
     <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:2px;">💧 Water today</div>
     <div class="muted" style="margin-bottom:6px;">Goal: ${g.water} oz</div>
@@ -2756,10 +2756,10 @@ function renderHealthToday(c){
   html+=`<button class="linkbtn" id="hEditGoals">Edit health profile &amp; goals</button>`;
   c.innerHTML=html;
 
-  document.getElementById('wPlus').onclick=()=>{ saveDayRow('healthWater','oz',waterOz(todaysRow('healthWater'))+8); render(); };
-  document.getElementById('wMinus').onclick=()=>{ saveDayRow('healthWater','oz',Math.max(0,waterOz(todaysRow('healthWater'))-8)); render(); };
-  document.getElementById('elPlus').onclick=()=>{ saveDayRow('healthWater','electrolytes',electroOf(todaysRow('healthWater'))+1); render(); };
-  { const em=document.getElementById('elMinus'); if(em) em.onclick=()=>{ saveDayRow('healthWater','electrolytes',Math.max(0,electroOf(todaysRow('healthWater'))-1)); render(); }; }
+  document.getElementById('wPlus').onclick=()=>{ addTap('healthWater','oz',8); render(); };
+  document.getElementById('wMinus').onclick=()=>{ if(waterTotal()>=8) addTap('healthWater','oz',-8); render(); };
+  document.getElementById('elPlus').onclick=()=>{ addTap('healthWater','electrolytes',1); render(); };
+  { const em=document.getElementById('elMinus'); if(em) em.onclick=()=>{ if(electroTotal()>=1) addTap('healthWater','electrolytes',-1); render(); }; }
   c.querySelectorAll('[data-symp]').forEach(b=>b.onclick=()=>{ state.health.symptom = (state.health.symptom===b.dataset.symp)?null:b.dataset.symp; render(); });
   c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
   c.querySelectorAll('[data-mood]').forEach(b=>b.onclick=()=>{ saveDayRow('healthMood','score',parseInt(b.dataset.mood,10)); render(); flash('Mood saved.'); });
@@ -3187,7 +3187,7 @@ function healthAverages(days){
     cal:  avgOf(Object.values(foodSums)),
     prot: avgOf(Object.values(protSums)),
     sleep:avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours)),
-    water:avgOf(getLS('healthWater',[]).filter(e=>e.timestamp>=daysAgoTs(days)).map(waterOz)),
+    water:avgOf(Object.values(waterDayMap(days)).map(d=>d.oz)),
     mood: avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score)),
     energy:avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.energy!=null&&e.energy>0).map(e=>+e.energy))
   };
@@ -4275,6 +4275,14 @@ let hydroElectrolytesOk = true;  // health_hydration_log.electrolytes column pre
 function electroOf(row){ return row && row.electrolytes!=null ? +row.electrolytes : 0; }
 /* ounces helper — tolerates any legacy rows that stored cups */
 function waterOz(row){ if(!row) return 0; if(row.oz!=null) return +row.oz; if(row.cups!=null) return (+row.cups)*8; return 0; }
+/* Water & Electrolytes are append-only per-tap entries; totals are summed on read
+   (so a new tap on one device can never overwrite another device's tap). */
+function waterTotal(date){ date=date||isoDate(); return getLS('healthWater',[]).filter(e=>e.entryDate===date).reduce((s,e)=>s+waterOz(e),0); }
+function electroTotal(date){ date=date||isoDate(); return getLS('healthWater',[]).filter(e=>e.entryDate===date).reduce((s,e)=>s+electroOf(e),0); }
+function waterDayMap(days){ const cut=daysAgoTs(days), m={}; getLS('healthWater',[]).forEach(e=>{ if((e.timestamp||0)>=cut){ if(!m[e.entryDate]) m[e.entryDate]={oz:0,el:0}; m[e.entryDate].oz+=waterOz(e); m[e.entryDate].el+=electroOf(e); } }); return m; }
+function waterDailyTotals(n){ const m={}; getLS('healthWater',[]).forEach(e=>{ if(!m[e.entryDate]) m[e.entryDate]={entryDate:e.entryDate,oz:0,el:0,ts:0}; m[e.entryDate].oz+=waterOz(e); m[e.entryDate].el+=electroOf(e); m[e.entryDate].ts=Math.max(m[e.entryDate].ts,e.timestamp||0); }); return Object.values(m).sort((a,b)=>b.ts-a.ts).slice(0,n); }
+/* append a new timestamped row (never overwrites an existing one) */
+function addTap(localKey, field, amount){ const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now() }; row[field]=amount; const arr=getLS(localKey,[]); arr.push(row); setLS(localKey,arr); cloudSaveHealth(localKey, row); return row; }
 const HEALTH_LOGS = {
   healthFood:   { table:'health_food_log',     day:false,
     toCloud:r=>{ const o={entry_date:r.entryDate, description:r.description||'', calories:parseInt(r.calories,10)||0};
@@ -4292,12 +4300,15 @@ const HEALTH_LOGS = {
     toCloud:r=>({entry_date:r.entryDate, hours:r.hours}),
     from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), hours:r.hours}),
     nat:r=>r.entryDate },
-  healthWater:  { table:'health_hydration_log', day:true,
-    /* stored in the existing int "cups" column, but the value is now ounces */
+  /* append-only per-tap rows (day:false -> each tap inserts its own row).
+     natural key is the cloud id when synced, else a local marker, so identical
+     taps never merge into one and a re-pulled row is never duplicated. */
+  healthWater:  { table:'health_hydration_log', day:false,
+    /* per-tap amount goes in the existing int "cups" column (value is ounces) */
     toCloud:r=>{ const o={entry_date:r.entryDate, cups:parseInt(r.oz,10)||0};
                  if(hydroElectrolytesOk && r.electrolytes!=null) o.electrolytes=parseInt(r.electrolytes,10)||0; return o; },
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups||0, electrolytes:(r.electrolytes==null?null:r.electrolytes)}),
-    nat:r=>r.entryDate },
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups!=null?r.cups:0, electrolytes:(r.electrolytes==null?null:r.electrolytes)}),
+    nat:r=> r.cloudId ? r.cloudId : ('L:'+r.id) },
   healthMood:   { table:'health_mood_log',      day:true,
     toCloud:r=>{ const o={entry_date:r.entryDate, score:(r.score!=null?parseInt(r.score,10):null)};
                  if(moodEnergyOk) o.energy=(r.energy!=null?parseInt(r.energy,10):null); return o; },
@@ -4571,6 +4582,20 @@ async function cloudSaveSetting(key, valueRaw){
 
 window.addEventListener('online', ()=>{ hideOfflineBanner(); if(cloudReady && pendingPush) flushPending(); });
 window.addEventListener('offline', ()=> showOfflineBanner());
+
+/* Pull fresh cloud data when the app regains focus, so another device's taps
+   (water, etc.) show up without a full reopen. Debounced; skips while typing. */
+let _lastCloudPull=0;
+async function refreshFromCloud(){
+  if(!cloudReady || !sbOnline()) return;
+  if(Date.now()-_lastCloudPull < 4000) return;                 // debounce rapid focus events
+  const ae=document.activeElement;
+  if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return; // don't wipe an in-progress entry
+  _lastCloudPull=Date.now();
+  try{ await cloudSyncAll(); render(); }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') refreshFromCloud(); });
+window.addEventListener('focus', refreshFromCloud);
 
 /* ===================================================================
    SCREENS / AUTH
