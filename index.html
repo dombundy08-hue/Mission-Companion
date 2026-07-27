@@ -369,6 +369,8 @@
   .rt-badge{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle;}
   .rt-badge.timed{background:#eef1f6;color:var(--navy);}
   .rt-badge.rep{background:#f7f0dc;color:var(--gold-dark);}
+  .rt-badge.circuit{background:#e7f0ec;color:#2f6d54;}
+  .rt-badge.mixed{background:#efe7f3;color:#6a4b86;}
 
   /* routine type chooser */
   .type-card{display:flex;align-items:flex-start;gap:13px;width:100%;text-align:left;
@@ -389,6 +391,23 @@
   .rep-edit-fields{display:flex;gap:10px;margin-top:8px;}
   .rep-edit-fields label{flex:1;font-size:12px;font-weight:600;color:var(--navy);display:flex;flex-direction:column;gap:4px;}
   .rep-edit .rnote{margin-top:8px;font-size:14px;}
+
+  /* circuit editor */
+  .circ-fields{display:flex;gap:8px;margin-bottom:14px;}
+  .circ-fields label{flex:1;font-size:11.5px;font-weight:600;color:var(--navy);display:flex;flex-direction:column;gap:4px;}
+  .circ-fields input{text-align:center;padding-left:4px;padding-right:4px;}
+
+  /* assemble: list of parts */
+  .part-item{display:flex;align-items:center;gap:10px;background:#fbfaf6;border:1px solid var(--line);
+    border-radius:12px;padding:11px 12px;margin-bottom:9px;}
+  .part-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .part-n{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--gold-dark);}
+  .part-s{font-size:14px;color:var(--navy);line-height:1.35;}
+  .part-ord{display:flex;gap:4px;flex:none;}
+  .part-ord .ord,.part-ord .sdel{width:34px;height:40px;border:1px solid var(--line);background:#fff;
+    border-radius:9px;color:var(--navy);font-size:13px;display:flex;align-items:center;justify-content:center;}
+  .part-ord .ord:disabled{opacity:.35;}
+  .part-ord .sdel{color:#b23b3b;}
 
   /* rep workout grid */
   .rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
@@ -1605,9 +1624,10 @@ const state = {
   objections:{ started:false, question:null, msgs:[], busy:false, summary:null, error:false },
   email:{ view:null, generated:null, busy:false, error:false },
   mastery:{ view:'home', mode:'ref2text', flipped:false, currentId:null, reviewed:0 },
-  workout:{ view:'pick', kind:'timed', routineId:null, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
-  repWorkout:{ routineId:null, counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
-  routines:{ view:'list', editId:null, draftSteps:[], draftReps:[] },
+  workout:{ view:'pick', kind:'timed', steps:[], partIdx:0, partCount:1, stepIdx:0, remaining:0, running:false, timerId:null, startedAt:0, completed:0, countdown:3, leadTimers:[] },
+  repWorkout:{ steps:[], counts:[], restLeft:[], restTimers:[], startedAt:0, completedSets:0 },
+  session:{ routineId:null, routineName:'', parts:[], idx:0, startedAt:0, completed:0, active:false },
+  routines:{ view:'list', editId:null, draftSteps:[], draftReps:[], draftCircuit:null, draftName:'', build:null },
   health:{ editingGoals:false, snapRange:'week', weightListOpen:false, symptom:null,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false }
@@ -1968,29 +1988,73 @@ function fmtClock(sec){
 }
 function isRest(name){ return /^\s*rest\b/i.test(name||''); }
 
-/* ---------- Routines tab ---------- */
-/* rep vs timed is inferred from the steps JSON, so timed routines and their
-   cloud rows are completely untouched. */
-function routineType(r){ return (r && r.steps && r.steps.some(s=>s && s.type==='rep')) ? 'rep' : 'timed'; }
-function routineMeta(r){
-  if(routineType(r)==='rep'){
-    const n=(r.steps||[]).length;
-    const sets=(r.steps||[]).reduce((s,x)=>s+(parseInt(x.sets,10)||0),0);
-    return `${n} exercise${n===1?'':'s'} · ${sets} sets`;
+/* ---------- Routines: a routine is an ordered list of "parts" ----------
+   Each part is timed / rep / circuit. Legacy single-type routines (flat steps
+   array) are auto-wrapped into one part, so old routines & cloud rows still work. */
+function isPartArray(steps){ return Array.isArray(steps) && steps[0] && steps[0].kind==='part'; }
+function routineParts(r){
+  const s = r && r.steps;
+  if(isPartArray(s)) return s;
+  if(Array.isArray(s) && s.some(x=>x&&x.type==='rep'))
+    return [{kind:'part', type:'rep', items:(s||[]).map(x=>({name:x.name, sets:x.sets, reps:x.reps, rest:x.rest, note:x.note}))}];
+  return [{kind:'part', type:'timed', items:(s||[]).map(x=>({name:x.name, seconds:x.seconds}))}];
+}
+function clonePart(p){ return JSON.parse(JSON.stringify(p)); }
+function partTypeLabel(t){ return t==='rep'?'Reps':t==='circuit'?'Circuit':'Timed'; }
+function partTotalSec(p){
+  if(p.type==='timed') return (p.items||[]).reduce((s,x)=>s+(parseInt(x.seconds,10)||0),0);
+  if(p.type==='circuit'){
+    const n=(p.items||[]).length, rounds=parseInt(p.rounds,10)||1, work=parseInt(p.work,10)||0, rest=parseInt(p.rest,10)||0, rr=parseInt(p.restRounds,10)||0;
+    return rounds*(n*work + Math.max(0,n-1)*rest) + Math.max(0,rounds-1)*rr;
   }
-  return `${(r.steps||[]).length} steps · ${fmtClock(routineTotal(r))} total`;
+  return 0;
+}
+function partSummary(p){
+  if(p.type==='rep'){ const n=(p.items||[]).length; return `Reps · ${n} exercise${n===1?'':'s'}`; }
+  if(p.type==='circuit'){ return `Circuit · ${parseInt(p.rounds,10)||1} rounds × ${(p.items||[]).length} moves`; }
+  const n=(p.items||[]).length; return `Timed · ${n} step${n===1?'':'s'} · ${fmtClock(partTotalSec(p))}`;
+}
+function routineMeta(r){
+  const parts=routineParts(r);
+  if(parts.length===1) return partSummary(parts[0]);
+  return `${parts.length} parts · ${parts.map(p=>partTypeLabel(p.type)).join(' + ')}`;
+}
+function routineBadge(r){ const parts=routineParts(r); return parts.length>1 ? 'Mixed' : partTypeLabel(parts[0].type); }
+/* a circuit expands into a plain timed sequence so it reuses the timed engine */
+function expandCircuit(p){
+  const items=(p.items||[]).filter(x=>x&&x.name), rounds=parseInt(p.rounds,10)||1,
+        work=parseInt(p.work,10)||30, rest=parseInt(p.rest,10)||0, rr=parseInt(p.restRounds,10)||0;
+  const out=[];
+  for(let r=0;r<rounds;r++){
+    items.forEach((it,idx)=>{
+      out.push({ name: rounds>1 ? `${it.name} (round ${r+1})` : it.name, seconds:work });
+      if(idx<items.length-1 && rest>0) out.push({name:'Rest', seconds:rest});
+    });
+    if(r<rounds-1 && rr>0) out.push({name:'Rest', seconds:rr});
+  }
+  return out;
 }
 function startRoutine(id){
   const r=getRoutines().find(x=>x.id===id);
   if(!r){ flash('Routine not found.'); return; }
-  if(routineType(r)==='rep') startRepWorkout(id); else startWorkout(id);
+  const parts=routineParts(r);
+  if(!parts.length || parts.every(p=>!(p.items||[]).filter(x=>x&&x.name).length)){ flash('That routine is empty.'); return; }
+  stopWorkoutTimer(); primeAudio();          // prime audio inside the tap (iOS)
+  state.session={ routineId:id, routineName:r.name, parts, idx:0, startedAt:Date.now(), completed:0, active:true };
+  activeTab='workout'; activeSection='exercise';
+  setLS('activeTab','workout'); setLS('activeSection','exercise');
+  window.scrollTo(0,0);
+  runSessionPart(0, false);
 }
 
+function newBuild(){ return { name:'', parts:[], editIdx:null }; }
 function renderRoutines(c){
   const st=state.routines;
-  if(st.view==='edit') return renderRoutineEdit(c);
-  if(st.view==='edit-rep') return renderRoutineRepEdit(c);
-  if(st.view==='pick-type') return renderRoutinePickType(c);
+  if(st.view==='pick-part')   return renderPartTypePick(c);
+  if(st.view==='edit-timed')  return renderTimedPartEditor(c);
+  if(st.view==='edit-rep')    return renderRepPartEditor(c);
+  if(st.view==='edit-circuit')return renderCircuitPartEditor(c);
+  if(st.view==='assemble')    return renderAssemble(c);
   const list=getRoutines();
   let html=`<h2 class="tabtitle">📋 Routines</h2>`;
   html+=`<button class="btn navy" id="rtNew" style="margin-bottom:14px;">＋ New Routine</button>`;
@@ -2000,9 +2064,9 @@ function renderRoutines(c){
       <button class="btn secondary" id="rtSample">Add a sample routine</button>`;
   } else {
     list.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(r=>{
-      const ty=routineType(r);
+      const bd=routineBadge(r); const cls=bd==='Reps'?'rep':bd==='Mixed'?'mixed':bd==='Circuit'?'circuit':'timed';
       html+=`<div class="entry">
-        <div class="ed">${esc(r.name)}<span class="rt-badge ${ty}">${ty==='rep'?'Reps':'Timed'}</span></div>
+        <div class="ed">${esc(r.name)}<span class="rt-badge ${cls}">${bd}</span></div>
         <div class="rt-meta">${routineMeta(r)}</div>
         <div class="btn-row">
           <button class="btn secondary" data-redit="${r.id}">Edit</button>
@@ -2011,7 +2075,7 @@ function renderRoutines(c){
     });
   }
   c.innerHTML=html;
-  document.getElementById('rtNew').onclick=()=>{ st.view='pick-type'; window.scrollTo(0,0); render(); };
+  document.getElementById('rtNew').onclick=()=>{ st.editId=null; st.build=newBuild(); st.view='pick-part'; window.scrollTo(0,0); render(); };
   const samp=document.getElementById('rtSample');
   if(samp) samp.onclick=()=>{
     const r={ id:uid(), name:SAMPLE_ROUTINE.name, steps:SAMPLE_ROUTINE.steps.map(s=>({...s})), createdAt:Date.now() };
@@ -2021,28 +2085,46 @@ function renderRoutines(c){
   c.querySelectorAll('[data-redit]').forEach(b=>b.onclick=()=>{
     const r=getRoutines().find(x=>x.id===b.dataset.redit); if(!r) return;
     st.editId=r.id;
-    if(routineType(r)==='rep'){ st.draftName=r.name; st.draftReps=(r.steps||[]).map(s=>({...s})); st.view='edit-rep'; }
-    else { st.draftSteps=(r.steps||[]).map(s=>({...s})); st.view='edit'; }
-    window.scrollTo(0,0); render();
+    st.build={ name:r.name, parts:routineParts(r).map(clonePart), editIdx:null };
+    st.view='assemble'; window.scrollTo(0,0); render();
   });
   c.querySelectorAll('[data-rstart]').forEach(b=>b.onclick=()=>{ startRoutine(b.dataset.rstart); });
 }
 
-/* ---------- routine type chooser ---------- */
-function renderRoutinePickType(c){
-  const st=state.routines;
-  c.innerHTML=`<button class="linkbtn" id="rtBack2" style="text-align:left;width:auto;">← Back</button>
-    <h2 class="tabtitle">New Routine</h2>
-    <button class="type-card" id="typeTimed"><span class="tci">⏱️</span>
-      <span class="tct"><span class="tcl">Timed</span><span class="tcd">Each step runs for a set number of seconds and advances on its own, announced out loud.</span></span></button>
-    <button class="type-card" id="typeRep"><span class="tci">🔁</span>
-      <span class="tct"><span class="tcl">Rep-based</span><span class="tcd">Log your sets at your own pace with a rest timer between each. Do exercises in any order.</span></span></button>`;
-  document.getElementById('rtBack2').onclick=()=>{ st.view='list'; render(); };
-  document.getElementById('typeTimed').onclick=()=>{ st.editId=null; st.draftSteps=[{name:'',seconds:45}]; st.view='edit'; window.scrollTo(0,0); render(); };
-  document.getElementById('typeRep').onclick=()=>{ st.editId=null; st.draftName=''; st.draftReps=[{name:'',sets:3,rest:60,note:''}]; st.view='edit-rep'; window.scrollTo(0,0); render(); };
+/* ---------- Routine builder: pick a part type, edit it, then assemble ---------- */
+function partTypeCards(headingHtml){
+  return `${headingHtml}
+    <button class="type-card" data-ptype="timed"><span class="tci">⏱️</span>
+      <span class="tct"><span class="tcl">Timed</span><span class="tcd">Steps that each run for a set number of seconds and advance on their own, announced out loud.</span></span></button>
+    <button class="type-card" data-ptype="rep"><span class="tci">🔁</span>
+      <span class="tct"><span class="tcl">Rep</span><span class="tcd">Log your sets at your own pace with a rest timer between each. Any order.</span></span></button>
+    <button class="type-card" data-ptype="circuit"><span class="tci">🔄</span>
+      <span class="tct"><span class="tcl">Circuit</span><span class="tcd">A set of moves repeated for several rounds — work, short rest, next move, on a timer.</span></span></button>`;
+}
+function renderPartTypePick(c){
+  const st=state.routines, b=st.build; const first=!b.parts.length;
+  const heading = `<button class="linkbtn" id="ppBack" style="text-align:left;width:auto;">← Back</button>`
+    + (first
+      ? `<h2 class="tabtitle">New Routine</h2><div class="muted" style="margin-bottom:12px;">What's the first part of this workout?</div>`
+      : `<h2 class="tabtitle">Add a part</h2><div class="muted" style="margin-bottom:12px;">What kind of part is this?</div>`);
+  c.innerHTML=partTypeCards(heading);
+  document.getElementById('ppBack').onclick=()=>{ st.view = first ? 'list' : 'assemble'; render(); };
+  c.querySelectorAll('[data-ptype]').forEach(bt=>bt.onclick=()=>{
+    const t=bt.dataset.ptype; b.editIdx=null;
+    if(t==='timed'){ st.draftSteps=[{name:'',seconds:45}]; st.view='edit-timed'; }
+    else if(t==='rep'){ st.draftReps=[{name:'',sets:3,reps:null,rest:60,note:''}]; st.view='edit-rep'; }
+    else { st.draftCircuit={rounds:3, work:40, rest:15, restRounds:30, items:[{name:''}]}; st.view='edit-circuit'; }
+    window.scrollTo(0,0); render();
+  });
+}
+function backFromEditor(){ const st=state.routines; st.view = st.build.parts.length ? 'assemble' : 'list'; render(); }
+function savePart(part){
+  const st=state.routines, b=st.build;
+  if(b.editIdx!=null && b.editIdx>=0) b.parts[b.editIdx]=part; else b.parts.push(part);
+  st.view='assemble'; window.scrollTo(0,0); render();
 }
 
-/* ---------- rep-based routine builder ---------- */
+/* rep exercise editor row (shared) */
 function repEditRow(s,i,n){
   return `<div class="rep-edit" data-i="${i}">
     <div class="rep-edit-top">
@@ -2050,145 +2132,192 @@ function repEditRow(s,i,n){
       <div class="rep-ord">
         <button class="ord" data-up="${i}" ${i===0?'disabled':''}>▲</button>
         <button class="ord" data-down="${i}" ${i===n-1?'disabled':''}>▼</button>
-        <button class="sdel" data-rdel="${i}">✕</button>
-      </div>
-    </div>
+        <button class="sdel" data-rdel="${i}">✕</button></div></div>
     <div class="rep-edit-fields">
       <label>Sets<input class="text rsets" type="number" min="1" max="50" value="${parseInt(s.sets,10)||3}"></label>
       <label>Reps<input class="text rreps" type="number" min="1" max="200" placeholder="—" value="${s.reps!=null&&s.reps!==''?parseInt(s.reps,10):''}"></label>
-      <label>Rest (sec)<input class="text rrest" type="number" min="0" max="600" value="${parseInt(s.rest,10)||0}"></label>
-    </div>
-    <input class="text rnote" placeholder="Note (optional) — e.g. 12 reps, each side" value="${esc(s.note||'')}">
-  </div>`;
-}
-function renderRoutineRepEdit(c){
-  const st=state.routines;
-  const existing=st.editId?getRoutines().find(x=>x.id===st.editId):null;
-  const nameVal = st.draftName!=null ? st.draftName : (existing?existing.name:'');
-  let html=`<button class="linkbtn" id="rrBack" style="text-align:left;width:auto;">← Back</button>
-  <div class="card">
-    <label class="fld">Routine name</label>
-    <input class="text" id="rrName" placeholder="e.g. Upper Body" value="${esc(nameVal)}">
-    <label class="fld">Exercises <span class="opt">(name, sets, rest between sets)</span></label>
-    <div id="rrList">`;
-  st.draftReps.forEach((s,i)=>{ html+=repEditRow(s,i,st.draftReps.length); });
-  html+=`</div>
-    <button class="btn secondary" id="rrAdd" style="margin-top:6px;">＋ Add Exercise</button>
-    <div class="btn-row" style="margin-top:12px;">
-      ${existing?`<button class="btn secondary" id="rrDelete">Delete</button>`:''}
-      <button class="btn" id="rrSave">Save Routine</button>
-    </div>
-  </div>`;
-  c.innerHTML=html;
-
-  const readReps=()=>[...c.querySelectorAll('.rep-edit')].map(row=>{
-    const repsRaw=row.querySelector('.rreps').value;
-    return {
-      name:row.querySelector('.rname').value.trim(),
-      sets:Math.max(1, parseInt(row.querySelector('.rsets').value,10)||1),
-      reps:repsRaw===''?null:Math.max(1, parseInt(repsRaw,10)||0),
-      rest:Math.max(0, parseInt(row.querySelector('.rrest').value,10)||0),
-      note:row.querySelector('.rnote').value.trim()
-    };
-  });
-
-  const stashName=()=>{ const n=document.getElementById('rrName'); if(n) st.draftName=n.value; };
-  document.getElementById('rrBack').onclick=()=>{ st.view='list'; render(); };
-  document.getElementById('rrAdd').onclick=()=>{ stashName(); st.draftReps=readReps().concat([{name:'',sets:3,rest:60,note:''}]); render(); };
-  c.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{
-    stashName(); const i=parseInt(b.dataset.rdel,10); const s=readReps(); s.splice(i,1);
-    st.draftReps=s.length?s:[{name:'',sets:3,rest:60,note:''}]; render();
-  });
-  const move=(i,d)=>{ stashName(); const s=readReps(); const j=i+d; if(j<0||j>=s.length) return; const t=s[i]; s[i]=s[j]; s[j]=t; st.draftReps=s; render(); };
-  c.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>move(parseInt(b.dataset.up,10),-1));
-  c.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>move(parseInt(b.dataset.down,10),1));
-  document.getElementById('rrSave').onclick=()=>{
-    const name=document.getElementById('rrName').value.trim();
-    if(!name){ alert('Give the routine a name.'); return; }
-    const reps=readReps().filter(s=>s.name);
-    if(!reps.length){ alert('Add at least one exercise with a name.'); return; }
-    const steps=reps.map(s=>({ type:'rep', name:s.name, sets:s.sets, reps:s.reps, rest:s.rest, note:s.note }));
-    const arr=getRoutines();
-    let saved;
-    if(existing){ const i=arr.findIndex(x=>x.id===existing.id); arr[i]={...arr[i], name, steps}; saved=arr[i]; }
-    else { saved={ id:uid(), name, steps, createdAt:Date.now() }; arr.push(saved); }
-    setLS('workoutRoutines',arr);
-    cloudSaveRoutine(saved);
-    st.view='list'; render(); flash('Routine saved.');
-  };
-  const del=document.getElementById('rrDelete');
-  if(del) del.onclick=()=>{
-    if(!confirm('Delete this routine?')) return;
-    cloudDeleteRow('workout_routines', existing);
-    setLS('workoutRoutines', getRoutines().filter(x=>x.id!==existing.id));
-    st.view='list'; render(); flash('Routine deleted.');
-  };
+      <label>Rest (sec)<input class="text rrest" type="number" min="0" max="600" value="${parseInt(s.rest,10)||0}"></label></div>
+    <input class="text rnote" placeholder="Note (optional) — e.g. each side" value="${esc(s.note||'')}"></div>`;
 }
 
-function renderRoutineEdit(c){
+/* --- Timed part editor --- */
+function renderTimedPartEditor(c){
   const st=state.routines;
-  const existing=st.editId?getRoutines().find(x=>x.id===st.editId):null;
-  let html=`<button class="linkbtn" id="rtBack" style="text-align:left;width:auto;">← Back</button>
+  let html=`<button class="linkbtn" id="tpBack" style="text-align:left;width:auto;">← Back</button>
   <div class="card">
-    <label class="fld">Routine name</label>
-    <input class="text" id="rtName" placeholder="e.g. Morning Set" value="${esc(existing?existing.name:'')}">
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:8px;">⏱️ Timed part</div>
     <label class="fld">Steps <span class="opt">(name and seconds)</span></label>
-    <div id="rtSteps">`;
+    <div id="tpSteps">`;
   st.draftSteps.forEach((s,i)=>{
     html+=`<div class="step-row" data-i="${i}">
       <input class="text sname" placeholder="Exercise or Rest" value="${esc(s.name)}">
       <input class="text ssec" type="number" min="5" max="900" value="${parseInt(s.seconds,10)||45}">
-      <button class="sdel" data-del="${i}">✕</button>
-    </div>`;
+      <button class="sdel" data-del="${i}">✕</button></div>`;
   });
   html+=`</div>
-    <button class="btn secondary" id="rtAddStep" style="margin-top:6px;">＋ Add Step</button>
-    <div class="rt-meta" id="rtTotal" style="margin-top:12px;"></div>
-    <div class="btn-row" style="margin-top:6px;">
-      ${existing?`<button class="btn secondary" id="rtDelete">Delete</button>`:''}
-      <button class="btn" id="rtSave">Save Routine</button>
+    <button class="btn secondary" id="tpAdd" style="margin-top:6px;">＋ Add Step</button>
+    <div class="rt-meta" id="tpTotal" style="margin-top:12px;"></div>
+    <button class="btn" id="tpSave" style="margin-top:6px;">Save part</button>
+  </div>`;
+  c.innerHTML=html;
+  const read=()=>[...c.querySelectorAll('.step-row')].map(row=>({name:row.querySelector('.sname').value.trim(), seconds:Math.max(5,parseInt(row.querySelector('.ssec').value,10)||45)}));
+  const upd=()=>{ document.getElementById('tpTotal').textContent='Total: '+fmtClock(read().reduce((s,x)=>s+x.seconds,0)); };
+  upd(); c.querySelectorAll('.step-row input').forEach(i=>i.addEventListener('input',upd));
+  document.getElementById('tpBack').onclick=backFromEditor;
+  document.getElementById('tpAdd').onclick=()=>{ st.draftSteps=read().concat([{name:'',seconds:45}]); render(); };
+  c.querySelectorAll('[data-del]').forEach(bt=>bt.onclick=()=>{ const i=+bt.dataset.del; const s=read(); s.splice(i,1); st.draftSteps=s.length?s:[{name:'',seconds:45}]; render(); });
+  document.getElementById('tpSave').onclick=()=>{
+    const items=read().filter(s=>s.name);
+    if(!items.length){ alert('Add at least one step with a name.'); return; }
+    savePart({kind:'part', type:'timed', items});
+  };
+}
+
+/* --- Rep part editor --- */
+function renderRepPartEditor(c){
+  const st=state.routines;
+  let html=`<button class="linkbtn" id="rpBack" style="text-align:left;width:auto;">← Back</button>
+  <div class="card">
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:8px;">🔁 Rep part</div>
+    <label class="fld">Exercises <span class="opt">(name, sets, reps, rest)</span></label>
+    <div id="rpList">`;
+  st.draftReps.forEach((s,i)=>{ html+=repEditRow(s,i,st.draftReps.length); });
+  html+=`</div>
+    <button class="btn secondary" id="rpAdd" style="margin-top:6px;">＋ Add Exercise</button>
+    <button class="btn" id="rpSave" style="margin-top:12px;">Save part</button>
+  </div>`;
+  c.innerHTML=html;
+  const read=()=>[...c.querySelectorAll('.rep-edit')].map(row=>{ const rr=row.querySelector('.rreps').value; return {
+    name:row.querySelector('.rname').value.trim(),
+    sets:Math.max(1,parseInt(row.querySelector('.rsets').value,10)||1),
+    reps:rr===''?null:Math.max(1,parseInt(rr,10)||0),
+    rest:Math.max(0,parseInt(row.querySelector('.rrest').value,10)||0),
+    note:row.querySelector('.rnote').value.trim() }; });
+  document.getElementById('rpBack').onclick=backFromEditor;
+  document.getElementById('rpAdd').onclick=()=>{ st.draftReps=read().concat([{name:'',sets:3,reps:null,rest:60,note:''}]); render(); };
+  c.querySelectorAll('[data-rdel]').forEach(bt=>bt.onclick=()=>{ const i=+bt.dataset.rdel; const s=read(); s.splice(i,1); st.draftReps=s.length?s:[{name:'',sets:3,reps:null,rest:60,note:''}]; render(); });
+  const move=(i,d)=>{ const s=read(); const j=i+d; if(j<0||j>=s.length) return; const t=s[i]; s[i]=s[j]; s[j]=t; st.draftReps=s; render(); };
+  c.querySelectorAll('[data-up]').forEach(bt=>bt.onclick=()=>move(+bt.dataset.up,-1));
+  c.querySelectorAll('[data-down]').forEach(bt=>bt.onclick=()=>move(+bt.dataset.down,1));
+  document.getElementById('rpSave').onclick=()=>{
+    const items=read().filter(s=>s.name);
+    if(!items.length){ alert('Add at least one exercise with a name.'); return; }
+    savePart({kind:'part', type:'rep', items});
+  };
+}
+
+/* --- Circuit part editor --- */
+function renderCircuitPartEditor(c){
+  const st=state.routines; const cc=st.draftCircuit||{rounds:3,work:40,rest:15,restRounds:30,items:[{name:''}]};
+  let html=`<button class="linkbtn" id="cpBack" style="text-align:left;width:auto;">← Back</button>
+  <div class="card">
+    <div class="ph" style="font-weight:700;color:var(--navy);margin-bottom:8px;">🔄 Circuit part</div>
+    <div class="circ-fields">
+      <label>Rounds<input class="text ccrounds" type="number" min="1" max="20" value="${parseInt(cc.rounds,10)||3}"></label>
+      <label>Work (sec)<input class="text ccwork" type="number" min="5" max="600" value="${parseInt(cc.work,10)||40}"></label>
+      <label>Rest (sec)<input class="text ccrest" type="number" min="0" max="300" value="${parseInt(cc.rest,10)||15}"></label>
+      <label>Round rest<input class="text ccrr" type="number" min="0" max="600" value="${parseInt(cc.restRounds,10)||0}"></label>
+    </div>
+    <label class="fld">Moves <span class="opt">(each runs for the work time)</span></label>
+    <div id="ccList">`;
+  cc.items.forEach((it,i)=>{ html+=`<div class="step-row" data-i="${i}"><input class="text ccname" placeholder="Exercise" value="${esc(it.name)}"><button class="sdel" data-cdel="${i}">✕</button></div>`; });
+  html+=`</div>
+    <button class="btn secondary" id="ccAdd" style="margin-top:6px;">＋ Add Move</button>
+    <div class="rt-meta" id="ccTotal" style="margin-top:12px;"></div>
+    <button class="btn" id="ccSave" style="margin-top:6px;">Save part</button>
+  </div>`;
+  c.innerHTML=html;
+  const read=()=>({
+    kind:'part', type:'circuit',
+    rounds:Math.max(1,parseInt(c.querySelector('.ccrounds').value,10)||1),
+    work:Math.max(5,parseInt(c.querySelector('.ccwork').value,10)||40),
+    rest:Math.max(0,parseInt(c.querySelector('.ccrest').value,10)||0),
+    restRounds:Math.max(0,parseInt(c.querySelector('.ccrr').value,10)||0),
+    items:[...c.querySelectorAll('.ccname')].map(x=>({name:x.value.trim()}))
+  });
+  const stash=()=>{ const p=read(); st.draftCircuit={rounds:p.rounds,work:p.work,rest:p.rest,restRounds:p.restRounds,items:p.items}; };
+  const upd=()=>{ const p=read(); p.items=p.items.filter(x=>x.name); document.getElementById('ccTotal').textContent='About '+fmtClock(partTotalSec(p)); };
+  upd(); c.querySelectorAll('.circ-fields input, .ccname').forEach(i=>i.addEventListener('input',upd));
+  document.getElementById('cpBack').onclick=backFromEditor;
+  document.getElementById('ccAdd').onclick=()=>{ stash(); st.draftCircuit.items=st.draftCircuit.items.concat([{name:''}]); render(); };
+  c.querySelectorAll('[data-cdel]').forEach(bt=>bt.onclick=()=>{ stash(); const i=+bt.dataset.cdel; st.draftCircuit.items.splice(i,1); if(!st.draftCircuit.items.length) st.draftCircuit.items=[{name:''}]; render(); });
+  document.getElementById('ccSave').onclick=()=>{
+    const p=read(); p.items=p.items.filter(x=>x.name);
+    if(!p.items.length){ alert('Add at least one move with a name.'); return; }
+    savePart(p);
+  };
+}
+
+/* --- Assemble: name, list of parts, add another, save --- */
+function renderAssemble(c){
+  const st=state.routines, b=st.build;
+  const existing=st.editId?getRoutines().find(x=>x.id===st.editId):null;
+  let html=`<button class="linkbtn" id="asBack" style="text-align:left;width:auto;">← Back</button>
+  <div class="card">
+    <label class="fld">Routine name</label>
+    <input class="text" id="asName" placeholder="e.g. Full Body" value="${esc(b.name||'')}">
+    <label class="fld" style="margin-top:14px;">Parts of your workout</label>`;
+  b.parts.forEach((p,i)=>{
+    html+=`<div class="part-item">
+      <div class="part-tx"><span class="part-n">Part ${i+1}</span><span class="part-s">${esc(partSummary(p))}</span></div>
+      <div class="part-ord">
+        <button class="ord" data-pup="${i}" ${i===0?'disabled':''}>▲</button>
+        <button class="ord" data-pdown="${i}" ${i===b.parts.length-1?'disabled':''}>▼</button>
+        <button class="ord" data-pedit="${i}">✎</button>
+        <button class="sdel" data-pdel="${i}">✕</button>
+      </div></div>`;
+  });
+  if(!b.parts.length) html+=`<div class="muted" style="margin:6px 0;">No parts yet.</div>`;
+  html+=`<button class="btn secondary" id="asAdd" style="margin-top:8px;">＋ Add another part</button>
+    <div class="btn-row" style="margin-top:14px;">
+      ${existing?`<button class="btn secondary" id="asDelete">Delete</button>`:''}
+      <button class="btn" id="asSave">Save Routine</button>
     </div>
   </div>`;
   c.innerHTML=html;
-
-  const readSteps=()=>[...c.querySelectorAll('.step-row')].map(row=>({
-    name:row.querySelector('.sname').value.trim(),
-    seconds:Math.max(5, parseInt(row.querySelector('.ssec').value,10)||45)
-  }));
-  const updTotal=()=>{ const t=readSteps().reduce((s,x)=>s+x.seconds,0);
-    document.getElementById('rtTotal').textContent=`Total: ${fmtClock(t)}`; };
-  updTotal();
-  c.querySelectorAll('.step-row input').forEach(i=>i.addEventListener('input',updTotal));
-
-  document.getElementById('rtBack').onclick=()=>{ st.view='list'; render(); };
-  document.getElementById('rtAddStep').onclick=()=>{ st.draftSteps=readSteps().concat([{name:'',seconds:45}]); render(); };
-  c.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-    const i=parseInt(b.dataset.del,10); const s=readSteps(); s.splice(i,1);
-    st.draftSteps=s.length?s:[{name:'',seconds:45}]; render();
+  const stashName=()=>{ const n=document.getElementById('asName'); if(n) b.name=n.value; };
+  document.getElementById('asBack').onclick=()=>{ st.view='list'; st.build=null; render(); };
+  document.getElementById('asName').oninput=()=>{ b.name=document.getElementById('asName').value; };
+  document.getElementById('asAdd').onclick=()=>{ stashName(); b.editIdx=null; st.view='pick-part'; window.scrollTo(0,0); render(); };
+  c.querySelectorAll('[data-pedit]').forEach(bt=>bt.onclick=()=>{
+    stashName(); const i=+bt.dataset.pedit; const p=b.parts[i]; b.editIdx=i;
+    if(p.type==='rep'){ st.draftReps=(p.items||[]).map(x=>({...x})); st.view='edit-rep'; }
+    else if(p.type==='circuit'){ st.draftCircuit={rounds:p.rounds,work:p.work,rest:p.rest,restRounds:p.restRounds,items:(p.items||[]).map(x=>({...x}))}; st.view='edit-circuit'; }
+    else { st.draftSteps=(p.items||[]).map(x=>({...x})); st.view='edit-timed'; }
+    window.scrollTo(0,0); render();
   });
-  document.getElementById('rtSave').onclick=()=>{
-    const name=document.getElementById('rtName').value.trim();
+  c.querySelectorAll('[data-pdel]').forEach(bt=>bt.onclick=()=>{ stashName(); b.parts.splice(+bt.dataset.pdel,1); render(); });
+  const move=(i,d)=>{ stashName(); const j=i+d; if(j<0||j>=b.parts.length) return; const t=b.parts[i]; b.parts[i]=b.parts[j]; b.parts[j]=t; render(); };
+  c.querySelectorAll('[data-pup]').forEach(bt=>bt.onclick=()=>move(+bt.dataset.pup,-1));
+  c.querySelectorAll('[data-pdown]').forEach(bt=>bt.onclick=()=>move(+bt.dataset.pdown,1));
+  document.getElementById('asSave').onclick=()=>{
+    const name=document.getElementById('asName').value.trim();
     if(!name){ alert('Give the routine a name.'); return; }
-    const steps=readSteps().filter(s=>s.name);
-    if(!steps.length){ alert('Add at least one step with a name.'); return; }
-    const arr=getRoutines();
-    let saved;
+    if(!b.parts.length){ alert('Add at least one part.'); return; }
+    const steps=b.parts.map(clonePart);   // single-part routines behave exactly like before
+    const arr=getRoutines(); let saved;
     if(existing){ const i=arr.findIndex(x=>x.id===existing.id); arr[i]={...arr[i], name, steps}; saved=arr[i]; }
     else { saved={ id:uid(), name, steps, createdAt:Date.now() }; arr.push(saved); }
-    setLS('workoutRoutines',arr);
-    cloudSaveRoutine(saved);
-    st.view='list'; render(); flash('Routine saved.');
+    setLS('workoutRoutines',arr); cloudSaveRoutine(saved);
+    st.view='list'; st.build=null; render(); flash('Routine saved.');
   };
-  const del=document.getElementById('rtDelete');
+  const del=document.getElementById('asDelete');
   if(del) del.onclick=()=>{
     if(!confirm('Delete this routine?')) return;
     cloudDeleteRow('workout_routines', existing);
     setLS('workoutRoutines', getRoutines().filter(x=>x.id!==existing.id));
-    st.view='list'; render(); flash('Routine deleted.');
+    st.view='list'; st.build=null; render(); flash('Routine deleted.');
   };
 }
 
-/* ---------- Workout coach ---------- */
+
+/* ===================================================================
+   Workout coach — plays a routine one PART at a time, in order.
+   Timed & Circuit parts use the timed engine (state.workout.steps);
+   Rep parts use the freeform grid (state.repWorkout.steps).
+   The session sequencer (state.session) walks the parts and logs once
+   at the end. A single-part routine behaves exactly like a plain one.
+=================================================================== */
 function clearLeadTimers(){
   const w=state.workout;
   (w.leadTimers||[]).forEach(id=>clearTimeout(id));
@@ -2208,34 +2337,89 @@ function stopWorkoutTimer(){
     rw.restTimers=(rw.restTimers||[]).map(()=>null); rw.restLeft=(rw.restLeft||[]).map(()=>0); }
   if('speechSynthesis' in window){ try{ window.speechSynthesis.cancel(); }catch(e){} }
 }
-function startWorkout(routineId){
-  const r=getRoutines().find(x=>x.id===routineId);
-  if(!r || !(r.steps||[]).length){ flash('That routine has no steps.'); return; }
+
+/* ---- session sequencer ---- */
+function runSessionPart(idx, isAdvance){
+  const ss=state.session;
+  if(!ss.active) return;
+  ss.idx=idx;
+  const part=ss.parts[idx];
+  if(!part) return finishSession();
+  if(part.type==='rep') startRepPart(part, isAdvance);
+  else startTimedPart(part, isAdvance);        // timed + circuit
+}
+function sessionPartDone(){
+  const ss=state.session;
   stopWorkoutTimer();
-  primeAudio();                       // must happen inside the tap, or iOS blocks audio
+  if(!ss.active) return;
+  if(ss.idx >= ss.parts.length-1) return finishSession();
+  runSessionPart(ss.idx+1, true);
+}
+function logSession(){
+  const ss=state.session;
+  const durationSec=Math.round((Date.now()-ss.startedAt)/1000);
+  const entry={ id:uid(), routineName:ss.routineName, date:fmtDateTime(new Date()), timestamp:Date.now(),
+                durationSec, stepsCompleted:ss.completed };
+  const log=getLS('workoutLog',[]); log.push(entry); setLS('workoutLog',log);
+  cloudSaveWorkoutLog(entry);
+}
+function finishSession(){
+  const ss=state.session;
+  stopWorkoutTimer();
+  logSession();
+  speak('Workout complete. Nice work.');
+  ss.active=false;
+  const w=state.workout; w.kind='timed'; w.view='done'; w.completed=ss.completed;
+  render();
+}
+/* End early: log only if something was actually done, then show the done screen. */
+function endSession(){
+  const ss=state.session;
+  stopWorkoutTimer();
+  if(!ss.active){ state.workout.view='pick'; render(); return; }
+  ss.active=false;
   const w=state.workout;
-  w.kind='timed';
-  w.routineId=routineId; w.stepIdx=0; w.remaining=parseInt(r.steps[0].seconds,10)||45;
-  w.running=false; w.startedAt=Date.now(); w.completed=0;
-  w.view='ready'; w.countdown=3;      // get-ready phase before the clock runs
-  activeTab='workout'; activeSection='exercise';
-  setLS('activeTab','workout'); setLS('activeSection','exercise');
-  window.scrollTo(0,0); render();
-  runLeadIn(r);
+  if(ss.completed>0){ logSession(); speak('Workout ended. Logged.'); w.kind='timed'; w.completed=ss.completed; w.view='done'; render(); }
+  else { speak('Workout ended.'); w.view='pick'; render(); }
+}
+/* Cancel before anything ran — no log. */
+function cancelSession(){
+  state.session.active=false;
+  stopWorkoutTimer();
+  state.workout.view='pick'; render();
+}
+function partPrefix(){
+  const ss=state.session;
+  return ss.parts.length>1 ? `Part ${ss.idx+1} of ${ss.parts.length} · ` : '';
 }
 
-/* Announce the routine, then 3 beeps, then "Begin" — so you're not caught
+/* ---- Timed / Circuit part ---- */
+function startTimedPart(part, isAdvance){
+  const w=state.workout, ss=state.session;
+  const steps = part.type==='circuit'
+    ? expandCircuit(part)
+    : (part.items||[]).filter(x=>x&&x.name).map(s=>({name:s.name, seconds:parseInt(s.seconds,10)||45}));
+  if(!steps.length) return sessionPartDone();
+  w.kind='timed'; w.steps=steps; w.stepIdx=0; w.remaining=parseInt(steps[0].seconds,10)||45;
+  w.running=false; w.view='ready'; w.countdown=3;
+  w.partIdx=ss.idx; w.partCount=ss.parts.length;
+  render();
+  runLeadIn(isAdvance);
+}
+/* Announce the part, then 3 beeps, then "Begin" — so you're not caught
    mid-sentence when the first timer starts. */
-function runLeadIn(r){
-  const w=state.workout;
+function runLeadIn(isAdvance){
+  const w=state.workout, ss=state.session;
   clearLeadTimers();
   const token=w.leadToken;
-  const alive=()=> w.view==='ready' && w.leadToken===token;
-  const first=r.steps[0];
-  const intro=`Starting ${r.name}. First up: ${first.name}.`;
-
+  const alive=()=> w.view==='ready' && w.leadToken===token && ss.active;
+  const first=w.steps[0]||{name:''};
+  const many=ss.parts.length>1;
+  const intro = (isAdvance && many)
+    ? `Part ${ss.idx+1}. First up: ${first.name}.`
+    : `Starting ${ss.routineName}. First up: ${first.name}.`;
   const countdown=()=>{
-    if(!alive()) return;              // user bailed while it was talking
+    if(!alive()) return;               // user bailed while it was talking
     let n=3;
     const tick=()=>{
       if(!alive()) return;
@@ -2248,7 +2432,7 @@ function runLeadIn(r){
         speak('Begin!');
         w.leadTimers.push(setTimeout(()=>{
           if(!alive()) return;
-          w.view='run'; w.running=true; w.startedAt=Date.now();
+          w.view='run'; w.running=true;
           render(); tickStart();
         }, 750));
       }
@@ -2262,12 +2446,10 @@ function paintReady(){
   const el=document.getElementById('rdNum');
   if(el) el.textContent = w.countdown>0 ? String(w.countdown) : 'GO';
 }
-function announceStep(r, idx, first){
-  const s=r.steps[idx]; if(!s) return;
+function announceStep(idx){
+  const s=state.workout.steps[idx]; if(!s) return;
   const secs=parseInt(s.seconds,10)||0;
-  const lead = first ? 'Starting ' + r.name + '. ' : '';
-  const body = isRest(s.name) ? `Rest for ${secs} seconds.` : `${s.name}. ${secs} seconds.`;
-  speak(lead + body);
+  speak(isRest(s.name) ? `Rest for ${secs} seconds.` : `${s.name}. ${secs} seconds.`);
 }
 function tickStart(){
   const w=state.workout;
@@ -2279,83 +2461,64 @@ function tickStart(){
   },1000);
 }
 function nextStep(){
-  const w=state.workout;
-  const r=getRoutines().find(x=>x.id===w.routineId);
-  if(!r) { stopWorkoutTimer(); return; }
-  w.completed++;
-  if(w.stepIdx >= r.steps.length-1){ finishWorkout(r); return; }
+  const w=state.workout, ss=state.session;
+  ss.completed++;
+  if(w.stepIdx >= w.steps.length-1) return sessionPartDone();
   w.stepIdx++;
-  w.remaining=parseInt(r.steps[w.stepIdx].seconds,10)||45;
-  announceStep(r, w.stepIdx, false);
+  w.remaining=parseInt(w.steps[w.stepIdx].seconds,10)||45;
+  announceStep(w.stepIdx);
   paintWorkout();
-}
-function finishWorkout(r){
-  const w=state.workout;
-  stopWorkoutTimer();
-  const durationSec=Math.round((Date.now()-w.startedAt)/1000);
-  const entry={ id:uid(), routineName:r.name, date:fmtDateTime(new Date()), timestamp:Date.now(),
-                durationSec, stepsCompleted:w.completed };
-  const log=getLS('workoutLog',[]); log.push(entry); setLS('workoutLog',log);
-  cloudSaveWorkoutLog(entry);
-  speak('Workout complete. Nice work.');
-  w.view='done'; render();
 }
 /* update the live numbers in place — a full render() would rebuild the DOM every second */
 function paintWorkout(){
   const w=state.workout;
-  const r=getRoutines().find(x=>x.id===w.routineId); if(!r) return;
-  const s=r.steps[w.stepIdx]; if(!s) return;
+  const s=w.steps[w.stepIdx]; if(!s) return;
   const total=parseInt(s.seconds,10)||1;
   const t=document.getElementById('woTime'); if(t){ t.textContent=fmtClock(w.remaining); t.classList.toggle('rest', isRest(s.name)); }
   const bar=document.getElementById('woBar'); if(bar) bar.style.width=Math.max(0,Math.min(100,((total-w.remaining)/total)*100))+'%';
   const nm=document.getElementById('woName'); if(nm) nm.textContent=s.name;
-  const stp=document.getElementById('woStep'); if(stp) stp.textContent=`Step ${w.stepIdx+1} of ${r.steps.length}`;
+  const stp=document.getElementById('woStep'); if(stp) stp.textContent=`${partPrefix()}Step ${w.stepIdx+1} of ${w.steps.length}`;
   const nx=document.getElementById('woNext');
-  if(nx){ const n=r.steps[w.stepIdx+1]; nx.textContent = n ? 'Next: '+n.name : 'Last step'; }
+  if(nx){ const n=w.steps[w.stepIdx+1]; nx.textContent = n ? 'Next: '+n.name : 'Last step of this part'; }
 }
 function renderWorkout(c){
-  const w=state.workout;
-  const routines=getRoutines();
+  const w=state.workout, ss=state.session;
 
   if(w.view==='done'){
-    const mins=Math.max(1,Math.round((getLS('workoutLog',[]).slice(-1)[0]||{}).durationSec/60||1));
+    const mins=Math.max(1,Math.round(((getLS('workoutLog',[]).slice(-1)[0]||{}).durationSec||0)/60)||1);
     c.innerHTML=`<h2 class="tabtitle">▶️ Workout</h2>
       <div class="wo-done"><div class="di">✅</div><h3>Workout complete</h3>
-      <p>${w.completed} steps · about ${mins} minute${mins===1?'':'s'}. Logged.</p></div>
+      <p>${w.completed} completed · about ${mins} minute${mins===1?'':'s'}. Logged.</p></div>
       <button class="btn" id="woAgain">Do Another</button>`;
     document.getElementById('woAgain').onclick=()=>{ w.kind='timed'; w.view='pick'; render(); };
     return;
   }
 
-  if(w.kind==='rep'){ return renderRepPlayer(c); }
+  if(ss.active && w.kind==='rep') return renderRepPlayer(c);
 
-  if(w.view==='ready'){
-    const r=routines.find(x=>x.id===w.routineId);
-    if(!r){ w.view='pick'; return render(); }
-    const first=r.steps[0]||{name:''};
+  if(ss.active && w.view==='ready'){
+    const first=w.steps[0]||{name:''};
     c.innerHTML=`
       <div class="wo-stage">
-        <div class="wo-step">Get ready</div>
+        <div class="wo-step">${partPrefix()}Get ready</div>
         <div class="wo-name">First up: ${esc(first.name)}</div>
         <div class="wo-time" id="rdNum">${w.countdown>0?w.countdown:'GO'}</div>
-        <div class="wo-next">${esc(r.name)}</div>
+        <div class="wo-next">${esc(ss.routineName)}</div>
       </div>
       <button class="btn secondary" id="rdCancel">Cancel</button>`;
-    document.getElementById('rdCancel').onclick=()=>{ stopWorkoutTimer(); w.view='pick'; render(); };
+    document.getElementById('rdCancel').onclick=cancelSession;
     return;
   }
 
-  if(w.view==='run'){
-    const r=routines.find(x=>x.id===w.routineId);
-    if(!r){ w.view='pick'; return render(); }
-    const s=r.steps[w.stepIdx]||{name:'',seconds:0};
+  if(ss.active && w.view==='run'){
+    const s=w.steps[w.stepIdx]||{name:'',seconds:0};
     c.innerHTML=`
       <div class="wo-stage">
-        <div class="wo-step" id="woStep">Step ${w.stepIdx+1} of ${r.steps.length}</div>
+        <div class="wo-step" id="woStep">${partPrefix()}Step ${w.stepIdx+1} of ${w.steps.length}</div>
         <div class="wo-name" id="woName">${esc(s.name)}</div>
         <div class="wo-time ${isRest(s.name)?'rest':''}" id="woTime">${fmtClock(w.remaining)}</div>
         <div class="wo-bar"><span id="woBar" style="width:0%"></span></div>
-        <div class="wo-next" id="woNext">${r.steps[w.stepIdx+1]?'Next: '+esc(r.steps[w.stepIdx+1].name):'Last step'}</div>
+        <div class="wo-next" id="woNext">${w.steps[w.stepIdx+1]?'Next: '+esc(w.steps[w.stepIdx+1].name):'Last step of this part'}</div>
       </div>
       <div class="wo-ctrl">
         <button class="btn secondary" id="woPause">${w.running?'⏸ Pause':'▶ Resume'}</button>
@@ -2369,11 +2532,12 @@ function renderWorkout(c){
       if(!w.running && 'speechSynthesis' in window){ try{ window.speechSynthesis.cancel(); }catch(e){} }
     };
     document.getElementById('woSkip').onclick=()=> nextStep();
-    document.getElementById('woEnd').onclick=()=>{ stopWorkoutTimer(); w.view='pick'; render(); };
+    document.getElementById('woEnd').onclick=endSession;
     return;
   }
 
-  // pick view
+  // pick view — list routines to start from the Workout tab
+  const routines=getRoutines();
   let html=`<h2 class="tabtitle">▶️ Workout</h2>`;
   if(!routines.length){
     html+=`<div class="soon"><div class="si">💪</div><h3>No routines yet</h3>
@@ -2385,8 +2549,8 @@ function renderWorkout(c){
   }
   html+=`<div class="muted" style="margin-bottom:12px;">Pick a routine to begin.</div>`;
   routines.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(r=>{
-    const ty=routineType(r);
-    html+=`<div class="entry"><div class="ed">${esc(r.name)}<span class="rt-badge ${ty}">${ty==='rep'?'Reps':'Timed'}</span></div>
+    const bd=routineBadge(r); const cls=bd==='Reps'?'rep':bd==='Mixed'?'mixed':bd==='Circuit'?'circuit':'timed';
+    html+=`<div class="entry"><div class="ed">${esc(r.name)}<span class="rt-badge ${cls}">${bd}</span></div>
       <div class="rt-meta">${routineMeta(r)}</div>
       <button class="btn" data-wstart="${r.id}">▶ Start</button></div>`;
   });
@@ -2395,29 +2559,24 @@ function renderWorkout(c){
 }
 
 /* ===================================================================
-   REP-BASED WORKOUT PLAYER — freeform grid, per-card rest timers.
-   Logs to workoutLog exactly like timed workouts.
+   REP PART — freeform grid, per-card rest timers. Reads state.repWorkout.steps.
 =================================================================== */
-function startRepWorkout(routineId){
-  const r=getRoutines().find(x=>x.id===routineId);
-  if(!r || !(r.steps||[]).length){ flash('That routine has no exercises.'); return; }
-  stopWorkoutTimer();
-  primeAudio();
-  const rw=state.repWorkout;
-  rw.routineId=routineId;
-  rw.counts=r.steps.map(()=>0);
-  rw.restLeft=r.steps.map(()=>0);
-  rw.restTimers=r.steps.map(()=>null);
-  rw.startedAt=Date.now(); rw.completedSets=0;
-  const w=state.workout;
-  w.kind='rep'; w.view='run'; w.routineId=routineId; w.completed=0;
-  activeTab='workout'; activeSection='exercise';
-  setLS('activeTab','workout'); setLS('activeSection','exercise');
-  window.scrollTo(0,0); render();
-  speak('Starting '+r.name+'. Log a set on any exercise to begin.');
+function startRepPart(part, isAdvance){
+  const rw=state.repWorkout, ss=state.session, w=state.workout;
+  const steps=(part.items||[]).filter(x=>x&&x.name);
+  if(!steps.length) return sessionPartDone();
+  rw.steps=steps;
+  rw.counts=steps.map(()=>0);
+  rw.restLeft=steps.map(()=>0);
+  rw.restTimers=steps.map(()=>null);
+  w.kind='rep'; w.view='run'; w.partIdx=ss.idx; w.partCount=ss.parts.length;
+  render();
+  const many=ss.parts.length>1;
+  const lead = (isAdvance && many) ? `Part ${ss.idx+1}. ` : `Starting ${ss.routineName}. `;
+  speak(lead+'Log a set on any exercise to begin.');
 }
-function repCardHtml(r,i){
-  const rw=state.repWorkout; const s=r.steps[i];
+function repCardHtml(i){
+  const rw=state.repWorkout; const s=rw.steps[i];
   const target=parseInt(s.sets,10)||1; const done=rw.counts[i]||0;
   const complete=done>=target; const resting=(rw.restLeft[i]||0)>0;
   let btn;
@@ -2433,21 +2592,19 @@ function repCardHtml(r,i){
   </div>`;
 }
 function renderRepPlayer(c){
-  const rw=state.repWorkout;
-  const r=getRoutines().find(x=>x.id===rw.routineId);
-  if(!r){ state.workout.kind='timed'; state.workout.view='pick'; return render(); }
-  let html=`<h2 class="tabtitle">▶️ ${esc(r.name)}</h2>
-    <div class="muted" style="margin-bottom:12px;">Tap “Log Set” on any exercise, in any order. Rest is announced out loud.</div>
-    <div class="rep-grid">${r.steps.map((s,i)=>repCardHtml(r,i)).join('')}</div>
+  const rw=state.repWorkout, ss=state.session;
+  if(!rw.steps || !rw.steps.length){ ss.active=false; state.workout.kind='timed'; state.workout.view='pick'; return render(); }
+  let html=`<h2 class="tabtitle">▶️ ${esc(ss.routineName)}</h2>
+    <div class="muted" style="margin-bottom:12px;">${partPrefix()}Tap “Log Set” on any exercise, in any order. Rest is announced out loud.</div>
+    <div class="rep-grid">${rw.steps.map((s,i)=>repCardHtml(i)).join('')}</div>
     <button class="btn secondary" id="repEnd">End Workout</button>`;
   c.innerHTML=html;
   c.querySelectorAll('[data-log]').forEach(b=>b.onclick=()=> repLogSet(parseInt(b.dataset.log,10)));
-  document.getElementById('repEnd').onclick=()=> finishRep(r, true);
+  document.getElementById('repEnd').onclick=endSession;
 }
 function paintRepCard(i){
   const rw=state.repWorkout;
-  const r=getRoutines().find(x=>x.id===rw.routineId); if(!r) return;
-  const s=r.steps[i]; if(!s) return;
+  const s=rw.steps[i]; if(!s) return;
   const target=parseInt(s.sets,10)||1; const done=rw.counts[i]||0;
   const complete=done>=target; const resting=(rw.restLeft[i]||0)>0;
   const card=document.getElementById('repCard-'+i); if(card) card.classList.toggle('complete',complete);
@@ -2474,36 +2631,26 @@ function startRepRest(i,s){
     } else { paintRepCard(i); }
   },1000);
 }
-function checkRepAllDone(r){
+function checkRepAllDone(){
   const rw=state.repWorkout;
-  return r.steps.every((s,i)=>(rw.counts[i]||0) >= (parseInt(s.sets,10)||1));
+  return rw.steps.every((s,i)=>(rw.counts[i]||0) >= (parseInt(s.sets,10)||1));
 }
 function repLogSet(i){
-  const rw=state.repWorkout;
-  const r=getRoutines().find(x=>x.id===rw.routineId); if(!r) return;
-  const s=r.steps[i]; const target=parseInt(s.sets,10)||1;
+  const rw=state.repWorkout, ss=state.session;
+  const s=rw.steps[i]; if(!s) return;
+  const target=parseInt(s.sets,10)||1;
   if((rw.restLeft[i]||0)>0 || (rw.counts[i]||0)>=target) return;   // resting or already complete
-  rw.counts[i]=(rw.counts[i]||0)+1; rw.completedSets++;
+  rw.counts[i]=(rw.counts[i]||0)+1; ss.completed++;
   if(rw.counts[i]>=target){
     paintRepCard(i);
-    if(checkRepAllDone(r)){ return finishRep(r, false); }
+    if(checkRepAllDone()){
+      (rw.restTimers||[]).forEach(id=>{ if(id) clearInterval(id); });
+      rw.restTimers=rw.steps.map(()=>null); rw.restLeft=rw.steps.map(()=>0);
+      return sessionPartDone();
+    }
   } else {
     startRepRest(i,s);
   }
-}
-function finishRep(r, early){
-  const rw=state.repWorkout;
-  (rw.restTimers||[]).forEach(id=>{ if(id) clearInterval(id); });
-  rw.restTimers=r.steps.map(()=>null); rw.restLeft=r.steps.map(()=>0);
-  const durationSec=Math.round((Date.now()-rw.startedAt)/1000);
-  const entry={ id:uid(), routineName:r.name, date:fmtDateTime(new Date()), timestamp:Date.now(),
-                durationSec, stepsCompleted:rw.completedSets };
-  const log=getLS('workoutLog',[]); log.push(entry); setLS('workoutLog',log);
-  cloudSaveWorkoutLog(entry);
-  speak(early ? 'Workout ended. Logged.' : 'Workout complete. Nice work.');
-  const w=state.workout;
-  w.completed=rw.completedSets; w.view='done';   // reuse the timed done screen
-  render();
 }
 
 /* ---------- Log tab ---------- */
