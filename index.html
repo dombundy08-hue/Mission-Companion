@@ -330,8 +330,6 @@
   .sectionbtn:active{background:rgba(255,255,255,.2);}
   .sectionbtn .sec-ic{font-size:19px;line-height:1;}
   .sectionbtn .sec-ca{font-size:13px;color:var(--gold);margin-left:1px;}
-  .brandlogo{width:34px;height:34px;border-radius:8px;display:block;flex:none;
-    background:#fff;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.25);}
   .section-card{
     display:flex;align-items:center;gap:12px;width:100%;text-align:left;min-height:60px;
     background:#fff;border:1px solid var(--line);border-radius:12px;
@@ -591,7 +589,7 @@
 <div id="app">
   <header class="topbar">
     <button class="sectionbtn" id="sectionBtn" aria-label="Switch section">
-      <img class="brandlogo" src="assets/icon-192.png" alt="Mission Companion" width="34" height="34">
+      <span class="sec-ic" id="secIcon">✝️</span>
       <span class="sec-nm" id="secName">Spiritual</span>
       <span class="sec-ca">▾</span>
     </button>
@@ -1941,8 +1939,9 @@ function render(){
   activeSection = sectionOf(activeTab);
   setLS('activeSection', activeSection);
 
-  // top switcher reflects the current section (logo stays fixed as the brand mark)
+  // top switcher reflects the current section
   const s=SECTIONS[activeSection];
+  document.getElementById('secIcon').textContent=s.icon;
   document.getElementById('secName').textContent=s.label;
 
   renderBottomNav();
