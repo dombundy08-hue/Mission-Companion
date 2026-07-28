@@ -232,6 +232,23 @@
   .modal input{width:100%;height:50px;border:1px solid var(--line);border-radius:12px;padding:0 14px;font-size:16px;margin-bottom:14px;}
   .read-body{white-space:pre-wrap;word-break:break-word;font-size:17px;line-height:1.6;}
 
+  /* Settings modal: scrollable body with a sticky close button */
+  .settings-modal{position:relative;padding:0;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
+  .settings-modal .modal-scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;}
+  .modal-x{position:absolute;top:10px;right:10px;z-index:3;width:38px;height:38px;border:none;
+    border-radius:50%;background:#eceaf0;color:var(--navy);font-size:16px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.12);cursor:pointer;}
+  .modal-x:active{background:#ddd9e4;}
+  .settings-modal h3{padding-right:40px;}
+  .lockrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:#f4f2ec;border:1px solid var(--line);border-radius:12px;padding:14px 14px;min-height:52px;
+    font-size:16px;font-weight:700;color:var(--navy);cursor:pointer;}
+  .lockrow:active{background:#ece9e0;}
+  .lockrow .lr-ic{font-size:18px;line-height:1;flex:none;}
+  .lockrow .lr-tx{flex:1;}
+  .lockrow .lr-ca{font-size:20px;color:var(--muted);flex:none;}
+  .pw-err{color:#b23b3b;font-size:13.5px;font-weight:600;margin:-6px 0 12px;}
+
   /* ---------- Mastery / Scripture ---------- */
   .progress-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
   .progress-card .ph{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
@@ -612,29 +629,50 @@
 
 <!-- settings modal -->
 <div class="modal-back" id="settingsModal">
-  <div class="modal">
-    <h3>Settings</h3>
-    <p>Update your Anthropic API key. Stored only on this device.</p>
-    <input id="settingsKey" type="password" placeholder="Anthropic API key" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
-    <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
-    <label class="checkrow" style="display:flex;align-items:center;gap:10px;margin-top:12px;cursor:pointer;">
-      <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
-      <span style="font-size:14px;color:#3a4150;">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
-    </label>
-    <div class="btn-row" style="margin-top:14px;">
-      <button class="btn secondary" id="settingsCancel">Cancel</button>
-      <button class="btn" id="settingsSave">Save</button>
+  <div class="modal settings-modal">
+    <button class="modal-x" id="settingsX" aria-label="Close settings">✕</button>
+    <div class="modal-scroll">
+      <h3>Settings</h3>
+
+      <!-- API keys are gated behind the app password; collapsed by default -->
+      <button class="lockrow" id="apiKeysToggle">
+        <span class="lr-ic">🔒</span>
+        <span class="lr-tx">API Keys</span>
+        <span class="lr-ca">›</span>
+      </button>
+      <div id="apiKeysUnlock" style="display:none;">
+        <p style="margin:12px 0 8px;">Enter your app password to view or edit your API keys.</p>
+        <input id="apiKeysPw" type="password" placeholder="App password" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="apiKeysPwErr" class="pw-err" style="display:none;">Incorrect password. Try again.</div>
+        <div class="btn-row">
+          <button class="btn secondary" id="apiKeysPwCancel">Cancel</button>
+          <button class="btn" id="apiKeysPwGo">Unlock</button>
+        </div>
+      </div>
+      <div id="apiKeysPanel" style="display:none;">
+        <p style="margin:12px 0 8px;">Update your Anthropic API key. Stored only on this device.</p>
+        <input id="settingsKey" type="password" placeholder="Anthropic API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
+        <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
+        <button class="btn" id="settingsSave" style="margin-top:14px;">Save Keys</button>
+      </div>
+
+      <hr class="divider">
+      <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
+        <span style="font-size:14px;color:#3a4150;">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
+      </label>
+
+      <hr class="divider">
+      <label class="fld" for="voiceSelect">Workout Voice</label>
+      <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
+      <select class="text" id="voiceSelect" style="height:48px;"></select>
+      <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
+      <hr class="divider">
+      <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
+      <p style="margin-top:14px;margin-bottom:0;">Need help? 720-745-0911 or 720-745-3166.</p>
     </div>
-    <hr class="divider">
-    <label class="fld" for="voiceSelect">Workout Voice</label>
-    <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
-    <select class="text" id="voiceSelect" style="height:48px;"></select>
-    <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
-    <hr class="divider">
-    <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
-    <p style="margin-top:14px;margin-bottom:0;">Need help? 720-745-0911 or 720-745-3166.</p>
   </div>
 </div>
 
@@ -1659,16 +1697,64 @@ document.getElementById('setupSave').addEventListener('click', ()=>{
 });
 
 /* settings modal */
-document.getElementById('gearBtn').addEventListener('click', ()=>{
+/* Collapse the API-keys section back to its locked state. Called every time
+   the modal opens so the keys are never left unlocked between visits. */
+function resetApiKeysLock(){
+  document.getElementById('apiKeysToggle').style.display='';
+  document.getElementById('apiKeysUnlock').style.display='none';
+  document.getElementById('apiKeysPanel').style.display='none';
+  document.getElementById('apiKeysPw').value='';
+  document.getElementById('apiKeysPwErr').style.display='none';
+}
+function openSettings(){
+  // pre-fill the key fields (they stay hidden until unlocked)
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
   document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
   document.getElementById('settingsOff').checked = localStorage.getItem('offEnabled')!=='0';   // default on
+  resetApiKeysLock();
   loadVoices();   // voices may have finished loading since page start
   document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings(){ document.getElementById('settingsModal').classList.remove('show'); }
+
+document.getElementById('gearBtn').addEventListener('click', openSettings);
+document.getElementById('settingsX').addEventListener('click', closeSettings);
+// tapping the dark overlay (outside the modal card) also closes it
+document.getElementById('settingsModal').addEventListener('click', e=>{
+  if(e.target === document.getElementById('settingsModal')) closeSettings();
 });
-document.getElementById('settingsCancel').addEventListener('click', ()=>{
-  document.getElementById('settingsModal').classList.remove('show');
+
+/* --- API keys: password-gated reveal --- */
+document.getElementById('apiKeysToggle').addEventListener('click', ()=>{
+  document.getElementById('apiKeysToggle').style.display='none';
+  document.getElementById('apiKeysUnlock').style.display='';
+  document.getElementById('apiKeysPwErr').style.display='none';
+  const pw=document.getElementById('apiKeysPw'); pw.value=''; setTimeout(()=>pw.focus(),50);
 });
+function tryRevealKeys(){
+  const pw=document.getElementById('apiKeysPw');
+  if(pw.value === APP_PASSWORD){
+    document.getElementById('apiKeysUnlock').style.display='none';
+    document.getElementById('apiKeysPwErr').style.display='none';
+    // refresh from storage in case they changed on another device this session
+    document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
+    document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
+    document.getElementById('apiKeysPanel').style.display='';
+  } else {
+    document.getElementById('apiKeysPwErr').style.display='';
+    pw.value=''; pw.focus();
+  }
+}
+document.getElementById('apiKeysPwGo').addEventListener('click', tryRevealKeys);
+document.getElementById('apiKeysPw').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
+document.getElementById('apiKeysPwCancel').addEventListener('click', resetApiKeysLock);
+
+/* Open Food Facts toggle saves on its own — no key access needed */
+document.getElementById('settingsOff').addEventListener('change', function(){
+  localStorage.setItem('offEnabled', this.checked ? '1' : '0');
+});
+
+/* Saving keys from inside the unlocked section — no second password needed */
 document.getElementById('settingsSave').addEventListener('click', ()=>{
   const k = document.getElementById('settingsKey').value.trim();
   if(!k){ alert("Please enter your API key."); return; }
@@ -1677,9 +1763,8 @@ document.getElementById('settingsSave').addEventListener('click', ()=>{
   const u = document.getElementById('settingsUsda').value.trim();
   if(u){ localStorage.setItem('usdaApiKey', u); cloudSaveSetting('usdaApiKey', u); }
   else { localStorage.removeItem('usdaApiKey'); }
-  localStorage.setItem('offEnabled', document.getElementById('settingsOff').checked ? '1' : '0');
-  document.getElementById('settingsModal').classList.remove('show');
-  flash("Settings updated.");
+  closeSettings();
+  flash("API keys saved.");
 });
 
 /* ===================================================================
@@ -3217,7 +3302,7 @@ function renderHealthFood(c){
 
   // --- search-mode bindings ---
   const openS=document.getElementById('openSettingsForKey');
-  if(openS) openS.onclick=()=>{ document.getElementById('settingsKey').value=localStorage.getItem('apiKey')||''; document.getElementById('settingsUsda').value=localStorage.getItem('usdaApiKey')||''; document.getElementById('settingsModal').classList.add('show'); };
+  if(openS) openS.onclick=()=> openSettings();
   const qbox=document.getElementById('usdaQuery');
   if(qbox){ qbox.oninput=()=>{ st.foodQuery=qbox.value; }; qbox.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doFoodSearch(); } }); }
   const sbtn=document.getElementById('usdaSearchBtn'); if(sbtn) sbtn.onclick=doFoodSearch;
