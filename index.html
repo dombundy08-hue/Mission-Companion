@@ -530,6 +530,14 @@
   .food-modes{display:flex;gap:8px;margin-bottom:12px;}
   .food-modes button{flex:1;min-height:44px;border:1px solid var(--line);background:#fff;border-radius:11px;font-size:14px;font-weight:700;color:var(--navy);}
   .food-modes button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  /* one-tap saved-food rows + the post-log "save this" prompt */
+  .food-item .sf-log{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:none;border:none;text-align:left;padding:0;cursor:pointer;min-height:32px;}
+  .food-item .sf-log:active{opacity:.55;}
+  .save-this{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:#f7f0dc;border:1px solid #ecdca6;border-radius:12px;padding:10px 12px;margin-bottom:12px;}
+  .save-this .st-tx{font-size:13.5px;color:#5a4a1a;min-width:0;}
+  .save-this .btn{width:auto;min-width:0;flex:none;padding:8px 14px;min-height:40px;}
   .usda-res{width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;align-items:center;}
   .usda-res:active{background:#f4f2ec;}
   .usda-res .un{font-size:14.5px;color:var(--navy);font-weight:600;line-height:1.3;word-break:break-word;}
@@ -1671,7 +1679,8 @@ const state = {
   routines:{ view:'list', editId:null, draftSteps:[], draftReps:[], draftCircuit:null, draftName:'', build:null },
   health:{ editingGoals:false, snapRange:'week', weightListOpen:false, symptom:null,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
-    foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false }
+    foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false,
+    savedAdding:false, lastLogged:null }
 };
 
 /* ===================================================================
@@ -1949,7 +1958,7 @@ function resetTabState(tab){
   if(tab==='objections'){ state.objections.error=false; }
   if(tab==='mastery'){ state.mastery.view='home'; state.mastery.flipped=false; }
   if(tab==='health'){ state.health.editingGoals=false; }
-  if(tab==='hfood'){ state.health.foodPhase='input'; state.health.foodEst=null; state.health.foodErr=false; }
+  if(tab==='hfood'){ state.health.foodPhase='input'; state.health.foodEst=null; state.health.foodErr=false; state.health.savedAdding=false; state.health.lastLogged=null; }
 }
 
 /* single navigation path used by the bottom nav and the section switcher */
@@ -3044,10 +3053,6 @@ function renderHealthSetup(c){
         <option value="moderate"${p.activity==='moderate'?' selected':''}>Moderate — 3–5 days/week</option>
         <option value="active"${p.activity==='active'?' selected':''}>Active — 6–7 days/week</option>
       </select>
-      <label class="checkrow" style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;cursor:pointer;">
-        <input type="checkbox" id="hMuscle" ${p.muscular?'checked':''} style="width:22px;height:22px;flex:none;margin-top:1px;">
-        <span style="font-size:14.5px;color:#3a4150;line-height:1.4;">I carry more muscle than average for my height/weight <span class="opt" style="color:var(--muted);">(raises calorie &amp; protein targets)</span></span>
-      </label>
       <button class="btn secondary" id="hSuggest" style="margin-top:14px;">Suggest goals from profile</button>
     </div>
     <div class="card">
@@ -3077,7 +3082,6 @@ function renderHealthSetup(c){
     heightCm:document.getElementById('hCm')?document.getElementById('hCm').value:'',
     weight:document.getElementById('hWeight').value,
     activity:document.getElementById('hActivity').value,
-    muscular:document.getElementById('hMuscle').checked,
     goalWeight:document.getElementById('hGoalWeight')?document.getElementById('hGoalWeight').value:''
   });
   document.getElementById('hUnits').onchange=function(){
@@ -3089,7 +3093,7 @@ function renderHealthSetup(c){
     const prof=readProfile();
     const base=computeCalorieGoal(prof);
     if(base==null){ alert('Fill in age, height and weight to suggest a calorie goal.'); return; }
-    let cal = prof.muscular ? Math.round(base*1.10) : base;   // maintenance (~10% higher for higher muscle mass)
+    let cal = base;   // maintenance
     // deficit/surplus toward a goal weight: ~500 cal/day = ~1 lb/week
     const goalW=parseGoalWeight(prof.goalWeight);
     const curLb=bodyWeightLb(prof);
@@ -3099,7 +3103,7 @@ function renderHealthSetup(c){
     }
     document.getElementById('gCal').value=cal;
     const lb=bodyWeightLb(prof);
-    if(lb){ const perLb = prof.muscular ? 1.0 : 0.7; document.getElementById('gProtein').value=Math.round(lb*perLb); }
+    if(lb){ const perLb = 0.7; document.getElementById('gProtein').value=Math.round(lb*perLb); }
     if(!document.getElementById('gSleep').value) document.getElementById('gSleep').value='7.5';
     if(!document.getElementById('gWater').value) document.getElementById('gWater').value='64';
     flash('Suggested — edit any of them.');
@@ -3194,6 +3198,29 @@ async function doFoodSearch(){
   st.foodSearching=false; render();
 }
 
+/* ---------- saved foods: local-first list + one-tap logging ---------- */
+function getSavedFoods(){ return getLS('savedFoods', []); }
+function addSavedFood(name, calories, protein){
+  const row={ id:uid(), name:(name||'').trim(),
+              calories:(calories==null||calories==='')?null:Math.round(parseFloat(calories)),
+              protein:(protein==null||protein===''||isNaN(parseFloat(protein)))?null:Math.round(parseFloat(protein)),
+              createdAt:Date.now() };
+  const arr=getSavedFoods(); arr.push(row); setLS('savedFoods', arr);
+  cloudSaveSavedFood(row);            // async, guarded by cloudReady + sbOnline()
+  return row;
+}
+function deleteSavedFood(id){
+  const arr=getSavedFoods(); const it=arr.find(x=>x.id===id);
+  if(it) cloudDeleteRow('saved_foods', it);
+  setLS('savedFoods', arr.filter(x=>x.id!==id));
+}
+function logSavedFood(sf){
+  const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:sf.name,
+              calories:sf.calories||0, protein:(sf.protein==null?null:sf.protein), source:'saved' };
+  const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood', arr);
+  cloudSaveHealth('healthFood', row);
+}
+
 function renderHealthFood(c){
   const st=state.health;
   const today=isoDate();
@@ -3209,6 +3236,13 @@ function renderHealthFood(c){
       <button data-fmode="search" class="${st.foodMode==='search'?'on':''}">🔍 Search Food</button>
       <button data-fmode="estimate" class="${st.foodMode==='estimate'?'on':''}">✏️ Rough Estimate</button>
     </div>`;
+
+  // right after logging via Search/Estimate — offer to keep it as a saved food
+  if(st.lastLogged){
+    const ll=st.lastLogged;
+    html+=`<div class="save-this"><span class="st-tx">Logged <b>${esc(ll.name)}</b>${ll.calories!=null?' · '+ll.calories+' cal':''}</span>
+      <button class="btn secondary" id="saveThis">☆ Save this</button></div>`;
+  }
 
   if(st.foodMode==='search'){
     if(!canSearch){
@@ -3289,6 +3323,33 @@ function renderHealthFood(c){
     html+=`<div class="food-item"><span class="fd">${esc(e.description||'')}${gramsTxt}${estTag}</span><span class="fc">${macros}</span><button class="fx" data-fdel="${e.id}">✕</button></div>`;
   });
   html+=`</div>`;
+
+  // Saved Foods — one-tap re-logging of foods you eat often
+  const saved=getSavedFoods().slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  html+=`<div class="snap-card"><div class="ph">☆ Saved Foods</div>`;
+  if(!saved.length && !st.savedAdding){ html+=`<div class="muted">No saved foods yet. Save the ones you eat often for one-tap logging.</div>`; }
+  saved.forEach(sf=>{
+    const macro=`${sf.calories||0} cal${sf.protein!=null?' · '+Math.round(sf.protein)+'g':''}`;
+    html+=`<div class="food-item"><button class="sf-log" data-sflog="${sf.id}"><span class="fd">${esc(sf.name)}</span><span class="fc">${macro}</span></button><button class="fx" data-sfdel="${sf.id}">✕</button></div>`;
+  });
+  if(st.savedAdding){
+    html+=`<div class="card" style="margin-top:12px;">
+      <label class="fld" style="margin-top:0;">Food name</label>
+      <input class="text" id="sfName" placeholder="e.g. Protein shake" autocomplete="off">
+      <div class="halfrow" style="margin-top:10px;">
+        <div><label class="fld" style="margin-top:0;">Calories</label><input class="text" id="sfCal" type="number" min="0" max="5000"></div>
+        <div><label class="fld" style="margin-top:0;">Protein (g)</label><input class="text" id="sfProt" type="number" min="0" max="300"></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn secondary" id="sfCancel">Cancel</button>
+        <button class="btn" id="sfSave">Save Food</button>
+      </div>
+    </div>`;
+  } else {
+    html+=`<button class="btn secondary" id="sfAdd" style="margin-top:12px;">＋ Add Saved Food</button>`;
+  }
+  html+=`</div>`;
+
   c.innerHTML=html;
 
   // shared bindings
@@ -3299,6 +3360,33 @@ function renderHealthFood(c){
     setLS('healthFood', getLS('healthFood',[]).filter(x=>x.id!==b.dataset.fdel));
     render();
   });
+
+  // --- saved-foods bindings ---
+  c.querySelectorAll('[data-sflog]').forEach(b=>b.onclick=()=>{
+    const sf=getSavedFoods().find(x=>x.id===b.dataset.sflog); if(!sf) return;
+    logSavedFood(sf); render(); flash('Logged '+sf.name+'.');
+  });
+  c.querySelectorAll('[data-sfdel]').forEach(b=>b.onclick=()=>{
+    if(!confirm('Delete this saved food?')) return;
+    deleteSavedFood(b.dataset.sfdel); render();
+  });
+  const sfAdd=document.getElementById('sfAdd'); if(sfAdd) sfAdd.onclick=()=>{ st.savedAdding=true; render(); };
+  const sfCancel=document.getElementById('sfCancel'); if(sfCancel) sfCancel.onclick=()=>{ st.savedAdding=false; render(); };
+  const sfSave=document.getElementById('sfSave'); if(sfSave) sfSave.onclick=()=>{
+    const name=(document.getElementById('sfName').value||'').trim();
+    const calRaw=document.getElementById('sfCal').value;
+    const protRaw=document.getElementById('sfProt').value;
+    if(!name){ alert('Enter a food name.'); return; }
+    if(calRaw===''||isNaN(parseInt(calRaw,10))){ alert('Enter the calories.'); return; }
+    addSavedFood(name, calRaw, protRaw);
+    st.savedAdding=false; render(); flash('Saved.');
+  };
+  const saveThis=document.getElementById('saveThis');
+  if(saveThis) saveThis.onclick=()=>{
+    const l=st.lastLogged; if(!l) return;
+    addSavedFood(l.name, l.calories, l.protein);
+    st.lastLogged=null; render(); flash('Saved to Saved Foods.');
+  };
 
   // --- search-mode bindings ---
   const openS=document.getElementById('openSettingsForKey');
@@ -3325,6 +3413,7 @@ function renderHealthFood(c){
     const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:p.name, grams, calories:cal, protein:isNaN(prot)?null:prot, source:'database' };
     const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood',arr);
     cloudSaveHealth('healthFood', row);
+    st.lastLogged={ name:p.name, calories:cal, protein:isNaN(prot)?null:prot };
     st.foodPick=null; st.foodGrams=''; st.foodResults=null; st.foodQuery='';
     render(); flash('Logged.');
   };
@@ -3362,6 +3451,7 @@ function renderHealthFood(c){
     const row={ id:uid(), entryDate:isoDate(), timestamp:Date.now(), description:desc, calories:cal, protein:(prot==null||isNaN(prot))?null:prot, source:'estimate' };
     const arr=getLS('healthFood',[]); arr.push(row); setLS('healthFood',arr);
     cloudSaveHealth('healthFood', row);
+    st.lastLogged={ name:desc, calories:cal, protein:(prot==null||isNaN(prot))?null:prot };
     st.foodText=''; st.foodEst=null; st.foodProtEst=null; st.foodPhase='input'; st.foodErr=false;
     render(); flash('Logged.');
   };
@@ -4503,6 +4593,24 @@ async function cloudSaveWorkoutLog(e){
   }catch(err){ /* table may not exist yet; stays local */ }
 }
 
+/* saved foods — a persistent quick-log list, synced like routines */
+let savedFoodsOk = true;   // set false if the saved_foods table isn't there yet
+function savedFoodToCloud(r){ const o={name:r.name||''}; if(r.calories!=null) o.calories=r.calories; if(r.protein!=null) o.protein=r.protein; return o; }
+function savedFoodFromCloud(r){ return {id:uid(), cloudId:r.id, name:r.name||'', calories:(r.calories==null?null:r.calories), protein:(r.protein==null?null:r.protein), createdAt:r.created_at?Date.parse(r.created_at):Date.now()}; }
+function savedFoodNatKey(r){ return (r.name||'').trim().toLowerCase()+'|'+(r.calories==null?'':r.calories)+'|'+(r.protein==null?'':r.protein); }
+async function cloudSaveSavedFood(r){
+  if(!cloudReady || !sbOnline() || !savedFoodsOk) return;
+  try{
+    if(r.cloudId){ const up=await sb.from('saved_foods').update(savedFoodToCloud(r)).eq('id',r.cloudId); if(up.error) throw up.error; }
+    else{
+      const ins=await sb.from('saved_foods').insert(savedFoodToCloud(r)).select('id').single();
+      if(ins.error) throw ins.error;
+      stamp('savedFoods', x=>x.id===r.id && !x.cloudId, ins.data.id);
+    }
+    flashSaved();
+  }catch(e){ /* table may not exist yet; stays local */ }
+}
+
 /* health log tables — also optional; missing tables never break other sync */
 let healthTablesOk = true;
 let foodProteinOk = true;   // set false when the health_food_log.protein column is absent
@@ -4760,6 +4868,11 @@ async function cloudSyncAll(){
       await syncArrayTable('workoutLog','workout_log', wlogFromCloud, wlogToCloud, wlogNatKey);
       workoutTablesOk = true;
     }catch(e){ workoutTablesOk = false; }
+    // isolated: saved foods table is optional too
+    try{
+      await syncArrayTable('savedFoods','saved_foods', savedFoodFromCloud, savedFoodToCloud, savedFoodNatKey);
+      savedFoodsOk = true;
+    }catch(e){ savedFoodsOk = false; }
     try{
       // which optional food columns exist? gate the payload accordingly
       try{ const pp=await sb.from('health_food_log').select('protein').limit(1); foodProteinOk = !pp.error; }catch(e){ foodProteinOk=false; }
