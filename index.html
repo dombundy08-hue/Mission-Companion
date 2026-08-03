@@ -1680,7 +1680,7 @@ const state = {
   health:{ editingGoals:false, snapRange:'week', weightListOpen:false, symptom:null,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false,
-    savedAdding:false, lastLogged:null }
+    savedAdding:false, lastLogged:null, fastSundayDate:null }
 };
 
 /* ===================================================================
@@ -2790,6 +2790,8 @@ function isoDate(d){ d=d||new Date(); const m=d.getMonth()+1, day=d.getDate(); r
 function daysAgoTs(n){ return Date.now()-n*86400000; }
 function avgOf(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
 function round1(x){ return x==null?null:Math.round(x*10)/10; }
+function isFastSunday(date){ const fsd=getLS('healthFastSunday',null); return fsd===date; }
+function toggleFastSunday(date){ const fsd=getLS('healthFastSunday',null); setLS('healthFastSunday', fsd===date?null:date); }
 
 function getGoals(){ const g=getLS('healthGoals',null); return (g&&typeof g==='object')?g:null; }
 function computeCalorieGoal(p){
@@ -3314,7 +3316,12 @@ function renderHealthFood(c){
   }
 
   // today list — database vs estimate visually distinguished
+  const isFast=isFastSunday(today);
   html+=`<div class="snap-card"><div class="ph">Today · ${total} cal · ${Math.round(totalProt)}g protein</div>`;
+  html+=`<div class="fast-sunday-toggle" style="display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--muted);margin-bottom:12px;">
+    <button id="toggleFastSunday" style="background:none;border:none;cursor:pointer;color:${isFast?'var(--navy)':'var(--muted)'};">⊙ Fasting today</button>
+    ${isFast?'<span style="font-size:12px;">—excluded from avg</span>':''}
+  </div>`;
   if(!items.length){ html+=`<div class="muted">Nothing logged yet today.</div>`; }
   else items.forEach(e=>{
     const gramsTxt=e.grams?` <span class="opt" style="color:var(--muted);font-size:12px;">${Math.round(e.grams)}g</span>`:'';
@@ -3354,6 +3361,8 @@ function renderHealthFood(c){
 
   // shared bindings
   c.querySelectorAll('[data-fmode]').forEach(b=>b.onclick=()=>{ st.foodMode=b.dataset.fmode; render(); });
+  const toggleFastBtn=document.getElementById('toggleFastSunday');
+  if(toggleFastBtn) toggleFastBtn.onclick=()=>{ toggleFastSunday(isoDate()); render(); };
   c.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=()=>{
     const e=getLS('healthFood',[]).find(x=>x.id===b.dataset.fdel);
     cloudDeleteRow('health_food_log', e);
@@ -3504,13 +3513,18 @@ function fmtEntryDate(s){
 /* same averaging logic the Today snapshot uses — shared so Stats matches exactly */
 function healthAverages(days){
   const foodSums={}, protSums={};
+  const fastSundayDate=getLS('healthFastSunday',null); // single date or null
   getLS('healthFood',[]).forEach(e=>{ if(e.timestamp>=daysAgoTs(days)){
+    if(fastSundayDate && e.entryDate===fastSundayDate) return; // skip fast sunday
     foodSums[e.entryDate]=(foodSums[e.entryDate]||0)+(e.calories||0);
     protSums[e.entryDate]=(protSums[e.entryDate]||0)+(e.protein||0);
   }});
+  // count eating days (days with food entries, excluding fast sunday)
+  const eatingDays=Object.keys(foodSums).length;
   return {
     cal:  avgOf(Object.values(foodSums)),
     prot: avgOf(Object.values(protSums)),
+    eatingDays: eatingDays,
     sleep:avgOf(getLS('healthSleep',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.hours!=null).map(e=>+e.hours)),
     water:avgOf(Object.values(waterDayMap(days)).map(d=>d.oz)),
     mood: avgOf(getLS('healthMood',[]).filter(e=>e.timestamp>=daysAgoTs(days)&&e.score!=null&&e.score>0).map(e=>+e.score)),
@@ -3536,16 +3550,17 @@ function renderHealthStats(c){
   const a=healthAverages(days);
   const wt=weightTrend(days);
   const dash='—';
-  const subLbl = range==='month' ? 'monthly avg' : 'weekly avg';
+  const baseSubLbl = range==='month' ? 'monthly avg' : 'weekly avg';
+  const eatDaysNote = a.eatingDays>0 && a.eatingDays<(range==='month'?30:7) ? `${baseSubLbl} (${a.eatingDays} eating days)` : baseSubLbl;
 
   // Calories/Protein/Sleep/Water get a dot + status word; Mood/Energy show value only.
   const metrics=[
-    {name:'Calories', val:a.cal,   goal:g.calories,                unit:'',     fmt:v=>Math.round(v)},
-    {name:'Protein',  val:a.prot,  goal:(g.protein!=null?g.protein:null), unit:'g', fmt:v=>Math.round(v)},
-    {name:'Sleep',    val:a.sleep, goal:g.sleep,                   unit:' hrs', fmt:v=>round1(v)},
-    {name:'Water',    val:a.water, goal:g.water,                   unit:' oz',  fmt:v=>Math.round(v)},
-    {name:'Mood',     val:a.mood,  goal:null,                      unit:' / 5', fmt:v=>round1(v)},
-    {name:'Energy',   val:a.energy,goal:null,                      unit:' / 5', fmt:v=>round1(v)}
+    {name:'Calories', val:a.cal,   goal:g.calories,                unit:'',     fmt:v=>Math.round(v), subLbl:eatDaysNote},
+    {name:'Protein',  val:a.prot,  goal:(g.protein!=null?g.protein:null), unit:'g', fmt:v=>Math.round(v), subLbl:eatDaysNote},
+    {name:'Sleep',    val:a.sleep, goal:g.sleep,                   unit:' hrs', fmt:v=>round1(v), subLbl:baseSubLbl},
+    {name:'Water',    val:a.water, goal:g.water,                   unit:' oz',  fmt:v=>Math.round(v), subLbl:baseSubLbl},
+    {name:'Mood',     val:a.mood,  goal:null,                      unit:' / 5', fmt:v=>round1(v), subLbl:baseSubLbl},
+    {name:'Energy',   val:a.energy,goal:null,                      unit:' / 5', fmt:v=>round1(v), subLbl:baseSubLbl}
   ];
 
   let html=`<h2 class="tabtitle">📊 Stats</h2>
@@ -3573,7 +3588,7 @@ function renderHealthStats(c){
       statusHtml = `<span class="mc-note">no set goal</span>`;
     }
     html+=`<div class="metric-card">
-      <div class="mc-name">${m.name} <span class="mc-sub">${subLbl}</span></div>
+      <div class="mc-name">${m.name} <span class="mc-sub">${m.subLbl}</span></div>
       <div class="mc-val">
         <span class="mc-num">${valTxt}</span>
         ${goalTxt?`<span class="mc-goal">${goalTxt}</span>`:''}
