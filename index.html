@@ -780,6 +780,18 @@
           </button>
         </div>
 
+        <!-- Card: Health Metrics -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsHealthMetricsCard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">📊</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Health Metrics</div>
+              <div style="font-size:12px;color:var(--muted);">Customize visible metrics</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
+        </div>
+
         <!-- Card: API Keys -->
         <div class="settings-section">
           <button class="settings-card" id="settingsAPICard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
@@ -837,6 +849,7 @@
       <!-- SETTINGS PAGES (hidden, shown on demand) -->
       <div id="settingsAppearancePage" style="display:none;"></div>
       <div id="settingsPopupsPage" style="display:none;"></div>
+      <div id="settingsHealthMetricsPage" style="display:none;"></div>
       <div id="settingsAPIPage" style="display:none;"></div>
       <div id="settingsVoicePage" style="display:none;"></div>
       <div id="settingsAccountPage" style="display:none;"></div>
@@ -1871,7 +1884,8 @@ const state = {
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false,
     savedAdding:false, lastLogged:null, fastSundayDate:null,
-    reflectionReminderDay:0, reflectionReminderTime:'13:00', lastReflectionShown:null },
+    reflectionReminderDay:0, reflectionReminderTime:'13:00', lastReflectionShown:null,
+    visibleMetrics:['calories','protein','sleep','water','mood','energy'] },
   settings:{ currentPage:null }
 };
 
@@ -1966,6 +1980,42 @@ function renderSettingsView(){
       setLS('health_reflectionReminderTime', state.health.reflectionReminderTime);
       cloudSaveSetting('health_reflectionReminderTime', state.health.reflectionReminderTime);
     });
+  } else if(st.currentPage==='healthMetrics'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsHealthMetricsPage');
+    const visibleMetrics=state.health.visibleMetrics||['calories','protein','sleep','water','mood','energy'];
+    const metricsOptions=[
+      {id:'calories',label:'Calories',emoji:'🍽️'},
+      {id:'protein',label:'Protein',emoji:'💪'},
+      {id:'sleep',label:'Sleep',emoji:'😴'},
+      {id:'water',label:'Water',emoji:'💧'},
+      {id:'mood',label:'Mood',emoji:'😊'},
+      {id:'energy',label:'Energy',emoji:'⚡'},
+      {id:'weight',label:'Weight',emoji:'⚖️'}
+    ];
+    let html=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>Health Metrics</h3>
+      <div class="settings-section">
+        <div class="opt" style="color:var(--muted);font-size:13px;margin-bottom:14px;">Choose which metrics to display on your health card:</div>`;
+    metricsOptions.forEach(m=>{
+      const checked=visibleMetrics.includes(m.id);
+      html+=`<label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
+        <input type="checkbox" class="metric-toggle" data-metric="${m.id}" ${checked?'checked':''} style="width:20px;height:20px;flex:none;">
+        <span style="font-size:14px;color:var(--text);">${m.emoji} ${m.label}</span>
+      </label>`;
+    });
+    html+=`</div>`;
+    page.innerHTML=html;
+    page.style.display='';
+    document.querySelectorAll('.metric-toggle').forEach(el=>{
+      el.addEventListener('change',()=>{
+        const selected=Array.from(document.querySelectorAll('.metric-toggle:checked')).map(e=>e.dataset.metric);
+        state.health.visibleMetrics=selected;
+        setLS('health_visibleMetrics',selected);
+        cloudSaveSetting('health_visibleMetrics',JSON.stringify(selected));
+        sendHealthMetricsUpdate();
+      });
+    });
   } else if(st.currentPage==='apiKeys'){
     document.getElementById('settingsMainView').style.display='none';
     const page=document.getElementById('settingsAPIPage');
@@ -2034,9 +2084,11 @@ function renderSettingsView(){
 
 function openSettings(){
   state.settings.currentPage=null;
-  // load reflection settings
+  // load health settings
   state.health.reflectionReminderDay=parseInt(getLS('health_reflectionReminderDay', 0));
   state.health.reflectionReminderTime=getLS('health_reflectionReminderTime', '13:00');
+  const saved=getLS('health_visibleMetrics', null);
+  state.health.visibleMetrics=saved?JSON.parse(saved):['calories','protein','sleep','water','mood','energy'];
   loadVoices();
   renderSettingsView();
   document.getElementById('settingsModal').classList.add('show');
@@ -2115,9 +2167,36 @@ document.getElementById('settingsModal').addEventListener('click', e=>{
   if(e.target === document.getElementById('settingsModal')) closeSettings();
 });
 
+// Listen for exercise logs from React iframe
+window.addEventListener('message', (event)=>{
+  if(event.data.type==='exerciseSaved'){
+    const exercise=event.data.exercise;
+    if(!exercise || !exercise.exerciseName) return;
+    // Log exercise to the routine system
+    const arr=getLS('workoutLog', []);
+    const entry={
+      id:uid(),
+      exerciseName:exercise.exerciseName,
+      duration:exercise.duration,
+      reps:exercise.reps,
+      sets:exercise.sets,
+      weight:exercise.weight,
+      intensity:exercise.intensity,
+      notes:exercise.notes,
+      entryDate:isoDate(),
+      timestamp:event.data.timestamp||Date.now()
+    };
+    arr.push(entry);
+    setLS('workoutLog', arr);
+    cloudSaveHealth('workoutLog', entry);
+    flash('Exercise logged: '+exercise.exerciseName);
+  }
+});
+
 // Settings card navigation
 document.getElementById('settingsAppearanceCard').addEventListener('click', ()=>{ state.settings.currentPage='appearance'; renderSettingsView(); });
 document.getElementById('settingsPopupsCard').addEventListener('click', ()=>{ state.settings.currentPage='popups'; renderSettingsView(); });
+document.getElementById('settingsHealthMetricsCard').addEventListener('click', ()=>{ state.settings.currentPage='healthMetrics'; renderSettingsView(); });
 document.getElementById('settingsAPICard').addEventListener('click', ()=>{ state.settings.currentPage='apiKeys'; renderSettingsView(); });
 document.getElementById('settingsVoiceCard').addEventListener('click', ()=>{ state.settings.currentPage='voice'; renderSettingsView(); });
 document.getElementById('settingsAccountCard').addEventListener('click', ()=>{ state.settings.currentPage='account'; renderSettingsView(); });
@@ -2534,6 +2613,10 @@ function renderRoutines(c){
   if(st.view==='assemble')    return renderAssemble(c);
   const list=getRoutines();
   let html=`<h2 class="tabtitle">📋 Routines</h2>`;
+  // React Exercise Logging Card (iframe)
+  html+=`<div class="card" style="margin-bottom:20px;padding:0;border:none;">
+    <iframe id="exerciseActivityFrame" src="/react-build/index.html?app=exercise" style="width:100%;height:650px;border:none;border-radius:12px;background:var(--card);"></iframe>
+  </div>`;
   html+=`<button class="btn navy" id="rtNew" style="margin-bottom:14px;">＋ New Routine</button>`;
   if(!list.length){
     html+=`<div class="soon"><div class="si">📋</div><h3>No routines yet</h3>
@@ -3679,6 +3762,35 @@ function showReflectionModal(){
   };
 }
 
+/* send health metrics to iframe via postMessage */
+function sendHealthMetricsUpdate(){
+  const frame=document.getElementById('healthActivityFrame');
+  if(!frame || !frame.contentWindow) return;
+
+  const g=getGoals();
+  if(!g) return; // no goals set yet
+
+  const avgs=healthAverages(7);
+  const goals=g||{};
+
+  const metricsData={
+    calories: { label:'Calories', value:Math.round(avgs.cal||0), trend:avgs.cal && goals.calories?Math.min(100,Math.round((avgs.cal/goals.calories)*100)):0, unit:'cal' },
+    protein: { label:'Protein', value:Math.round(avgs.prot||0), trend:avgs.prot && goals.protein?Math.min(100,Math.round((avgs.prot/goals.protein)*100)):0, unit:'g' },
+    sleep: { label:'Sleep', value:(avgs.sleep||0).toFixed(1), trend:avgs.sleep && goals.sleep?Math.min(100,Math.round((avgs.sleep/goals.sleep)*100)):0, unit:'hrs' },
+    water: { label:'Water', value:Math.round(avgs.water||0), trend:avgs.water && goals.water?Math.min(100,Math.round((avgs.water/goals.water)*100)):0, unit:'cups' },
+    mood: { label:'Mood', value:(avgs.mood||0).toFixed(1), trend:avgs.mood?Math.min(100,Math.round((avgs.mood/5)*100)):0, unit:'' },
+    energy: { label:'Energy', value:(avgs.energy||0).toFixed(1), trend:avgs.energy?Math.min(100,Math.round((avgs.energy/5)*100)):0, unit:'' },
+    weight: { label:'Weight', value:'—', trend:0, unit:'lbs' }
+  };
+
+  const visibleMetrics=state.health.visibleMetrics||['calories','protein','sleep','water','mood','energy'];
+  frame.contentWindow.postMessage({
+    type:'updateMetrics',
+    metrics:metricsData,
+    visible:visibleMetrics
+  },'*');
+}
+
 function renderHealthFood(c){
   const st=state.health;
   const today=isoDate();
@@ -4061,8 +4173,16 @@ function renderHealthStats(c){
     <div class="mc-val"><span class="mc-trend">${wt.pts.length<2?'Not enough data yet':esc(wt.label.charAt(0).toUpperCase()+wt.label.slice(1))}</span></div>
   </div>`;
 
+  // React Health Metrics Card (iframe)
+  html+=`<div class="card" style="margin-top:20px;padding:0;border:none;">
+    <iframe id="healthActivityFrame" src="/react-build/index.html?app=health" style="width:100%;height:600px;border:none;border-radius:12px;background:var(--card);"></iframe>
+  </div>`;
+
   c.innerHTML=html;
   c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
+
+  // Send health metrics data to iframe after it loads
+  setTimeout(()=>{ sendHealthMetricsUpdate(); }, 500);
 }
 
 function renderHealthBody(c){
