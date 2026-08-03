@@ -264,3 +264,159 @@ If a prompt assumes something about the code that feels wrong, verify:
 4. Confirm the data model in Supabase schema before assuming a table exists
 
 Always read the actual code before building; don't assume from a brief description.
+
+---
+
+## React ActivityCard Integration (In Development)
+
+### Overview
+Separate React/TypeScript/Tailwind project (`react-components/`) embedded as iframes into vanilla JS app for:
+- **Health Section:** Replace stats cards with ActivityCard (7 metrics: calories, protein, sleep, water, mood, energy, weight)
+- **Exercise Section:** Replace weekly workout logger with ActivityCard UI for exercise logging
+
+### Project Structure
+```
+mission-companion/
+├── index.html (vanilla JS, primary app)
+├── react-components/ (React project — NEW)
+│   ├── package.json (deps: react, typescript, tailwind, lucide-react, clsx, class-variance-authority)
+│   ├── src/
+│   │   ├── components/ui/
+│   │   │   └── activity-card.tsx (base component)
+│   │   ├── components/health/
+│   │   │   ├── health-activity-card.tsx (7 metrics, no goals)
+│   │   │   └── health-app.tsx (React app entry for iframe)
+│   │   ├── components/exercise/
+│   │   │   ├── exercise-activity-card.tsx (exercise log form, no goals)
+│   │   │   └── exercise-app.tsx (React app entry for iframe)
+│   │   └── lib/utils.ts (cn() utility)
+│   └── dist/ (build output)
+└── react-build/ (deployed output)
+```
+
+### Phase A: Setup (COMPLETED ✅)
+1. Created `react-components/` directory
+2. Initialized with Vite: `npm create vite@latest react-components -- --template react-ts`
+3. Installed dependencies: react, react-dom, lucide-react, clsx, class-variance-authority, tailwindcss
+4. Created `src/lib/utils.ts` with `cn()` function (clsx + tailwind-merge)
+5. Created `src/components/ui/activity-card.tsx` base component with 10 color variations
+
+### Phase B: Health Metrics Card (NEXT)
+Build `src/components/health/health-activity-card.tsx`:
+- Accepts 7 metrics: { calories, protein, sleep, water, mood, energy, weight }
+- Each shows circular progress (% of daily goal), value, trend %
+- Removes "Goals" section (health-only variant)
+- Receives data from vanilla JS via postMessage
+- Supports metric visibility toggle (from settings)
+
+Color mapping for metrics:
+- Calories: #FF2D55 (red)
+- Protein: #2CD758 (green)
+- Sleep: #007AFF (blue)
+- Water: #00B4FF (cyan)
+- Mood: #FFD60A (yellow)
+- Energy: #FF6B35 (orange)
+- Weight: #A355FF (purple)
+
+### Phase C: Exercise Log Card (NEXT)
+Build `src/components/exercise/exercise-activity-card.tsx`:
+- Display last session metrics (duration, reps/sets, weight, intensity)
+- Add form inputs: exercise name, duration, reps, sets, weight, intensity (1-10), notes
+- "Log Exercise" submit button → sends data to vanilla JS via postMessage
+- Remove "Goals" section
+
+### Phase D: Settings Integration (NEXT)
+Vanilla JS (index.html):
+1. Add "Health Metrics" card to settings main view
+2. Create `renderSettingsHealthMetricsPage()` with 7 toggles
+3. Save visibility to localStorage: `health_visibleMetrics` (JSON array)
+4. Sync to Supabase `app_settings` table
+5. postMessage to health iframe on visibility change
+
+### Phase E: postMessage Communication (NEXT)
+**Vanilla JS → React (health metrics update):**
+```javascript
+const healthData = {
+  calories: { label: 'Calories', value: '420', trend: 85, unit: 'cal' },
+  protein: { label: 'Protein', value: '25', trend: 70, unit: 'g' },
+  sleep: { label: 'Sleep', value: '7', trend: 90, unit: 'hrs' },
+  water: { label: 'Water', value: '6', trend: 75, unit: 'cups' },
+  mood: { label: 'Mood', value: '8', trend: 80, unit: '' },
+  energy: { label: 'Energy', value: '7', trend: 85, unit: '' },
+  weight: { label: 'Weight', value: '165', trend: 45, unit: 'lbs' }
+};
+// Send to iframe
+document.getElementById('healthActivityFrame').contentWindow.postMessage(
+  { type: 'updateMetrics', metrics: healthData, visible: ['calories', 'protein', 'sleep', 'water', 'mood', 'energy'] },
+  '*'
+);
+```
+
+**React → Vanilla JS (exercise log submit):**
+```javascript
+// React sends back to parent
+parent.postMessage({
+  type: 'exerciseSaved',
+  exercise: {
+    exerciseName: 'Deadlift',
+    duration: 45,
+    reps: 8,
+    sets: 5,
+    weight: 315,
+    intensity: 9,
+    notes: 'Good form'
+  }
+}, '*');
+
+// Vanilla JS listener
+window.addEventListener('message', (e) => {
+  if (e.data.type === 'exerciseSaved') {
+    // Log to routine/session system (existing exercise logger)
+  }
+});
+```
+
+### Phase F: Build & Deploy (NEXT)
+1. Run `npm run build` in `react-components/` → outputs to `dist/`
+2. Copy/symlink `dist/` to `react-build/` folder or GitHub Pages subdirectory
+3. Load iframes in index.html:
+   - Health: `<iframe id="healthActivityFrame" src="/react-build/health.html" />`
+   - Exercise: `<iframe id="exerciseActivityFrame" src="/react-build/exercise.html" />`
+4. Wire up postMessage listeners in vanilla JS
+
+### Build Command
+```bash
+cd react-components
+npm run build
+```
+
+### Dev Server
+```bash
+cd react-components
+npm run dev
+```
+
+### Key Files to Create
+- `src/components/health/health-app.tsx` — React app entry (renders health-activity-card.tsx in iframe)
+- `src/components/exercise/exercise-app.tsx` — React app entry (renders exercise-activity-card.tsx in iframe)
+- `src/main.tsx` — Vite entry point
+- `index.html` — Vite HTML template
+- `tailwind.config.js` — Tailwind configuration
+- `postcss.config.js` — PostCSS configuration
+
+### Data Flow
+**Health metrics:** Vanilla JS reads `state.health` → formats 7 metrics → posts to health iframe on load + on settings change
+**Exercise logging:** User fills form in exercise iframe → submits → postMessage to vanilla JS → saves to routine/session system
+
+### Important Notes
+- Metric trend % = (current value / daily goal) × 100
+- Daily goals for health/exercise: stored in vanilla JS, not passed to React
+- Visibility toggles only affect health section (which metrics display in circular rings)
+- Exercise logs save to existing routine/session system (same as current workout logger)
+- Fallback: if React iframe fails, show old HTML stats card or simple text
+
+### Troubleshooting
+**postMessage not working:** Check iframe.src origin matches window.location.origin (same-origin policy)
+**Metrics not updating:** Ensure vanilla JS sends postMessage AFTER iframe is loaded; add `iframe.onload` listener
+**Build issues:** Run `npm install` in `react-components/`, verify `package.json` has all deps
+**Tailwind not applying:** Check `tailwind.config.js` includes `src/**/*.{js,ts,jsx,tsx}`
