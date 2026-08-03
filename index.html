@@ -27,6 +27,47 @@
     --safe-bottom:env(safe-area-inset-bottom, 0px);
     --safe-top:env(safe-area-inset-top, 0px);
   }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --navy:#0f1c2e;
+      --navy-soft:#1a2e47;
+      --bg:#0d1117;
+      --card:#161b22;
+      --gold:#d4a84a;
+      --gold-dark:#c7991a;
+      --text:#e0e0e0;
+      --muted:#8b949e;
+      --line:#30363d;
+      --danger:#da3633;
+      --danger-bg:#3d1f1a;
+    }
+  }
+  :root[data-theme="light"]{
+    --navy:#1a2744;
+    --navy-soft:#26365c;
+    --bg:#fafaf8;
+    --card:#ffffff;
+    --gold:#b8973a;
+    --gold-dark:#9c7e2c;
+    --text:#1f2430;
+    --muted:#6b7280;
+    --line:#e7e5df;
+    --danger:#9a3b2f;
+    --danger-bg:#fbeae6;
+  }
+  :root[data-theme="dark"]{
+    --navy:#0f1c2e;
+    --navy-soft:#1a2e47;
+    --bg:#0d1117;
+    --card:#161b22;
+    --gold:#d4a84a;
+    --gold-dark:#c7991a;
+    --text:#e0e0e0;
+    --muted:#8b949e;
+    --line:#30363d;
+    --danger:#da3633;
+    --danger-bg:#3d1f1a;
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
@@ -642,8 +683,27 @@
     <div class="modal-scroll">
       <h3>Settings</h3>
 
-      <!-- API keys are gated behind the app password; collapsed by default -->
-      <button class="lockrow" id="apiKeysToggle">
+      <!-- SECTION: Appearance -->
+      <div class="settings-section">
+        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="darkModeToggle" style="width:20px;height:20px;flex:none;">
+          <span style="font-size:14px;color:var(--text);">Dark mode <span class="opt" style="color:var(--muted);">(auto respects system preference)</span></span>
+        </label>
+      </div>
+      <hr class="divider">
+
+      <!-- SECTION: Giving & Resources -->
+      <div class="settings-section">
+        <a href="https://donations.churchofjesuschrist.org/donations/donation?tabKey=0" target="_blank" style="display:inline-block;margin-bottom:10px;">
+          <button class="btn secondary" style="width:auto;">💝 Give to the Church</button>
+        </a>
+        <div class="opt" style="color:var(--muted);font-size:13px;">Opens in a new tab</div>
+      </div>
+      <hr class="divider">
+
+      <!-- SECTION: API Keys & Security -->
+      <div class="settings-section">
+        <button class="lockrow" id="apiKeysToggle">
         <span class="lr-ic">🔒</span>
         <span class="lr-tx">API Keys</span>
         <span class="lr-ca">›</span>
@@ -665,21 +725,37 @@
         <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
         <button class="btn" id="settingsSave" style="margin-top:14px;">Save Keys</button>
       </div>
+      </div>
 
       <hr class="divider">
-      <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-        <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
-        <span style="font-size:14px;color:#3a4150;">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
-      </label>
+
+      <!-- SECTION: Features -->
+      <div class="settings-section">
+        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
+          <span style="font-size:14px;color:var(--text);">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
+        </label>
+      </div>
 
       <hr class="divider">
-      <label class="fld" for="voiceSelect">Workout Voice</label>
-      <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
-      <select class="text" id="voiceSelect" style="height:48px;"></select>
-      <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
+
+      <!-- SECTION: Preferences -->
+      <div class="settings-section">
+        <label class="fld" for="voiceSelect">Workout Voice</label>
+        <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
+        <select class="text" id="voiceSelect" style="height:48px;"></select>
+        <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
+      </div>
+
       <hr class="divider">
-      <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
-      <p style="margin-top:14px;margin-bottom:0;">Need help? 720-745-0911 or 720-745-3166.</p>
+
+      <!-- SECTION: Account -->
+      <div class="settings-section">
+        <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
+      </div>
+
+      <hr class="divider">
+      <p style="margin:14px 0 0;font-size:13px;color:var(--muted);">Need help? 720-745-0911 or 720-745-3166.</p>
     </div>
   </div>
 </div>
@@ -701,6 +777,36 @@ try { if(window.supabase && window.supabase.createClient){ sb = window.supabase.
 
 let cloudReady = false;   // true once initial load+merge has completed (gates pushes)
 let pendingPush = false;  // unsynced local changes waiting for connection
+
+/* ===================================================================
+   DARK MODE
+=================================================================== */
+function initTheme(){
+  const saved = localStorage.getItem('theme'); // 'light', 'dark', or null (auto)
+  if(saved==='light' || saved==='dark'){
+    document.documentElement.setAttribute('data-theme', saved);
+  } else {
+    // respect system preference
+    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+    if(dark) document.documentElement.setAttribute('data-theme', 'dark');
+  }
+  updateThemeToggle();
+}
+function updateThemeToggle(){
+  const toggle = document.getElementById('darkModeToggle');
+  if(!toggle) return;
+  const current = document.documentElement.getAttribute('data-theme');
+  toggle.checked = current==='dark';
+}
+function setTheme(isDark){
+  if(isDark){
+    document.documentElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+  }
+}
 
 /* ===================================================================
    DATA: journal prompts + objection questions
@@ -1720,6 +1826,7 @@ function openSettings(){
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
   document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
   document.getElementById('settingsOff').checked = localStorage.getItem('offEnabled')!=='0';   // default on
+  updateThemeToggle();
   resetApiKeysLock();
   loadVoices();   // voices may have finished loading since page start
   document.getElementById('settingsModal').classList.add('show');
@@ -1731,6 +1838,10 @@ document.getElementById('settingsX').addEventListener('click', closeSettings);
 // tapping the dark overlay (outside the modal card) also closes it
 document.getElementById('settingsModal').addEventListener('click', e=>{
   if(e.target === document.getElementById('settingsModal')) closeSettings();
+});
+// dark mode toggle
+document.getElementById('darkModeToggle').addEventListener('change', e=>{
+  setTheme(e.target.checked);
 });
 
 /* --- API keys: password-gated reveal --- */
@@ -5026,6 +5137,7 @@ document.getElementById('lockAppBtn').addEventListener('click', ()=>{
 });
 
 async function startApp(){
+  initTheme();
   showLoading();
   if(!navigator.onLine) showOfflineBanner();
   await cloudSyncAll();
