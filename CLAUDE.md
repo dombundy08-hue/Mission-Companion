@@ -226,6 +226,58 @@ Before pushing to live:
 
 ---
 
+## React Build & Deployment Checklist
+
+When updating React components (Health Metrics, Exercise Logger, or new components):
+
+### Pre-Build
+1. **Update component files** — edit `.tsx` files in `react-components/src/components/`
+2. **Test with dev server** — `cd react-components && npm run dev` (http://localhost:5173)
+3. **Visual verification** — check styling, responsive design, dark mode
+4. **Console check** — no TypeScript errors, no console warnings
+
+### Build Phase
+1. **Build React:** `cd react-components && npm run build`
+2. **Verify dist/ output:** Check that `dist/index.html`, `dist/assets/index-*.js`, and `dist/assets/index-*.css` exist
+3. **Deploy build:** `cp -r dist/* ../react-build/`
+4. **Verify deployment:** Confirm `react-build/` now has updated assets with new hashes
+
+### Integration Testing (Local)
+1. **Hard-refresh browser** — Ctrl+Shift+R to clear cache
+2. **Open main app** — `file:///C:/Users/shan_/mission-companion/index.html`
+3. **Navigate to Health → Stats** — verify health metrics iframe loads + displays (may need to set goals first)
+4. **Navigate to Exercise → Routines** — verify exercise logger iframe loads + form renders
+5. **Check console** — F12 → Console, look for any errors or CORS issues
+6. **Check Network tab** — verify `react-build/assets/index-*.js` and `index-*.css` are requested with 200 OK
+
+### postMessage Testing (if modified communication)
+1. **Health metrics update** — if data changes in vanilla app, verify iframe receives update via postMessage
+2. **Exercise logging** — submit exercise in iframe, verify vanilla app receives `exerciseSaved` message
+3. **Settings toggle** — change metric visibility in settings, verify health metrics hide/show in iframe
+
+### Commit & Deploy
+1. **Stage changes:** `git add index.html react-build/ CLAUDE.md` (include any doc updates)
+2. **Write descriptive message:** `git commit -m "Update React components: [what changed and why]"`
+   - Example: "Update Health Metrics styling for better mobile responsiveness"
+   - Example: "Add new Exercise History component with recent session summaries"
+3. **Push to production:** `git push`
+4. **Wait ~60 seconds** for GitHub Pages deployment
+
+### Post-Deployment Verification
+1. **Visit production:** https://missionarycompanion.com or https://dombundy08-hue.github.io/Mission-Companion/
+2. **Navigate to Health/Exercise sections** (requires authentication)
+3. **Verify iframes load** without 404 errors on assets
+4. **Check Network tab** for successful asset loading
+5. **Verify functionality** — if able to authenticate, test data display and form submission
+
+### Rollback (if needed)
+If deployment breaks the app:
+1. `git revert HEAD` (creates new commit undoing previous)
+2. `git push` (production auto-reverts in ~60 seconds)
+3. **OR** manually edit `react-build/` assets to previous version and commit
+
+---
+
 ## Phase Roadmap
 
 The app is being built in 7 phases (defined in `TASKS.md`):
