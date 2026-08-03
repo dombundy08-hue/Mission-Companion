@@ -820,6 +820,25 @@
 
       <hr class="divider">
 
+      <!-- SECTION: Reflection Reminder -->
+      <div class="settings-section">
+        <label class="fld" for="reflectionDay">Weekly Reflection Day</label>
+        <select class="text" id="reflectionDay" style="height:48px;">
+          <option value="0">Sunday</option>
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+        <label class="fld" style="margin-top:12px;">Time</label>
+        <input type="time" id="reflectionTime" class="text" style="height:48px;">
+        <div class="opt" style="color:var(--muted);font-size:13px;margin-top:6px;">Get a weekly nudge to reflect on your health progress.</div>
+      </div>
+
+      <hr class="divider">
+
       <!-- SECTION: Account -->
       <div class="settings-section">
         <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
@@ -1857,7 +1876,8 @@ const state = {
   health:{ editingGoals:false, snapRange:'week', weightListOpen:false, symptom:null,
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false,
-    savedAdding:false, lastLogged:null, fastSundayDate:null }
+    savedAdding:false, lastLogged:null, fastSundayDate:null,
+    reflectionReminderDay:0, reflectionReminderTime:'13:00', lastReflectionShown:null }
 };
 
 /* ===================================================================
@@ -1897,6 +1917,8 @@ function openSettings(){
   document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
   document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
   document.getElementById('settingsOff').checked = localStorage.getItem('offEnabled')!=='0';   // default on
+  document.getElementById('reflectionDay').value = state.health.reflectionReminderDay;
+  document.getElementById('reflectionTime').value = state.health.reflectionReminderTime;
   updateThemeToggle();
   resetApiKeysLock();
   loadVoices();   // voices may have finished loading since page start
@@ -1913,6 +1935,18 @@ document.getElementById('settingsModal').addEventListener('click', e=>{
 // dark mode toggle
 document.getElementById('darkModeToggle').addEventListener('change', e=>{
   setTheme(e.target.checked);
+});
+
+// reflection reminder settings
+document.getElementById('reflectionDay').addEventListener('change', e=>{
+  state.health.reflectionReminderDay=parseInt(e.target.value,10);
+  setLS('health_reflectionReminderDay', state.health.reflectionReminderDay);
+  cloudSaveSetting('health_reflectionReminderDay', String(state.health.reflectionReminderDay));
+});
+document.getElementById('reflectionTime').addEventListener('change', e=>{
+  state.health.reflectionReminderTime=e.target.value;
+  setLS('health_reflectionReminderTime', state.health.reflectionReminderTime);
+  cloudSaveSetting('health_reflectionReminderTime', state.health.reflectionReminderTime);
 });
 
 /* --- API keys: password-gated reveal --- */
@@ -3405,6 +3439,84 @@ function logSavedFood(sf){
   cloudSaveHealth('healthFood', row);
 }
 
+/* count identical food entries (exact match: name+calories+protein) within N days */
+function countIdenticalFoodInWindow(name, calories, protein, days=90){
+  const cutoff=Date.now()-(days*24*60*60*1000);
+  const all=getLS('healthFood',[]);
+  return all.filter(f=>(f.timestamp||0)>=cutoff && f.description===name && f.calories===calories && (f.protein||null)===(protein||null)).length;
+}
+
+/* calculate weekly reflection: lowest-tracked metric */
+function getLowestReflectionMetric(){
+  const week=7;
+  const avgs=healthAverages(week);
+  const journalEntries=(getLS('journalEntries',[])||[]).filter(e=>e.entryDate && (Date.now()-new Date(e.entryDate).getTime())<week*24*60*60*1000).length;
+  const miracles=(getLS('miracleEntries',[])||[]).filter(e=>e.entryDate && (Date.now()-new Date(e.entryDate).getTime())<week*24*60*60*1000).length;
+
+  const metrics={
+    calories: avgs.cal||0,
+    protein: avgs.prot||0,
+    journal: journalEntries,
+    miracles: miracles
+  };
+
+  const lowest=Object.entries(metrics).reduce((a,b)=>a[1]<b[1]?a:b);
+  const messages={
+    calories: { emoji:'🍽️', name:'calories', msg:'Your calorie logging could use a boost this week. Take time to fuel yourself well!' },
+    protein: { emoji:'💪', name:'protein', msg:'Protein tracking has been light. Remember to nourish your body with good nutrition!' },
+    journal: { emoji:'📔', name:'journaling', msg:'Your journal entries could use more love this week. Reflection strengthens your spiritual connection.' },
+    miracles: { emoji:'✨', name:'miracles', msg:'You haven\'t captured many miracles this week. Take time to notice God\'s hand in your life!' }
+  };
+  return { metric:lowest[0], value:lowest[1], ...messages[lowest[0]] };
+}
+
+/* check if it's time to show weekly reflection (configurable day/time) */
+function shouldShowReflection(){
+  const st=state.health;
+  const now=new Date();
+  const dayOfWeek=now.getDay();
+  const hour=now.getHours();
+  const minute=now.getMinutes();
+  const configTime=st.reflectionReminderTime.split(':');
+  const configHour=parseInt(configTime[0],10);
+  const configMinute=parseInt(configTime[1],10);
+
+  const isCorrectDay=dayOfWeek===st.reflectionReminderDay;
+  const isCorrectTime=hour===configHour && minute>=configMinute && minute<(configMinute+5);
+
+  if(!isCorrectDay || !isCorrectTime) return false;
+
+  const lastShown=st.lastReflectionShown?parseInt(st.lastReflectionShown,10):0;
+  const weekAgo=Date.now()-(7*24*60*60*1000);
+  return lastShown<weekAgo;
+}
+
+/* show weekly reflection modal */
+function showReflectionModal(){
+  const refl=getLowestReflectionMetric();
+  const modal=document.createElement('div');
+  modal.className='modal-back';
+  modal.id='reflectionModal';
+  modal.innerHTML=`<div class="modal reflection-box" style="max-width:400px;">
+    <button class="modal-x" id="reflectionClose">✕</button>
+    <div style="text-align:center;padding:20px;">
+      <div style="font-size:48px;margin-bottom:12px;">${refl.emoji}</div>
+      <h3 style="margin:0 0 12px;color:var(--text);">Weekly Reflection</h3>
+      <p style="color:var(--text);line-height:1.5;margin:0 0 16px;">${refl.msg}</p>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">You've tracked <b>${refl.value}</b> ${refl.name} this week.</div>
+      <button class="btn" id="excuseReflection" style="width:100%;">Excuse this week</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('reflectionClose').onclick=()=>modal.remove();
+  document.getElementById('excuseReflection').onclick=()=>{
+    state.health.lastReflectionShown=String(Date.now());
+    setLS('health_lastReflectionShown', state.health.lastReflectionShown);
+    cloudSaveSetting('health_lastReflectionShown', state.health.lastReflectionShown);
+    modal.remove();
+  };
+}
+
 function renderHealthFood(c){
   const st=state.health;
   const today=isoDate();
@@ -3421,11 +3533,14 @@ function renderHealthFood(c){
       <button data-fmode="estimate" class="${st.foodMode==='estimate'?'on':''}">✏️ Rough Estimate</button>
     </div>`;
 
-  // right after logging via Search/Estimate — offer to keep it as a saved food
+  // right after logging via Search/Estimate — offer to keep it as a saved food (only after 10+ identical logs in 90 days)
   if(st.lastLogged){
     const ll=st.lastLogged;
-    html+=`<div class="save-this"><span class="st-tx">Logged <b>${esc(ll.name)}</b>${ll.calories!=null?' · '+ll.calories+' cal':''}</span>
-      <button class="btn secondary" id="saveThis">☆ Save this</button></div>`;
+    const count=countIdenticalFoodInWindow(ll.name, ll.calories, ll.protein, 90);
+    if(count>=10){
+      html+=`<div class="save-this"><span class="st-tx">Logged <b>${esc(ll.name)}</b>${ll.calories!=null?' · '+ll.calories+' cal':''}</span>
+        <button class="btn secondary" id="saveThis">☆ Save this</button></div>`;
+    }
   }
 
   if(st.foodMode==='search'){
@@ -5212,10 +5327,20 @@ async function startApp(){
   showLoading();
   if(!navigator.onLine) showOfflineBanner();
   await cloudSyncAll();
+  // load reflection settings
+  state.health.reflectionReminderDay=parseInt(getLS('health_reflectionReminderDay', 0));
+  state.health.reflectionReminderTime=getLS('health_reflectionReminderTime', '13:00');
+  state.health.lastReflectionShown=getLS('health_lastReflectionShown', null);
   cloudReady=true;
   if(pendingPush && sbOnline()) flushPending();
   if(!localStorage.getItem('apiKey')){ showSetup(); }
-  else { showApp(); }
+  else {
+    showApp();
+    // check for reflection pop-up every minute
+    setInterval(()=>{ if(shouldShowReflection()) showReflectionModal(); }, 60000);
+    // check immediately on app start (in case timing aligns)
+    if(shouldShowReflection()) showReflectionModal();
+  }
 }
 
 /* ===================================================================
