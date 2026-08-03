@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Mission Companion** is a single-file PWA (~2,800 lines vanilla JS/HTML/CSS) for LDS missionaries—personal journal, language practice, scripture mastery, health tracking, and exercise building.
 
-- **Single source of truth:** `C:\Users\shan_\mission-companion\index.html` (this is the ONLY file to edit)
+- **Single source of truth:** `C:\Users\shan_\missionary-companion\index.html` (this is the ONLY file to edit)
 - **Deployment:** `git add -A && git commit -m "message" && git push` → live in ~60 seconds
 - **Data:** localStorage (sync store the UI reads) + Supabase (cloud layer, pulled on load, pushed on save)
 - **Architecture style:** Vanilla JavaScript, no build system, no dependencies, event-driven modal/render pattern
@@ -118,7 +118,7 @@ New settings sections can be added without restructuring.
 
 No automated test framework. Test manually in the browser:
 
-1. **Local dev:** Open `file:///C:/Users/shan_/mission-companion/index.html` in a browser
+1. **Local dev:** Open `file:///C:/Users/shan_/missionary-companion/index.html` in a browser
    - Hard-refresh if CSS/JS don't update (Ctrl+Shift+R or clear service worker cache)
    - Open DevTools (F12) → Console to check for errors
    - Check Network tab to verify cloud sync calls (only if `cloudReady = true`)
@@ -244,7 +244,7 @@ When updating React components (Health Metrics, Exercise Logger, or new componen
 
 ### Integration Testing (Local)
 1. **Hard-refresh browser** — Ctrl+Shift+R to clear cache
-2. **Open main app** — `file:///C:/Users/shan_/mission-companion/index.html`
+2. **Open main app** — `file:///C:/Users/shan_/missionary-companion/index.html`
 3. **Navigate to Health → Stats** — verify health metrics iframe loads + displays (may need to set goals first)
 4. **Navigate to Exercise → Routines** — verify exercise logger iframe loads + form renders
 5. **Check console** — F12 → Console, look for any errors or CORS issues
@@ -349,7 +349,7 @@ Separate React/TypeScript/Tailwind project embedded as iframes into vanilla JS a
 
 ### Project Structure
 ```
-mission-companion/
+missionary-companion/
 ├── index.html (vanilla JS primary app)
 ├── react-components/ (Vite + React + TypeScript)
 │   ├── src/
@@ -468,7 +468,7 @@ Runs on `http://localhost:5173` for isolated testing.
 
 **Testing in Context (with iframes):**
 1. Build and copy as above: `npm run build && cp -r dist/* ../react-build/`
-2. Open `file:///C:/Users/shan_/mission-companion/index.html` in browser
+2. Open `file:///C:/Users/shan_/missionary-companion/index.html` in browser
 3. Hard-refresh (Ctrl+Shift+R)
 4. Navigate to Health → Stats or Exercise → Routines to see iframes load
 

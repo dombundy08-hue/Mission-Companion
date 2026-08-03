@@ -10,8 +10,8 @@ Paste this into a new Claude chat before designing anything for this app.
 - **App:** Mission Companion — personal tool for Elder Dominic Bundy (LDS missionary).
 - **Live:** https://dombundy08-hue.github.io/Mission-Companion/
 - **Repo:** github.com/dombundy08-hue/Mission-Companion (Dom's account)
-- **Local canonical file:** `C:\Users\shan_\mission-companion\index.html` — ONE self-contained HTML file, ~184 KB, ~2,780 lines. This is the only copy. Editing anything else is editing a ghost.
-- **Deploy:** git is wired up. `cd /c/Users/shan_/mission-companion && git add -A && git commit -m "..." && git push` → live in ~60s. No more manual uploads.
+- **Local canonical file:** `C:\Users\shan_\missionary-companion\index.html` — ONE self-contained HTML file, ~184 KB, ~2,780 lines. This is the only copy. Editing anything else is editing a ghost.
+- **Deploy:** git is wired up. `cd /c/Users/shan_/missionary-companion && git add -A && git commit -m "..." && git push` → live in ~60s. No more manual uploads.
 - **Support numbers shown in-app:** 720-745-0911 / 720-745-3166
 - **Backup email target:** dom.bundy08@gmail.com
 
@@ -104,7 +104,7 @@ Navy `#1a2744` · warm white `#fafaf8` · gold `#b8973a`. System fonts only, no 
 Claude Code has the file, a browser to test in, direct Supabase query access, and git push. Write prompts that use that.
 
 ### Do
-1. **Reference the file, don't paste it.** Say "in `C:\Users\shan_\mission-companion\index.html`". Never paste 2,800 lines into a prompt.
+1. **Reference the file, don't paste it.** Say "in `C:\Users\shan_\missionary-companion\index.html`". Never paste 2,800 lines into a prompt.
 2. **Say additive vs. modifying, explicitly.** Name what must NOT change: "do not touch the render functions for Journal/Spanish/Mastery."
 3. **Describe behavior, not implementation.** "Swipe up past a threshold deletes the card" — let Claude Code choose the mechanics. Over-specifying implementation produces worse code.
 4. **One feature per prompt.** A tab, a fix, a screen. Not three.
@@ -122,7 +122,7 @@ Claude Code has the file, a browser to test in, direct Supabase query access, an
 ### Prompt template that works
 
 ```
-In C:\Users\shan_\mission-companion\index.html — [ADD / FIX], do not rebuild.
+In C:\Users\shan_\missionary-companion\index.html — [ADD / FIX], do not rebuild.
 
 CONTEXT: [one line on where this fits — which section, which tab]
 
