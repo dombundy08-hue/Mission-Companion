@@ -751,101 +751,95 @@
 <div class="modal-back" id="settingsModal">
   <div class="modal settings-modal">
     <button class="modal-x" id="settingsX" aria-label="Close settings">✕</button>
-    <div class="modal-scroll">
-      <h3>Settings</h3>
+    <div class="modal-scroll" id="settingsContent">
+      <!-- MAIN SETTINGS VIEW (topic cards) -->
+      <div id="settingsMainView">
+        <h3>Settings</h3>
 
-      <!-- SECTION: Appearance -->
-      <div class="settings-section">
-        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <input type="checkbox" id="darkModeToggle" style="width:20px;height:20px;flex:none;">
-          <span style="font-size:14px;color:var(--text);">Dark mode <span class="opt" style="color:var(--muted);">(auto respects system preference)</span></span>
-        </label>
-      </div>
-      <hr class="divider">
-
-      <!-- SECTION: Giving & Resources -->
-      <div class="settings-section">
-        <a href="https://donations.churchofjesuschrist.org/donations/donation?tabKey=0" target="_blank" style="display:inline-block;margin-bottom:10px;">
-          <button class="btn secondary" style="width:auto;">💝 Give to the Church</button>
-        </a>
-        <div class="opt" style="color:var(--muted);font-size:13px;">Opens in a new tab</div>
-      </div>
-      <hr class="divider">
-
-      <!-- SECTION: API Keys & Security -->
-      <div class="settings-section">
-        <button class="lockrow" id="apiKeysToggle">
-        <span class="lr-ic">🔒</span>
-        <span class="lr-tx">API Keys</span>
-        <span class="lr-ca">›</span>
-      </button>
-      <div id="apiKeysUnlock" style="display:none;">
-        <p style="margin:12px 0 8px;">Enter your app password to view or edit your API keys.</p>
-        <input id="apiKeysPw" type="password" placeholder="App password" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <div id="apiKeysPwErr" class="pw-err" style="display:none;">Incorrect password. Try again.</div>
-        <div class="btn-row">
-          <button class="btn secondary" id="apiKeysPwCancel">Cancel</button>
-          <button class="btn" id="apiKeysPwGo">Unlock</button>
+        <!-- Card: Appearance -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsAppearanceCard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">🌙</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Appearance</div>
+              <div style="font-size:12px;color:var(--muted);">Dark mode</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
         </div>
+
+        <!-- Card: Pop-ups -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsPopupsCard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">🔔</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Pop-ups</div>
+              <div style="font-size:12px;color:var(--muted);">Manage notification reminders</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
+        </div>
+
+        <!-- Card: API Keys -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsAPICard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">🔒</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">API Keys & Security</div>
+              <div style="font-size:12px;color:var(--muted);">Manage API credentials</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
+        </div>
+
+        <!-- Card: Preferences -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsVoiceCard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">🔊</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Preferences</div>
+              <div style="font-size:12px;color:var(--muted);">Workout voice & settings</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
+        </div>
+
+        <!-- Card: Account -->
+        <div class="settings-section">
+          <button class="settings-card" id="settingsAccountCard" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+            <span style="font-size:20px;">👤</span>
+            <div style="text-align:left;flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Account</div>
+              <div style="font-size:12px;color:var(--muted);">Lock app & security</div>
+            </div>
+            <span style="color:var(--muted);">›</span>
+          </button>
+        </div>
+
+        <!-- Card: Give -->
+        <div class="settings-section">
+          <a href="https://donations.churchofjesuschrist.org/donations/donation?tabKey=0" target="_blank" style="display:block;text-decoration:none;">
+            <button class="settings-card" style="display:flex;align-items:center;gap:12px;cursor:pointer;background:none;border:none;width:100%;padding:12px;color:var(--text);">
+              <span style="font-size:20px;">💝</span>
+              <div style="text-align:left;flex:1;">
+                <div style="font-size:14px;font-weight:600;color:var(--text);">Give</div>
+                <div style="font-size:12px;color:var(--muted);">Donate to the Church</div>
+              </div>
+              <span style="color:var(--muted);">↗</span>
+            </button>
+          </a>
+        </div>
+
+        <hr class="divider">
+        <p style="margin:14px 0 0;font-size:13px;color:var(--muted);">Need help? 720-745-0911 or 720-745-3166.</p>
       </div>
-      <div id="apiKeysPanel" style="display:none;">
-        <p style="margin:12px 0 8px;">Update your Anthropic API key. Stored only on this device.</p>
-        <input id="settingsKey" type="password" placeholder="Anthropic API key" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
-        <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
-        <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
-        <button class="btn" id="settingsSave" style="margin-top:14px;">Save Keys</button>
-      </div>
-      </div>
 
-      <hr class="divider">
-
-      <!-- SECTION: Features -->
-      <div class="settings-section">
-        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-          <input type="checkbox" id="settingsOff" style="width:20px;height:20px;flex:none;">
-          <span style="font-size:14px;color:var(--text);">Enable Open Food Facts search <span class="opt" style="color:var(--muted);">(branded foods)</span></span>
-        </label>
-      </div>
-
-      <hr class="divider">
-
-      <!-- SECTION: Preferences -->
-      <div class="settings-section">
-        <label class="fld" for="voiceSelect">Workout Voice</label>
-        <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
-        <select class="text" id="voiceSelect" style="height:48px;"></select>
-        <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
-      </div>
-
-      <hr class="divider">
-
-      <!-- SECTION: Reflection Reminder -->
-      <div class="settings-section">
-        <label class="fld" for="reflectionDay">Weekly Reflection Day</label>
-        <select class="text" id="reflectionDay" style="height:48px;">
-          <option value="0">Sunday</option>
-          <option value="1">Monday</option>
-          <option value="2">Tuesday</option>
-          <option value="3">Wednesday</option>
-          <option value="4">Thursday</option>
-          <option value="5">Friday</option>
-          <option value="6">Saturday</option>
-        </select>
-        <label class="fld" style="margin-top:12px;">Time</label>
-        <input type="time" id="reflectionTime" class="text" style="height:48px;">
-        <div class="opt" style="color:var(--muted);font-size:13px;margin-top:6px;">Get a weekly nudge to reflect on your health progress.</div>
-      </div>
-
-      <hr class="divider">
-
-      <!-- SECTION: Account -->
-      <div class="settings-section">
-        <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
-      </div>
-
-      <hr class="divider">
-      <p style="margin:14px 0 0;font-size:13px;color:var(--muted);">Need help? 720-745-0911 or 720-745-3166.</p>
+      <!-- SETTINGS PAGES (hidden, shown on demand) -->
+      <div id="settingsAppearancePage" style="display:none;"></div>
+      <div id="settingsPopupsPage" style="display:none;"></div>
+      <div id="settingsAPIPage" style="display:none;"></div>
+      <div id="settingsVoicePage" style="display:none;"></div>
+      <div id="settingsAccountPage" style="display:none;"></div>
     </div>
   </div>
 </div>
@@ -1877,7 +1871,8 @@ const state = {
     foodMode:'search', foodQuery:'', foodResults:null, foodSearching:false, foodSearchErr:'', foodPick:null, foodGrams:'',
     foodText:'', foodPhase:'input', foodEst:null, foodProtEst:null, foodBusy:false, foodErr:false,
     savedAdding:false, lastLogged:null, fastSundayDate:null,
-    reflectionReminderDay:0, reflectionReminderTime:'13:00', lastReflectionShown:null }
+    reflectionReminderDay:0, reflectionReminderTime:'13:00', lastReflectionShown:null },
+  settings:{ currentPage:null }
 };
 
 /* ===================================================================
@@ -1912,19 +1907,206 @@ function resetApiKeysLock(){
   document.getElementById('apiKeysPw').value='';
   document.getElementById('apiKeysPwErr').style.display='none';
 }
+function renderSettingsView(){
+  const st=state.settings;
+  const content=document.getElementById('settingsContent');
+
+  if(st.currentPage===null){
+    // Main settings view (cards)
+    document.getElementById('settingsMainView').style.display='';
+    document.getElementById('settingsAppearancePage').style.display='none';
+    document.getElementById('settingsPopupsPage').style.display='none';
+    document.getElementById('settingsAPIPage').style.display='none';
+    document.getElementById('settingsVoicePage').style.display='none';
+    document.getElementById('settingsAccountPage').style.display='none';
+  } else if(st.currentPage==='appearance'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsAppearancePage');
+    page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>Appearance</h3>
+      <div class="settings-section">
+        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="darkModeToggle" style="width:20px;height:20px;flex:none;">
+          <span style="font-size:14px;color:var(--text);">Dark mode <span class="opt" style="color:var(--muted);">(auto respects system preference)</span></span>
+        </label>
+      </div>`;
+    page.style.display='';
+    document.getElementById('darkModeToggle').checked=localStorage.getItem('theme')==='dark';
+    document.getElementById('darkModeToggle').addEventListener('change', e=>setTheme(e.target.checked));
+  } else if(st.currentPage==='popups'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsPopupsPage');
+    page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>Pop-ups</h3>
+      <div class="settings-section">
+        <label class="fld" for="reflectionDay">Weekly Reflection Day</label>
+        <select class="text" id="reflectionDay" style="height:48px;">
+          <option value="0">Sunday</option>
+          <option value="1">Monday</option>
+          <option value="2">Tuesday</option>
+          <option value="3">Wednesday</option>
+          <option value="4">Thursday</option>
+          <option value="5">Friday</option>
+          <option value="6">Saturday</option>
+        </select>
+        <label class="fld" style="margin-top:12px;">Time</label>
+        <input type="time" id="reflectionTime" class="text" style="height:48px;">
+        <div class="opt" style="color:var(--muted);font-size:13px;margin-top:6px;">Get a weekly nudge to reflect on your health progress.</div>
+      </div>`;
+    page.style.display='';
+    document.getElementById('reflectionDay').value=state.health.reflectionReminderDay;
+    document.getElementById('reflectionTime').value=state.health.reflectionReminderTime;
+    document.getElementById('reflectionDay').addEventListener('change', e=>{
+      state.health.reflectionReminderDay=parseInt(e.target.value,10);
+      setLS('health_reflectionReminderDay', state.health.reflectionReminderDay);
+      cloudSaveSetting('health_reflectionReminderDay', String(state.health.reflectionReminderDay));
+    });
+    document.getElementById('reflectionTime').addEventListener('change', e=>{
+      state.health.reflectionReminderTime=e.target.value;
+      setLS('health_reflectionReminderTime', state.health.reflectionReminderTime);
+      cloudSaveSetting('health_reflectionReminderTime', state.health.reflectionReminderTime);
+    });
+  } else if(st.currentPage==='apiKeys'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsAPIPage');
+    page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>API Keys & Security</h3>
+      <button class="lockrow" id="apiKeysToggle" style="cursor:pointer;">
+        <span class="lr-ic">🔒</span>
+        <span class="lr-tx">API Keys</span>
+        <span class="lr-ca">›</span>
+      </button>
+      <div id="apiKeysUnlock" style="display:none;">
+        <p style="margin:12px 0 8px;">Enter your app password to view or edit your API keys.</p>
+        <input id="apiKeysPw" type="password" placeholder="App password" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="apiKeysPwErr" class="pw-err" style="display:none;">Incorrect password. Try again.</div>
+        <div class="btn-row">
+          <button class="btn secondary" id="apiKeysPwCancel">Cancel</button>
+          <button class="btn" id="apiKeysPwGo">Unlock</button>
+        </div>
+      </div>
+      <div id="apiKeysPanel" style="display:none;">
+        <p style="margin:12px 0 8px;">Update your Anthropic API key. Stored only on this device.</p>
+        <input id="settingsKey" type="password" placeholder="Anthropic API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="fld">USDA FoodData Central key <span class="opt">(for food search)</span></label>
+        <input id="settingsUsda" type="password" placeholder="USDA API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="opt" style="color:var(--muted);font-size:12.5px;margin:4px 0 2px;line-height:1.4;">Free 2-minute signup — no cost:<br>fdc.nal.usda.gov/api-key-signup.html</div>
+        <button class="btn" id="settingsSave" style="margin-top:14px;">Save Keys</button>
+      </div>`;
+    page.style.display='';
+    resetApiKeysLock();
+    document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
+    document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
+    setupAPIKeysHandlers();
+  } else if(st.currentPage==='voice'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsVoicePage');
+    page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>Preferences</h3>
+      <div class="settings-section">
+        <label class="fld" for="voiceSelect">Workout Voice</label>
+        <div class="muted" style="margin-bottom:8px;">Used to announce steps out loud.</div>
+        <select class="text" id="voiceSelect" style="height:48px;"></select>
+        <button class="btn secondary" id="voiceTestBtn" style="margin-top:10px;">🔊 Test Voice</button>
+      </div>`;
+    page.style.display='';
+    loadVoices();
+    setupVoiceHandlers();
+  } else if(st.currentPage==='account'){
+    document.getElementById('settingsMainView').style.display='none';
+    const page=document.getElementById('settingsAccountPage');
+    page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
+      <h3>Account</h3>
+      <div class="settings-section">
+        <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
+      </div>`;
+    page.style.display='';
+    setupAccountHandlers();
+  }
+
+  // Setup back button
+  const backBtn=document.getElementById('settingsBackBtn');
+  if(backBtn) backBtn.onclick=()=>{
+    state.settings.currentPage=null;
+    renderSettingsView();
+  };
+}
+
 function openSettings(){
-  // pre-fill the key fields (they stay hidden until unlocked)
-  document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
-  document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
-  document.getElementById('settingsOff').checked = localStorage.getItem('offEnabled')!=='0';   // default on
-  document.getElementById('reflectionDay').value = state.health.reflectionReminderDay;
-  document.getElementById('reflectionTime').value = state.health.reflectionReminderTime;
-  updateThemeToggle();
-  resetApiKeysLock();
-  loadVoices();   // voices may have finished loading since page start
+  state.settings.currentPage=null;
+  // load reflection settings
+  state.health.reflectionReminderDay=parseInt(getLS('health_reflectionReminderDay', 0));
+  state.health.reflectionReminderTime=getLS('health_reflectionReminderTime', '13:00');
+  loadVoices();
+  renderSettingsView();
   document.getElementById('settingsModal').classList.add('show');
 }
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('show'); }
+
+function setupAPIKeysHandlers(){
+  /* Collapse the API-keys section back to its locked state. Called every time
+     the modal opens so the keys are never left unlocked between visits. */
+  document.getElementById('apiKeysToggle').addEventListener('click', ()=>{
+    document.getElementById('apiKeysToggle').style.display='none';
+    document.getElementById('apiKeysUnlock').style.display='';
+    document.getElementById('apiKeysPwErr').style.display='none';
+    const pw=document.getElementById('apiKeysPw'); pw.value=''; setTimeout(()=>pw.focus(),50);
+  });
+  function tryRevealKeys(){
+    const pw=document.getElementById('apiKeysPw');
+    if(pw.value === APP_PASSWORD){
+      document.getElementById('apiKeysUnlock').style.display='none';
+      document.getElementById('apiKeysPwErr').style.display='none';
+      document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
+      document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
+      document.getElementById('apiKeysPanel').style.display='';
+    } else {
+      document.getElementById('apiKeysPwErr').style.display='';
+    }
+  }
+  document.getElementById('apiKeysPwGo').addEventListener('click', tryRevealKeys);
+  document.getElementById('apiKeysPw').addEventListener('keydown', e=>{ if(e.key==='Enter') tryRevealKeys(); });
+  document.getElementById('apiKeysPwCancel').addEventListener('click', ()=>{
+    document.getElementById('apiKeysToggle').style.display='';
+    document.getElementById('apiKeysUnlock').style.display='none';
+    document.getElementById('apiKeysPw').value='';
+    document.getElementById('apiKeysPwErr').style.display='none';
+  });
+  document.getElementById('settingsSave').addEventListener('click', ()=>{
+    const key = document.getElementById('settingsKey').value.trim();
+    const usda = document.getElementById('settingsUsda').value.trim();
+    if(!key){ alert("Enter your Anthropic API key."); return; }
+    localStorage.setItem('apiKey', key);
+    localStorage.setItem('usdaApiKey', usda);
+    cloudSaveSetting('apiKey', key);
+    cloudSaveSetting('usdaApiKey', usda);
+    flash('API keys saved.');
+  });
+}
+
+function setupVoiceHandlers(){
+  document.getElementById('voiceTestBtn').addEventListener('click', ()=>{
+    const sel=document.getElementById('voiceSelect');
+    const idx=Array.from(sel.options).findIndex(o=>o.selected);
+    if(idx>=0 && speechSynthesis.getVoices()[idx]){
+      const u = new SpeechSynthesisUtterance("Testing voice.");
+      u.voice=speechSynthesis.getVoices()[idx];
+      speechSynthesis.speak(u);
+    }
+  });
+  document.getElementById('voiceSelect').addEventListener('change', e=>{
+    localStorage.setItem('voiceIdx', e.target.selectedIndex);
+  });
+}
+
+function setupAccountHandlers(){
+  document.getElementById('lockAppBtn').addEventListener('click', ()=>{
+    if(confirm('Lock the app? You\'ll need the password to unlock it.')){
+      localStorage.setItem('authenticated', 'false');
+      showLock();
+    }
+  });
+}
 
 document.getElementById('gearBtn').addEventListener('click', openSettings);
 document.getElementById('settingsX').addEventListener('click', closeSettings);
@@ -1932,22 +2114,19 @@ document.getElementById('settingsX').addEventListener('click', closeSettings);
 document.getElementById('settingsModal').addEventListener('click', e=>{
   if(e.target === document.getElementById('settingsModal')) closeSettings();
 });
+
+// Settings card navigation
+document.getElementById('settingsAppearanceCard').addEventListener('click', ()=>{ state.settings.currentPage='appearance'; renderSettingsView(); });
+document.getElementById('settingsPopupsCard').addEventListener('click', ()=>{ state.settings.currentPage='popups'; renderSettingsView(); });
+document.getElementById('settingsAPICard').addEventListener('click', ()=>{ state.settings.currentPage='apiKeys'; renderSettingsView(); });
+document.getElementById('settingsVoiceCard').addEventListener('click', ()=>{ state.settings.currentPage='voice'; renderSettingsView(); });
+document.getElementById('settingsAccountCard').addEventListener('click', ()=>{ state.settings.currentPage='account'; renderSettingsView(); });
 // dark mode toggle
 document.getElementById('darkModeToggle').addEventListener('change', e=>{
   setTheme(e.target.checked);
 });
 
-// reflection reminder settings
-document.getElementById('reflectionDay').addEventListener('change', e=>{
-  state.health.reflectionReminderDay=parseInt(e.target.value,10);
-  setLS('health_reflectionReminderDay', state.health.reflectionReminderDay);
-  cloudSaveSetting('health_reflectionReminderDay', String(state.health.reflectionReminderDay));
-});
-document.getElementById('reflectionTime').addEventListener('change', e=>{
-  state.health.reflectionReminderTime=e.target.value;
-  setLS('health_reflectionReminderTime', state.health.reflectionReminderTime);
-  cloudSaveSetting('health_reflectionReminderTime', state.health.reflectionReminderTime);
-});
+/* Reflection reminder settings are now handled in renderSettingsView() */
 
 /* --- API keys: password-gated reveal --- */
 document.getElementById('apiKeysToggle').addEventListener('click', ()=>{
@@ -1974,23 +2153,8 @@ document.getElementById('apiKeysPwGo').addEventListener('click', tryRevealKeys);
 document.getElementById('apiKeysPw').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
 document.getElementById('apiKeysPwCancel').addEventListener('click', resetApiKeysLock);
 
-/* Open Food Facts toggle saves on its own — no key access needed */
-document.getElementById('settingsOff').addEventListener('change', function(){
-  localStorage.setItem('offEnabled', this.checked ? '1' : '0');
-});
-
-/* Saving keys from inside the unlocked section — no second password needed */
-document.getElementById('settingsSave').addEventListener('click', ()=>{
-  const k = document.getElementById('settingsKey').value.trim();
-  if(!k){ alert("Please enter your API key."); return; }
-  localStorage.setItem('apiKey', k);
-  cloudSaveSetting('apiKey', k);
-  const u = document.getElementById('settingsUsda').value.trim();
-  if(u){ localStorage.setItem('usdaApiKey', u); cloudSaveSetting('usdaApiKey', u); }
-  else { localStorage.removeItem('usdaApiKey'); }
-  closeSettings();
-  flash("API keys saved.");
-});
+/* Open Food Facts is always enabled (no user toggle) */
+/* Settings handlers are now in setupAPIKeysHandlers() and called from renderSettingsView() */
 
 /* ===================================================================
    VOICE — device speech synthesis for spoken step announcements.
@@ -3393,7 +3557,6 @@ async function doFoodSearch(){
   const q=(box?box.value:'').trim();
   if(!q){ return; }
   const hasUsda=!!localStorage.getItem('usdaApiKey');
-  const offOn=localStorage.getItem('offEnabled')!=='0';   // default on
   st.foodQuery=q; st.foodSearching=true; st.foodSearchErr=''; st.foodResults=null; render();
 
   const out=[]; let usdaRejected=false, anyFail=false, ran=0;
@@ -3402,15 +3565,14 @@ async function doFoodSearch(){
     try{ (await usdaSearch(q)).forEach(f=> out.push({...f, source:'usda'})); }
     catch(e){ anyFail=true; if(/\b40[13]\b/.test(String(e&&e.message||e))) usdaRejected=true; }
   }
-  if(offOn){
-    ran++;
-    try{ (await offSearch(q)).forEach(f=> out.push(f)); }
-    catch(e){ anyFail=true; }
-  }
+  // Open Food Facts is always enabled
+  ran++;
+  try{ (await offSearch(q)).forEach(f=> out.push(f)); }
+  catch(e){ anyFail=true; }
   st.foodResults=out;
   if(!out.length){
-    if(ran===0) st.foodSearchErr='Add a USDA key or enable Open Food Facts in Settings.';
-    else if(usdaRejected && !offOn) st.foodSearchErr='USDA key was rejected — check it in Settings.';
+    if(ran===0) st.foodSearchErr='Add a USDA key in Settings.';
+    else if(usdaRejected) st.foodSearchErr='USDA key was rejected — check it in Settings.';
     else if(anyFail) st.foodSearchErr='Search failed. Check your connection and try again.';
   }
   st.foodSearching=false; render();
@@ -3524,13 +3686,12 @@ function renderHealthFood(c){
   const total=items.reduce((s,e)=>s+(e.calories||0),0);
   const totalProt=items.reduce((s,e)=>s+(e.protein||0),0);
   const hasUsda=!!localStorage.getItem('usdaApiKey');
-  const offOn=localStorage.getItem('offEnabled')!=='0';
-  const canSearch=hasUsda||offOn;   // OFF needs no key
+  const canSearch=hasUsda;   // Open Food Facts is always enabled
 
-  let html=`<h2 class="tabtitle">🍽️ Food</h2>
-    <div class="food-modes">
-      <button data-fmode="search" class="${st.foodMode==='search'?'on':''}">🔍 Search Food</button>
-      <button data-fmode="estimate" class="${st.foodMode==='estimate'?'on':''}">✏️ Rough Estimate</button>
+  let html=`<h2 class=”tabtitle”>🍽️ Food</h2>
+    <div class=”food-modes”>
+      <button data-fmode=”search” class=”${st.foodMode==='search'?'on':''}”>🔍 Search Food</button>
+      <button data-fmode=”estimate” class=”${st.foodMode==='estimate'?'on':''}”>✏️ Rough Estimate</button>
     </div>`;
 
   // right after logging via Search/Estimate — offer to keep it as a saved food (only after 10+ identical logs in 90 days)
@@ -3538,17 +3699,17 @@ function renderHealthFood(c){
     const ll=st.lastLogged;
     const count=countIdenticalFoodInWindow(ll.name, ll.calories, ll.protein, 90);
     if(count>=10){
-      html+=`<div class="save-this"><span class="st-tx">Logged <b>${esc(ll.name)}</b>${ll.calories!=null?' · '+ll.calories+' cal':''}</span>
-        <button class="btn secondary" id="saveThis">☆ Save this</button></div>`;
+      html+=`<div class=”save-this”><span class=”st-tx”>Logged <b>${esc(ll.name)}</b>${ll.calories!=null?' · '+ll.calories+' cal':''}</span>
+        <button class=”btn secondary” id=”saveThis”>☆ Save this</button></div>`;
     }
   }
 
   if(st.foodMode==='search'){
     if(!canSearch){
-      html+=`<div class="card">
-        <div class="muted" style="line-height:1.5;">Food search uses the free USDA database and Open Food Facts. Add your USDA key and/or enable Open Food Facts in Settings (⚙️).</div>
-        <button class="btn secondary" id="openSettingsForKey" style="margin-top:12px;">Open Settings</button>
-        <div class="muted" style="margin-top:10px;font-size:13px;">Or use “Rough Estimate” above for a quick AI guess.</div>
+      html+=`<div class=”card”>
+        <div class=”muted” style=”line-height:1.5;”>Food search uses the free USDA database and Open Food Facts. Add your USDA key in Settings (⚙️).</div>
+        <button class=”btn secondary” id=”openSettingsForKey” style=”margin-top:12px;”>Open Settings</button>
+        <div class=”muted” style=”margin-top:10px;font-size:13px;”>Or use “Rough Estimate” above for a quick AI guess.</div>
       </div>`;
     } else if(st.foodPick){
       const p=st.foodPick;
