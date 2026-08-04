@@ -1739,7 +1739,6 @@ const OBJECTIONS = [
   {text:"Historians say there's no archaeological evidence for Book of Mormon cities or the Nephites at all.", fallacy:"Argument from Silence", category:"scripture-criticism", comeback:"Lack of confirmed archaeology isn't disproof — whole ancient civilizations went undiscovered for centuries. Keep the conversation on the fruit of the book's teachings, not a dig site."},
   {text:"Isn't it true that some Book of Mormon passages were changed or edited after they were first translated?", fallacy:"Equivocation (conflates minor editorial/grammar corrections with changes in doctrine or prophecy)", category:"scripture-criticism", comeback:"Every translated or transcribed text — including the Bible — has had editorial corrections for clarity and grammar over time; that isn't the same as changing meaning. If you don't know the specific example, it's fine to say you'll look into it together."}
 ];
-const objectionQuestions = OBJECTIONS.map(o=>o.text);
 
 /* ===================================================================
    SCRIPTURE MASTERY DECK (pre-loaded, offline)
@@ -4819,7 +4818,7 @@ function renderObjections(c){
 
   if(st.summary){
     html+=`<div class="summary-box"><div class="lbl">One thing to reflect on from this conversation</div>${esc(st.summary)}</div>`;
-    if(st.fallacy && st.fallacy!=='none'){
+    if(st.fallacy && !/^none\b/i.test(st.fallacy)){
       html+=`<div class="summary-box"><div class="lbl">🧠 A pattern worth recognizing (not for calling out — just for staying calm)</div>${esc(st.fallacy)}</div>`;
     }
     if(st.comeback){
@@ -5502,6 +5501,8 @@ async function syncSettings(){
   else { const lv=localStorage.getItem('preferredVoiceName'); if(lv) await putSetting('preferredVoiceName', lv); }
   if(map.has('healthGoals')){ const v=parseVal(map.get('healthGoals')); if(v && typeof v==='object') setLS('healthGoals', v); }
   else { const lv=getLS('healthGoals', null); if(lv && typeof lv==='object') await putSetting('healthGoals', lv); }
+  if(map.has('scriptureLockMode')){ const v=parseVal(map.get('scriptureLockMode')); setLS('scriptureLockMode', !!v); }
+  else { const lv=getLS('scriptureLockMode', null); if(lv!==null) await putSetting('scriptureLockMode', lv); }
   // scripture streak: keep the one with the most recent activity across devices
   if(map.has('scriptureStreak')){
     const cloud=parseVal(map.get('scriptureStreak')); const local=getLS('scriptureStreak', null);
