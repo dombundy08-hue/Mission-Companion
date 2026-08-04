@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SECTIONS, findSection } from '@/lib/sections';
+import { cn } from '@/lib/utils';
+
+interface TopBarProps {
+  activeSectionId: string;
+  onOpenSettings: () => void;
+}
+
+export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const navigate = useNavigate();
+  const section = findSection(activeSectionId);
+
+  return (
+    <>
+      <header
+        className="sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
+        style={{
+          background: 'var(--navy)',
+          backgroundImage: 'linear-gradient(var(--navy), var(--navy))',
+          backdropFilter: 'blur(14px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+          boxShadow: '0 1px 6px rgba(0,0,0,.12)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setSwitcherOpen(true)}
+          className="flex items-center gap-2 text-base font-semibold"
+        >
+          <span>{section?.icon}</span>
+          <span>{section?.name}</span>
+          <span className="text-xs opacity-70">▾</span>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-label="Settings"
+          className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] active:bg-white/10"
+        >
+          ⚙️
+        </button>
+      </header>
+
+      {switcherOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/50"
+          onClick={() => setSwitcherOpen(false)}
+        >
+          <div
+            className="w-full rounded-t-2xl p-5 pb-[calc(env(safe-area-inset-bottom)+20px)]"
+            style={{ background: 'var(--card)', color: 'var(--foreground)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 font-heading text-xl font-semibold">Sections</h2>
+            <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+              Jump to another part of your life.
+            </p>
+            <div className="space-y-2">
+              {SECTIONS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    navigate(`/${s.id}/${s.tabs[0].id}`);
+                    setSwitcherOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors',
+                    s.id === activeSectionId ? 'border-transparent' : 'border-border'
+                  )}
+                  style={
+                    s.id === activeSectionId
+                      ? { background: 'var(--navy-soft)', color: '#fff' }
+                      : undefined
+                  }
+                >
+                  <span className="text-xl">{s.icon}</span>
+                  <span className="font-medium">{s.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSwitcherOpen(false)}
+              className="mt-4 w-full rounded-xl py-3 text-sm font-medium"
+              style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

@@ -1,115 +1,152 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* Tailwind v4: enable class-based dark mode (`dark:` utilities respond to a
+   `.dark` class on an ancestor, e.g. <html class="dark">) rather than only
+   the OS `prefers-color-scheme` media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Self-hosted fonts — offline-safe, no CDN, matches the vanilla app's PWA
+   requirements. Both are variable-weight; one file covers 100-900. */
+@font-face {
+  font-family: 'Lexend';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/lexend-variable.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/newsreader-variable.woff2') format('woff2');
+}
+
+/* ---------- Mission Companion design tokens ----------
+   Ported directly from index.html's :root (see design-system/mission-companion/MASTER.md
+   for the source of truth and the reasoning behind each value). */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --font-body: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Newsreader', Georgia, 'Times New Roman', serif;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --background: #F5F8FC;
+  --foreground: #1B2430;
+  --card: #FFFFFF;
+  --card-foreground: #1B2430;
+  --popover: #FFFFFF;
+  --popover-foreground: #1B2430;
+  --primary: #1C6FB0;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF0F4;
+  --secondary-foreground: #163C64;
+  --muted: #EEF0F4;
+  --muted-foreground: #5B6B82;
+  --accent: #1C6FB0;
+  --accent-foreground: #FFFFFF;
+  --destructive: #9A3B2F;
+  --destructive-foreground: #FFFFFF;
+  --border: #E1E8F0;
+  --input: #E1E8F0;
+  --ring: #1C6FB0;
+  --radius: 0.75rem;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  /* Mission Companion-specific (not part of the shadcn convention, kept
+     alongside it since the app has its own navy/accent identity beyond
+     the generic primary/secondary roles) */
+  --navy: #163C64;
+  --navy-soft: #1F5389;
+  --gold: #1C6FB0;
+  --gold-dark: #145084;
+
+  --shadow-sm: 0 1px 3px rgba(22,60,100,.08), 0 1px 2px rgba(22,60,100,.05);
+  --shadow-md: 0 6px 16px rgba(22,60,100,.10), 0 2px 6px rgba(22,60,100,.06);
+  --shadow-lg: 0 16px 40px rgba(22,60,100,.16), 0 6px 12px rgba(22,60,100,.08);
+
   color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+.dark {
+  --background: #0A0F17;
+  --foreground: #E4E9F1;
+  --card: #121826;
+  --card-foreground: #E4E9F1;
+  --popover: #121826;
+  --popover-foreground: #E4E9F1;
+  --primary: #1C6FB0;
+  --primary-foreground: #FFFFFF;
+  --secondary: #12314F;
+  --secondary-foreground: #E4E9F1;
+  --muted: #12314F;
+  --muted-foreground: #93A2B8;
+  --accent: #6BB4EA;
+  --accent-foreground: #0B1D33;
+  --destructive: #DA3633;
+  --destructive-foreground: #FFFFFF;
+  --border: #263447;
+  --input: #263447;
+  --ring: #1C6FB0;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  --navy: #0B1D33;
+  --navy-soft: #12314F;
+  --gold: #6BB4EA;
+  --gold-dark: #3D7FB5;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.25);
+  --shadow-md: 0 6px 16px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.30);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.55), 0 6px 12px rgba(0,0,0,.35);
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+/* Tailwind v4: map the CSS variables above to utility classes
+   (bg-primary, text-foreground, border-border, etc.) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+* {
+  border-color: var(--border);
 }
 
 body {
-  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--background);
+  color: var(--foreground);
+  /* Subtle grain texture — signature detail ported from index.html, 5% opacity */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h1, h2, h3, .tabtitle {
+  font-family: var(--font-heading);
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
   border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }
