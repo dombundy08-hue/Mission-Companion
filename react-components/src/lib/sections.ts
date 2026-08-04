@@ -11,6 +11,7 @@ export interface SectionDef {
   id: string;
   name: string;
   icon: string;
+  iconImage: string; // custom-designed icon, replaces `icon` in the UI — see MASTER.md
   tabs: TabDef[];
 }
 
@@ -19,6 +20,7 @@ export const SECTIONS: SectionDef[] = [
     id: 'spiritual',
     name: 'Spiritual',
     icon: '✝️',
+    iconImage: '/icons/section-spiritual.png',
     tabs: [
       { id: 'journal', label: 'Journal', icon: '📓' },
       { id: 'spanish', label: 'Spanish', icon: '🗣️' },
@@ -33,6 +35,7 @@ export const SECTIONS: SectionDef[] = [
     id: 'exercise',
     name: 'Exercise',
     icon: '💪',
+    iconImage: '/icons/section-exercise.png',
     tabs: [
       { id: 'workout', label: 'Workout', icon: '▶️' },
       { id: 'routines', label: 'Routines', icon: '📋' },
@@ -43,6 +46,7 @@ export const SECTIONS: SectionDef[] = [
     id: 'health',
     name: 'Health',
     icon: '🍎',
+    iconImage: '/icons/section-health.png',
     tabs: [
       { id: 'health', label: 'Today', icon: '🍎' },
       { id: 'hfood', label: 'Food', icon: '🍽️' },

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { findSection } from '@/lib/sections';
 
 interface BottomNavProps {
@@ -25,10 +26,13 @@ export function BottomNav({ activeSectionId, activeTabId }: BottomNavProps) {
       {section.tabs.map((tab) => {
         const active = tab.id === activeTabId;
         return (
-          <button
+          <motion.button
             key={tab.id}
             type="button"
             onClick={() => navigate(`/${section.id}/${tab.id}`)}
+            whileHover={{ scale: 1.12 }}
+            whileTap={{ scale: 0.88 }}
+            transition={{ duration: 0.3, ease: 'backInOut' }}
             className="flex min-h-[52px] flex-1 flex-col items-center gap-0.5 rounded-[10px] px-0.5 py-1.5 text-[10.5px] whitespace-nowrap"
             style={{ color: active ? 'var(--gold)' : '#9aa4bd' }}
           >
@@ -36,7 +40,7 @@ export function BottomNav({ activeSectionId, activeTabId }: BottomNavProps) {
               {tab.icon}
             </span>
             <span className={few ? 'text-[11px]' : undefined}>{tab.label}</span>
-          </button>
+          </motion.button>
         );
       })}
     </nav>

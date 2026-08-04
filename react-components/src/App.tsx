@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/shell/AppShell';
+import { KineticLoader } from '@/components/shell/KineticLoader';
 import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
@@ -38,7 +40,30 @@ function TabPage() {
   return <TabRoute sectionId={sectionId} tabId={tabId} />;
 }
 
+// Boot splash stays up until fonts are genuinely ready AND at least one
+// kinetic-loader word cycle has played (so a warm cache doesn't just flash it).
+function useBootReady() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const minDuration = new Promise((resolve) => setTimeout(resolve, 1300));
+    Promise.all([document.fonts.ready, minDuration]).then(() => {
+      if (!cancelled) setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return ready;
+}
+
 export default function App() {
+  const ready = useBootReady();
+
+  if (!ready) return <KineticLoader />;
+
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>

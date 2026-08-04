@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { SECTIONS, findSection } from '@/lib/sections';
 import { cn } from '@/lib/utils';
 
@@ -25,15 +26,18 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
           boxShadow: '0 1px 6px rgba(0,0,0,.12)',
         }}
       >
-        <button
+        <motion.button
           type="button"
           onClick={() => setSwitcherOpen(true)}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.94 }}
+          transition={{ duration: 0.25, ease: 'backInOut' }}
           className="flex items-center gap-2 text-base font-semibold"
         >
-          <span>{section?.icon}</span>
+          {section?.iconImage && <img src={section.iconImage} alt="" className="h-6 w-6 object-contain" />}
           <span>{section?.name}</span>
           <span className="text-xs opacity-70">▾</span>
-        </button>
+        </motion.button>
         <button
           type="button"
           onClick={onOpenSettings}
@@ -60,13 +64,16 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
             </p>
             <div className="space-y-2">
               {SECTIONS.map((s) => (
-                <button
+                <motion.button
                   key={s.id}
                   type="button"
                   onClick={() => {
                     navigate(`/${s.id}/${s.tabs[0].id}`);
                     setSwitcherOpen(false);
                   }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={{ duration: 0.25, ease: 'backInOut' }}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors',
                     s.id === activeSectionId ? 'border-transparent' : 'border-border'
@@ -77,9 +84,9 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
                       : undefined
                   }
                 >
-                  <span className="text-xl">{s.icon}</span>
+                  <img src={s.iconImage} alt="" className="h-8 w-8 object-contain" />
                   <span className="font-medium">{s.name}</span>
-                </button>
+                </motion.button>
               ))}
             </div>
             <button

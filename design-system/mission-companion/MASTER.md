@@ -204,6 +204,17 @@ faithfully in the React port rather than replacing it with a generic spinner.
   app's personality (explicitly reconfirmed with the user this session: "keep
   the emoji, polish everything around them"). Do not swap them for Lucide/
   Heroicons in the React port.
+  - **Exception, added later this session:** the 3 top-level SECTION icons
+    (Spiritual/Exercise/Health — used in the TopBar and section switcher
+    only) were replaced with real, user-provided illustrated PNGs
+    (`public/icons/section-*.png`: an ornate Book of Mormon, a flexed arm,
+    a glowing golden apple) because the plain emoji looked flat next to the
+    richer new visual style (ActivityCard rings, squish nav animation,
+    kinetic loader). This is scoped narrowly — every sub-tab icon (Journal
+    📓, Miracles ✨, Food 🍽️, etc.) still keeps its emoji unchanged. Same
+    image is also reused as the app-wide favicon/PWA icon (apple), replacing
+    the vanilla app's plain blue silhouette icon, which the user explicitly
+    said didn't fit the new style either.
 - ❌ Marketing/landing-page patterns (hero sections, download CTAs, app-store
   screenshots pattern) — this is a private single-user tool, not a product
   being marketed.
