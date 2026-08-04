@@ -2366,15 +2366,8 @@ if('speechSynthesis' in window){
   window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
 
-document.getElementById('voiceSelect').addEventListener('change', function(){
-  if(this.value) setPreferredVoice(this.value, true);
-});
-document.getElementById('voiceTestBtn').addEventListener('click', ()=>{
-  const sel = document.getElementById('voiceSelect');
-  const chosen = englishVoices().find(v => v.name === (sel && sel.value)) || currentVoice();
-  const ok = speakWith(chosen, 'Nice work. Next up: twenty squats, then rest for thirty seconds.');
-  if(!ok) flash('Speech is not available on this device.');
-});
+// Removed duplicate listeners (lines 2369-2377) — these are already properly attached
+// by setupVoiceHandlers() when renderSettingsView() creates the voice settings elements.
 
 /* ===================================================================
    NAV
