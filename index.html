@@ -424,6 +424,27 @@
   #lock .lockmsg{min-height:22px;text-align:center;color:#f3c9c0;font-size:15px;margin-bottom:8px;}
   #lock .help{font-size:14px;color:#aab3c9;margin-top:20px;text-align:center;line-height:1.6;}
 
+  /* ---------- Scripture lock overlay (sits above the app, idle re-lock) ---------- */
+  #scriptureLockOverlay{
+    display:none;position:fixed;inset:0;z-index:200;overflow-y:auto;min-height:100vh;
+    padding:calc(var(--safe-top) + 60px) 26px 40px;
+    background:linear-gradient(160deg,#1a2744 0%,#26365c 100%);color:#fafaf8;
+  }
+  #scriptureLockOverlay.show{display:block;}
+  #scriptureLockOverlay .crest{font-size:40px;text-align:center;margin-bottom:10px;}
+  #scriptureLockOverlay h1{font-size:20px;font-weight:600;margin:0 0 8px;text-align:center;line-height:1.35;}
+  #scriptureLockOverlay .ref{font-size:16px;color:var(--gold);text-align:center;margin-bottom:18px;font-weight:700;}
+  #scriptureLockOverlay .field{max-width:420px;margin:0 auto;}
+  #scriptureLockOverlay textarea{
+    width:100%;min-height:110px;border-radius:12px;border:none;resize:vertical;
+    padding:12px 16px;font-size:15px;color:var(--text);background:var(--card);margin-bottom:12px;
+  }
+  #scriptureLockOverlay .lockmsg{min-height:20px;text-align:center;color:#f3c9c0;font-size:14px;margin-bottom:8px;}
+  #scriptureLockOverlay .hintbtn, #scriptureLockOverlay .skiplink{
+    display:block;width:100%;margin:10px auto 0;text-align:center;color:#cdd4e4;
+    background:none;border:none;font-size:13px;text-decoration:underline;cursor:pointer;
+  }
+
   /* ---------- Loading screen ---------- */
   #loading{
     display:none;min-height:100vh;
@@ -706,6 +727,20 @@
     <div class="help">Need help? Contact 720-745-0911 or 720-745-3166.</div>
   </div>
 </section>
+
+<!-- ============ SCRIPTURE LOCK (gamified re-entry, never a hard gate) ============ -->
+<div id="scriptureLockOverlay">
+  <div class="crest">📖</div>
+  <h1>Type the scripture to continue</h1>
+  <div class="ref" id="sLockRef"></div>
+  <div class="field">
+    <textarea id="sLockInput" placeholder="Type it from memory…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+    <div class="lockmsg" id="sLockMsg"></div>
+    <button class="btn-gold" id="sLockBtn">Unlock</button>
+    <button class="hintbtn" id="sLockHint" type="button">Show a hint</button>
+    <button class="skiplink" id="sLockSkip" type="button">Use password instead</button>
+  </div>
+</div>
 
 <!-- ============ LOADING ============ -->
 <section id="loading">
@@ -1647,53 +1682,64 @@ const journalPrompts = [
   "If today were the only day someone remembered you by, what would it say about your heart?"
 ];
 
-const objectionQuestions = [
-  "Why do you need a prophet? We have the Bible.",
-  "I tried praying once and nothing happened.",
-  "Aren't you just a cult?",
-  "I already have my own religion and I'm happy.",
-  "Why do you think you have the truth and everyone else is wrong?",
-  "I don't believe God exists.",
-  "What makes Joseph Smith any different from other religious founders?",
-  "I've read things online that say your church isn't true.",
-  "Why do you baptize for the dead? That's strange.",
-  "I don't have time for this right now.",
-  "My family would never accept me joining a new church.",
-  "If God is real, why is there so much suffering?",
-  "I used to believe, but I've been hurt by religion.",
-  "What do you mean you have more scripture? The Bible is complete.",
-  "Do Mormons believe Jesus and God are the same person?",
-  "Why do you wear those white shirts and name tags? It feels like a corporation.",
-  "I think all religions are basically the same.",
-  "How can you give up two years of your life for this?",
-  "I'm a good person already. Why do I need a church?",
-  "Science has explained everything religion used to. Why still believe?",
-  "Why does your church have so many rules about coffee and tea?",
-  "I was baptized as a baby. Isn't that enough?",
-  "My pastor warned me about you people.",
-  "Didn't your church used to be racist?",
-  "Why can't women hold the priesthood in your church?",
-  "I prayed about your book and didn't feel anything special.",
-  "How do you know the Book of Mormon isn't just made up?",
-  "I believe in God but not in organized religion.",
-  "What happens to people who never heard about your church?",
-  "Why do you knock on doors? It feels pushy.",
-  "I don't think God cares about the small details of my life.",
-  "Christianity has caused so many wars. Why join any of it?",
-  "I'm gay. Does your church even want me?",
-  "Why should I trust a 19-year-old about God?",
-  "I feel close to God in nature. Why do I need a building?",
-  "How can a loving God send anyone to hell?",
-  "Joseph Smith had multiple wives. How do you defend that?",
-  "I'm too broken for God to want me.",
-  "What proof do you actually have for any of this?",
-  "I'll think about religion when I'm older.",
-  "Why does it matter which church I belong to if I believe in Jesus?",
-  "My friend left your church and says it ruined their family.",
-  "Isn't faith just believing things without evidence?",
-  "I've made too many mistakes for God to forgive me.",
-  "Why do you ask for ten percent of people's money?"
+/* Each entry: the investigator's line, the logical pattern it leans on (for the
+   missionary to recognize calmly, not call out), and a Spirit-focused comeback —
+   framed as staying grounded, never as winning the exchange. */
+const OBJECTIONS = [
+  {text:"Why do you need a prophet? We have the Bible.", fallacy:"False Dilemma", comeback:"A living prophet doesn't replace the Bible — it continues the same pattern of a God who has always spoken to His children. You're not choosing one over the other; invite them to see revelation as continuing, not competing."},
+  {text:"I tried praying once and nothing happened.", fallacy:"Hasty Generalization", comeback:"One prayer isn't the full picture — real relationships take patience and sincere repetition, and this is one. Invite them to try again with real intent, and let the Spirit do the convincing, not your argument."},
+  {text:"Aren't you just a cult?", fallacy:"Loaded Question", comeback:"A label isn't evidence — invite them to look at what the Church actually teaches and does, not the word someone else chose for it. Stay calm; defending the label is a losing frame, sharing your own experience isn't."},
+  {text:"I already have my own religion and I'm happy.", fallacy:"Appeal to Contentment", comeback:"You're not there to take away their happiness — you're there to see if there's more. Affirm what's good in their faith first, then simply invite, without needing them to feel like something's missing."},
+  {text:"Why do you think you have the truth and everyone else is wrong?", fallacy:"Straw Man", comeback:"You don't have to claim everyone else is wrong — just that more truth is available to everyone, including you. Keep it an invitation to add, not a verdict on what they already hold."},
+  {text:"I don't believe God exists.", fallacy:"Unfalsifiability — the same shape as the philosopher's parable of the Invisible Gardener, where no test either side proposes could ever settle it", comeback:"You don't need to out-argue that — testimony isn't won by logic alone, it's an invitation to feel, not just to reason. Invite them to ask sincerely and notice what happens inside them, and let the Spirit answer, since that's the one witness that isn't rigged either way."},
+  {text:"What makes Joseph Smith any different from other religious founders?", fallacy:"Genetic Fallacy", comeback:"Fair question — invite them to examine the actual fruits: the Book of Mormon, the Church's growth, their own experience. Don't defend Joseph Smith personally; point to what came through him."},
+  {text:"I've read things online that say your church isn't true.", fallacy:"Unverified Appeal to Authority", comeback:"Ask what specifically they read — most concerns have honest answers, but you don't have to solve it on the spot. It's fine to say 'let's look at that together' and come back with something real."},
+  {text:"Why do you baptize for the dead? That's strange.", fallacy:"Appeal to Unfamiliarity", comeback:"New things often feel strange before they feel true — that reaction is normal, not a red flag. Explain the loving logic (everyone deserves the chance to choose) before defending the practice itself."},
+  {text:"I don't have time for this right now.", fallacy:"Deflection", comeback:"Respect it fully — a message about faith isn't a race against someone's schedule. Leave the door open without pressure; timing is the Lord's to work out, not yours to force."},
+  {text:"My family would never accept me joining a new church.", fallacy:"Appeal to Consequences", comeback:"Their fear is real and valid — don't minimize it. Let them know they can move at whatever pace protects those relationships; truth isn't in a hurry."},
+  {text:"If God is real, why is there so much suffering?", fallacy:"False Dilemma (assumes a loving God and suffering can't coexist)", comeback:"This one deserves real weight, not a quick answer — sit with it rather than rushing past it. Share that agency and eternal perspective don't erase pain, but they give it purpose, and invite the Spirit to comfort more than words can."},
+  {text:"I used to believe, but I've been hurt by religion.", fallacy:"Genetic Fallacy (people's failures taken as proof against the truth itself)", comeback:"Their pain is real and deserves to be honored, not corrected. Gently separate people's failures from the truth being taught, and let patience, not argument, start rebuilding trust."},
+  {text:"What do you mean you have more scripture? The Bible is complete.", fallacy:"Begging the Question", comeback:"Ask where in the Bible it says no more scripture will ever come — usually there isn't one. Frame the Book of Mormon as additional, gently, never as replacing what they already hold sacred."},
+  {text:"Do Mormons believe Jesus and God are the same person?", fallacy:"Factual Misunderstanding", comeback:"This is a real misunderstanding worth clarifying simply and calmly — no need to defend, just clarify. Keep the focus on your testimony of Christ, not on correcting them."},
+  {text:"Why do you wear those white shirts and name tags? It feels like a corporation.", fallacy:"Appeal to Appearance", comeback:"The uniform isn't the message — it's just so people know who's approaching and why. Let genuine warmth undercut the corporate impression faster than any explanation will."},
+  {text:"I think all religions are basically the same.", fallacy:"False Equivalence", comeback:"There's real overlap in goodness across faiths — affirm that fully. Then simply share what's distinct in your own experience, without needing them to agree the differences matter."},
+  {text:"How can you give up two years of your life for this?", fallacy:"Appeal to Sacrifice-as-Absurd", comeback:"Answer with your own why, not a defense — what you believe you're gaining, not what you're giving up. Let your peace about the choice be the argument."},
+  {text:"I'm a good person already. Why do I need a church?", fallacy:"False Dilemma (goodness vs. belonging treated as substitutes)", comeback:"Affirm their goodness fully and sincerely — this isn't about earning worth. Frame the invitation as more joy and connection, not a fix for something broken."},
+  {text:"Science has explained everything religion used to. Why still believe?", fallacy:"False Dilemma (science and faith treated as competing for the same job)", comeback:"Science answers 'how'; faith answers 'why' and 'who for' — they're not competing. Notice that plenty of scientists still hold deep faith, and let that be enough for now."},
+  {text:"Why does your church have so many rules about coffee and tea?", fallacy:"Appeal to Restriction", comeback:"Reframe it from restriction to care — a health law given out of love, not control. Share what it's given you (clarity, discipline, peace), not just what it asks you to give up."},
+  {text:"I was baptized as a baby. Isn't that enough?", fallacy:"False Premise (assumes 'enough' means 'final')", comeback:"Approach this gently as building on, not undoing — their baptism was a beautiful moment. Focus on covenant and accountability as an addition, never a correction of something done in love."},
+  {text:"My pastor warned me about you people.", fallacy:"Appeal to Authority", comeback:"Honor their pastor's care for them — don't compete with someone who loves them. Simply invite them to test what you share for themselves rather than take either of your words for it."},
+  {text:"Didn't your church used to be racist?", fallacy:"none — a real historical concern, not a fallacy to dismiss", comeback:"This deserves honesty, not defensiveness — acknowledge the real, painful history plainly. Then point to where the Church stands today and God's actual doctrine of love for all His children, and let actions speak louder than argument."},
+  {text:"Why can't women hold the priesthood in your church?", fallacy:"none — a sincere question many wrestle with", comeback:"Don't rush to a tidy answer. Share what you've come to understand about equal worth even amid different roles, and be honest if you're still working through it too."},
+  {text:"I prayed about your book and didn't feel anything special.", fallacy:"Hasty Generalization", comeback:"Ask gently how they prayed — with real intent, expecting an answer, patient enough to notice a quiet one. Encourage trying again without pressure; peace often comes subtly, not dramatically."},
+  {text:"How do you know the Book of Mormon isn't just made up?", fallacy:"Burden-of-Proof Shifting", comeback:"Don't try to win this with authorship debates — testify instead of the peace it's brought into your own life. Invite them to test it the way it asks to be tested: read, ponder, ask sincerely."},
+  {text:"I believe in God but not in organized religion.", fallacy:"False Dilemma", comeback:"Affirm their relationship with God is real and matters — you're not there to argue that away. Simply share what a covenant community has added to your own faith, without implying theirs is incomplete."},
+  {text:"What happens to people who never heard about your church?", fallacy:"none — a fairness question, not an attack", comeback:"This is a beautiful question — it shows they care about fairness. Share your understanding that God's plan makes room for everyone to have a fair chance, in this life or the next."},
+  {text:"Why do you knock on doors? It feels pushy.", fallacy:"Appeal to Discomfort (method judged instead of message)", comeback:"Acknowledge the awkwardness honestly — you feel it too sometimes. Then simply explain you're there because you found something worth sharing, not because you're required to intrude."},
+  {text:"I don't think God cares about the small details of my life.", fallacy:"Hasty Generalization", comeback:"Invite them to test that belief instead of arguing it — notice small answered prayers this week. Share one specific small moment from your own life where you felt noticed, not a doctrine lecture."},
+  {text:"Christianity has caused so many wars. Why join any of it?", fallacy:"Genetic Fallacy (people's misuse discredits the teaching itself)", comeback:"Separate the people who misused faith from the actual teachings of Christ, gently. Point to His actual words — peace, love, forgiveness — as the real standard, not history's failures."},
+  {text:"I'm gay. Does your church even want me?", fallacy:"none — a sincere, vulnerable question", comeback:"Answer with warmth first — yes, they are wanted and loved, full stop. Don't try to resolve every doctrinal complexity in one conversation; let belonging come before belief."},
+  {text:"Why should I trust a 19-year-old about God?", fallacy:"Ad Hominem (age used to dismiss the message)", comeback:"Agree honestly — they shouldn't trust you, they should trust what you're inviting them to test for themselves through prayer. You're just the messenger, not the source, and that takes the pressure off both of you."},
+  {text:"I feel close to God in nature. Why do I need a building?", fallacy:"False Dilemma", comeback:"Affirm that feeling as real and good — nature is one place the Spirit speaks. Simply add that a church builds something nature can't: covenant and community, without replacing what they already treasure."},
+  {text:"How can a loving God send anyone to hell?", fallacy:"False Dilemma (a binary heaven/hell assumed)", comeback:"You get to offer something genuinely comforting here — share what you understand about degrees of glory and mercy exceeding simple binaries. Let it soften a fear, not win an argument."},
+  {text:"Joseph Smith had multiple wives. How do you defend that?", fallacy:"none — a real, complex historical question", comeback:"You don't have to defend it fully in one conversation — it's fine to say it's complex and you're still learning too. Redirect gently to the fruits: the Book of Mormon, the doctrine, their own investigation."},
+  {text:"I'm too broken for God to want me.", fallacy:"Hasty Generalization (about oneself)", comeback:"This isn't a moment for logic at all — it's a moment for the Atonement's actual promise: no one is too far. Let calm certainty about Christ's grace speak louder than any comeback."},
+  {text:"What proof do you actually have for any of this?", fallacy:"Unfalsifiability — echoes the same parable of the Invisible Gardener, where no evidence would satisfy a determined skeptic and no absence of evidence disproves a real gardener either", comeback:"The real proof on offer isn't a debate-winning fact, it's a spiritual witness. Invite them to actually ask and pay attention, rather than trying to be convinced by you."},
+  {text:"I'll think about religion when I'm older.", fallacy:"Appeal to Later", comeback:"Respect the timeline fully — you're planting a seed, not demanding a harvest today. Leave something small and warm behind, and trust the Lord with the rest."},
+  {text:"Why does it matter which church I belong to if I believe in Jesus?", fallacy:"False Dilemma", comeback:"Affirm belief in Jesus is the most important thing, genuinely. Then simply share that you've found a specific way to act on that belief that's brought real peace, without implying theirs isn't enough."},
+  {text:"My friend left your church and says it ruined their family.", fallacy:"Anecdotal Fallacy (one experience generalized)", comeback:"Take their friend's pain seriously — don't minimize or explain it away. Simply share that your own experience has been different, and let both things be true without needing to resolve the contradiction."},
+  {text:"Isn't faith just believing things without evidence?", fallacy:"False Definition (faith mischaracterized as blind)", comeback:"Gently reframe: faith is trusting before all the evidence is in, not despite all of it — the same way they already trust plenty of things in life. Invite them to treat this the same way: try it, and let evidence follow."},
+  {text:"I've made too many mistakes for God to forgive me.", fallacy:"Hasty Generalization (about oneself)", comeback:"This deserves warmth, not argument — testify plainly that the Atonement was built exactly for this, no exceptions. Let your certainty be gentle, not preachy."},
+  {text:"Why do you ask for ten percent of people's money?", fallacy:"Appeal to Suspicion (motive assumed)", comeback:"Reframe from 'ask' to 'invitation to trust God with what's His.' Share what tithing has taught you personally about priorities, not the Church's need for funds."},
+
+  /* scripture-criticism scenarios — mix of beginner and technical objections */
+  {text:"The Book of Mormon talks about horses and steel before Columbus — isn't that already proven wrong?", fallacy:"Argument from Silence (absence of evidence treated as evidence of absence)", category:"scripture-criticism", comeback:"Archaeology is still incomplete, and words can shift meaning across translation and time — don't get pulled into an evidence battle. Return to the actual invitation: read it and ask if it's true."},
+  {text:"Why does the Bible say different things happened in different Gospels, if it's supposed to be perfect?", fallacy:"False Premise (assumes 'true' must mean 'without variation')", category:"scripture-criticism", comeback:"Different witnesses remembering the same events with different emphasis is normal, not a flaw — it can even support that something really happened. Focus on what they agree on completely: Christ lived, died, and rose."},
+  {text:"Scholars say the Book of Abraham papyri don't match the translation — doesn't that disprove Joseph Smith?", fallacy:"Category Error (assumes 'translation' must mean word-for-word linguistic transcription)", category:"scripture-criticism", comeback:"This is a real, documented scholarly discussion — it's fine to say you don't have every technical answer memorized. Share that 'translation' may work differently here than expected, and that the text can still be tested the way all scripture is: prayerfully."},
+  {text:"Historians say there's no archaeological evidence for Book of Mormon cities or the Nephites at all.", fallacy:"Argument from Silence", category:"scripture-criticism", comeback:"Lack of confirmed archaeology isn't disproof — whole ancient civilizations went undiscovered for centuries. Keep the conversation on the fruit of the book's teachings, not a dig site."},
+  {text:"Isn't it true that some Book of Mormon passages were changed or edited after they were first translated?", fallacy:"Equivocation (conflates minor editorial/grammar corrections with changes in doctrine or prophecy)", category:"scripture-criticism", comeback:"Every translated or transcribed text — including the Bible — has had editorial corrections for clarity and grammar over time; that isn't the same as changing meaning. If you don't know the specific example, it's fine to say you'll look into it together."}
 ];
+const objectionQuestions = OBJECTIONS.map(o=>o.text);
 
 /* ===================================================================
    SCRIPTURE MASTERY DECK (pre-loaded, offline)
@@ -2078,6 +2124,10 @@ function renderSettingsView(){
     page.innerHTML=`<button class="linkbtn" style="margin-bottom:12px;" id="settingsBackBtn">← Back to Settings</button>
       <h3>Account</h3>
       <div class="settings-section">
+        <label class="checkrow" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;">
+          <input type="checkbox" id="scriptureLockToggle" style="width:20px;height:20px;flex:none;">
+          <span style="font-size:14px;color:var(--text);">📖 Scripture Lock Mode <span class="opt" style="color:var(--muted);">(type a practiced scripture to re-enter after being idle — password always still works)</span></span>
+        </label>
         <button class="lockbtn" id="lockAppBtn">🔒 Lock App</button>
       </div>`;
     page.style.display='';
@@ -2165,6 +2215,14 @@ function setupAccountHandlers(){
       showLock();
     }
   });
+  const sToggle = document.getElementById('scriptureLockToggle');
+  if(sToggle){
+    sToggle.checked = scriptureLockEnabled();
+    sToggle.addEventListener('change', e=>{
+      setLS('scriptureLockMode', e.target.checked);
+      cloudSaveSetting('scriptureLockMode', e.target.checked);
+    });
+  }
 }
 
 // Defer main UI event listeners until DOM is ready
@@ -4761,6 +4819,12 @@ function renderObjections(c){
 
   if(st.summary){
     html+=`<div class="summary-box"><div class="lbl">One thing to reflect on from this conversation</div>${esc(st.summary)}</div>`;
+    if(st.fallacy && st.fallacy!=='none'){
+      html+=`<div class="summary-box"><div class="lbl">🧠 A pattern worth recognizing (not for calling out — just for staying calm)</div>${esc(st.fallacy)}</div>`;
+    }
+    if(st.comeback){
+      html+=`<div class="summary-box"><div class="lbl">🕊️ A grounded thought — not a debate to win</div>${esc(st.comeback)}</div>`;
+    }
     html+=`<button class="btn navy" id="oNew">Try Another Question</button>`;
   } else {
     html+=`<div class="chat-input-row">
@@ -4782,7 +4846,8 @@ function renderObjections(c){
 function startObjection(){
   const st=state.objections;
   st.started=true; st.summary=null; st.error=false; st.busy=false;
-  st.question=objectionQuestions[Math.floor(Math.random()*objectionQuestions.length)];
+  const pick=OBJECTIONS[Math.floor(Math.random()*OBJECTIONS.length)];
+  st.question=pick.text; st.fallacy=pick.fallacy; st.comeback=pick.comeback;
   st.msgs=[];
   window.scrollTo(0,0); render();
 }
@@ -4954,16 +5019,22 @@ function dayKey(offset){
 function getStreak(){ const s=getLS('scriptureStreak', {count:0,last:null}); return (s&&typeof s==='object')?s:{count:0,last:null}; }
 /* dayKey isn't zero-padded, so compare streak recency by parsed date, not string */
 function streakTime(s){ if(!s||!s.last) return 0; const p=String(s.last).split('-').map(Number); return p.length===3? new Date(p[0],p[1]-1,p[2]).getTime():0; }
+/* one-day grace: missing exactly one day (last=-2) keeps the streak alive;
+   missing two or more in a row (last<=-3) breaks it */
 function effectiveStreak(){
   const s=getStreak();
   if(!s.last) return 0;
-  if(s.last===dayKey(0)||s.last===dayKey(-1)) return s.count||0;
+  if(s.last===dayKey(0)||s.last===dayKey(-1)||s.last===dayKey(-2)) return s.count||0;
   return 0;
+}
+function streakOnGraceDay(){
+  const s=getStreak();
+  return !!(s.last && s.last===dayKey(-2));
 }
 function markStreak(){
   const s=getStreak(); const t=dayKey(0);
   if(s.last===t){ /* already counted today */ }
-  else if(s.last===dayKey(-1)){ s.count=(s.count||0)+1; s.last=t; }
+  else if(s.last===dayKey(-1)||s.last===dayKey(-2)){ s.count=(s.count||0)+1; s.last=t; }
   else { s.count=1; s.last=t; }
   setLS('scriptureStreak', s);
   cloudSaveSetting('scriptureStreak', s);   // sync streak across devices
@@ -5015,6 +5086,7 @@ function renderMastery(c){
   const mastered=cards.filter(x=>(x.confidence||0)>=4).length;
   const pct=total? Math.round(mastered/total*100):0;
   const streak=effectiveStreak();
+  const onGrace=streakOnGraceDay();
 
   let html=`<h2 class="tabtitle">📖 Scripture Mastery</h2>`;
   html+=`<div class="progress-card">
@@ -5032,7 +5104,7 @@ function renderMastery(c){
   const customCount=deck.filter(x=>x.collection==='Custom').length;
   if(customCount){ html+=`<button data-coll="Custom" class="${coll==='Custom'?'active':''}">My Cards (${customCount})</button>`; }
   html+=`</div></div>`;
-  html+=`<div class="streak"><span class="fl">🔥</span> Day ${streak} streak</div>`;
+  html+=`<div class="streak"><span class="fl">🔥</span> Day ${streak} streak${onGrace?' <span class="opt" style="color:var(--muted);font-size:12px;">(missed yesterday — one grace day used, practice today to keep it)</span>':''}</div>`;
   html+=`<button class="btn" id="msStart">🃏 Start Practice</button>`;
   html+=`<button class="btn secondary" id="msAdd" style="margin-top:10px;">＋ Add My Own</button>`;
   c.innerHTML=html;
@@ -5607,6 +5679,7 @@ function tryUnlock(){
   if(v===APP_PASSWORD){
     localStorage.setItem('authenticated','true');
     startApp();
+    if(scriptureLockEnabled()) setTimeout(showScriptureLock, 800);
   } else {
     document.getElementById('lockMsg').textContent='Incorrect password. Try again.';
     document.getElementById('lockInput').value='';
@@ -5628,6 +5701,93 @@ document.addEventListener('DOMContentLoaded', ()=>{
     cloudReady=false;
     showLock();
   });
+});
+
+/* ===================================================================
+   SCRIPTURE LOCK MODE (Phase 2 #8) — gamifies re-entry with a practiced
+   scripture. Opt-in via Settings > Account. Never a hard security gate:
+   the app password (via "Use password instead") always still works, so
+   this can never actually lock Elder Bundy out of his own data.
+=================================================================== */
+const SCRIPTURE_LOCK_IDLE_MS = 5*60*1000; // 5 min idle triggers a re-lock overlay
+let lastActivityTs = Date.now();
+let scriptureLockShown = false;
+let scriptureLockCard = null;
+
+function scriptureLockEnabled(){ return getLS('scriptureLockMode', false) === true; }
+
+function normalizeScriptureText(s){
+  return String(s||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
+}
+
+function pickScriptureLockCard(){
+  const deck=getDeck();
+  if(!deck.length) return null;
+  const reviewed=deck.filter(c=>(c.reviewCount||0)>0);
+  const pool=reviewed.length ? reviewed : deck;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+function showScriptureLock(){
+  if(scriptureLockShown || localStorage.getItem('authenticated')!=='true') return;
+  scriptureLockCard=pickScriptureLockCard();
+  if(!scriptureLockCard) return; // no deck yet — nothing to challenge with
+  scriptureLockShown=true;
+  document.getElementById('sLockRef').textContent=scriptureLockCard.reference;
+  document.getElementById('sLockInput').value='';
+  document.getElementById('sLockMsg').textContent='';
+  document.getElementById('scriptureLockOverlay').classList.add('show');
+  setTimeout(()=>{ const i=document.getElementById('sLockInput'); if(i) i.focus(); },60);
+}
+
+function hideScriptureLock(){
+  scriptureLockShown=false;
+  document.getElementById('scriptureLockOverlay').classList.remove('show');
+  lastActivityTs=Date.now();
+}
+
+function tryScriptureUnlock(){
+  const card=scriptureLockCard;
+  if(!card){ hideScriptureLock(); return; }
+  const typed=normalizeScriptureText(document.getElementById('sLockInput').value);
+  const full=normalizeScriptureText(card.fullText);
+  const key=normalizeScriptureText(card.keyPhrase);
+  if(typed && (typed===full || typed===key)){
+    hideScriptureLock();
+  } else {
+    document.getElementById('sLockMsg').textContent='Not quite — try again, or use a hint.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const sLockBtn=document.getElementById('sLockBtn');
+  const sLockInput=document.getElementById('sLockInput');
+  const sLockHint=document.getElementById('sLockHint');
+  const sLockSkip=document.getElementById('sLockSkip');
+  if(sLockBtn) sLockBtn.addEventListener('click', tryScriptureUnlock);
+  if(sLockInput) sLockInput.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); tryScriptureUnlock(); } });
+  if(sLockHint) sLockHint.addEventListener('click', ()=>{
+    const card=scriptureLockCard; if(!card) return;
+    const words=card.fullText.split(/\s+/).slice(0,4).join(' ');
+    document.getElementById('sLockMsg').textContent='Hint: "'+words+'…"';
+  });
+  if(sLockSkip) sLockSkip.addEventListener('click', ()=>{
+    hideScriptureLock();
+    localStorage.setItem('authenticated','false');
+    cloudReady=false;
+    showLock();
+  });
+  ['mousemove','keydown','touchstart','click','scroll'].forEach(evt=>{
+    document.addEventListener(evt, ()=>{ lastActivityTs=Date.now(); }, {passive:true});
+  });
+  setInterval(()=>{
+    if(!scriptureLockEnabled() || scriptureLockShown) return;
+    if(localStorage.getItem('authenticated')!=='true') return;
+    const appEl=document.getElementById('app');
+    if(appEl && appEl.classList.contains('show') && (Date.now()-lastActivityTs > SCRIPTURE_LOCK_IDLE_MS)){
+      showScriptureLock();
+    }
+  }, 30000);
 });
 
 async function startApp(){
