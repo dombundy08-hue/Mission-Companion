@@ -1939,6 +1939,7 @@ function renderSettingsView(){
     document.getElementById('settingsMainView').style.display='';
     document.getElementById('settingsAppearancePage').style.display='none';
     document.getElementById('settingsPopupsPage').style.display='none';
+    document.getElementById('settingsHealthMetricsPage').style.display='none';
     document.getElementById('settingsAPIPage').style.display='none';
     document.getElementById('settingsVoicePage').style.display='none';
     document.getElementById('settingsAccountPage').style.display='none';
@@ -2650,10 +2651,6 @@ function renderRoutines(c){
   if(st.view==='assemble')    return renderAssemble(c);
   const list=getRoutines();
   let html=`<h2 class="tabtitle">📋 Routines</h2>`;
-  // React Exercise Logging Card (iframe)
-  html+=`<div class="card" style="margin-bottom:20px;padding:0;border:none;">
-    <iframe id="exerciseActivityFrame" src="/Mission-Companion/react-build/index.html?app=exercise" style="width:100%;height:650px;border:none;border-radius:12px;background:var(--card);"></iframe>
-  </div>`;
   html+=`<button class="btn navy" id="rtNew" style="margin-bottom:14px;">＋ New Routine</button>`;
   if(!list.length){
     html+=`<div class="soon"><div class="si">📋</div><h3>No routines yet</h3>
