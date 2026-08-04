@@ -10,6 +10,12 @@
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
 <title>Mission Companion</title>
+<!-- KNOWN CONSTRAINT VIOLATION: External CDN dependency (CLAUDE.md constraint 7)
+     Supabase client required for cloud sync. To resolve:
+     1. Bundle Supabase locally (requires build system)
+     2. Switch to local-only storage (removes sync)
+     3. Use alternative cloud provider with local library
+     For now: cloud sync optional; app works offline with localStorage fallback -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -2862,7 +2868,7 @@ function renderAssemble(c){
     if(!b.parts.length){ alert('Add at least one part.'); return; }
     const steps=b.parts.map(clonePart);   // single-part routines behave exactly like before
     const arr=getRoutines(); let saved;
-    if(existing){ const i=arr.findIndex(x=>x.id===existing.id); arr[i]={...arr[i], name, steps}; saved=arr[i]; }
+    if(existing){ const i=arr.findIndex(x=>x.id===existing.id); if(i>=0){ arr[i]={...arr[i], name, steps}; saved=arr[i]; } }
     else { saved={ id:uid(), name, steps, createdAt:Date.now() }; arr.push(saved); }
     setLS('workoutRoutines',arr); cloudSaveRoutine(saved);
     st.view='list'; st.build=null; render(); flash('Routine saved.');
@@ -5146,24 +5152,25 @@ function hideOfflineBanner(){ const b=document.getElementById('offlineBanner'); 
    still queues a retry, but shouldn't tell the user their connection is down. */
 function markPending(){ pendingPush=true; if(!navigator.onLine) showOfflineBanner(); }
 function parseVal(v){ if(v===null||v===undefined) return null; try{ return JSON.parse(v); }catch(e){ return v; } }
+function parseDate(dateStr){ if(!dateStr) return Date.now(); const t=Date.parse(dateStr); return isNaN(t) ? Date.now() : t; }
 
 /* ---- field mapping (local shape <-> table columns) ---- */
-function journalFromCloud(r){ return {id:uid(), cloudId:r.id, date:r.entry_date||'', timestamp:r.created_at?Date.parse(r.created_at):Date.now(), body:r.body||'', reflectionPrompt:r.reflection_prompt||'', reflectionResponse:r.reflection_response||''}; }
+function journalFromCloud(r){ return {id:uid(), cloudId:r.id, date:r.entry_date||'', timestamp:r.created_at?parseDate(r.created_at):Date.now(), body:r.body||'', reflectionPrompt:r.reflection_prompt||'', reflectionResponse:r.reflection_response||''}; }
 function journalToCloud(e){ return {entry_date:e.date||'', body:e.body||'', reflection_prompt:e.reflectionPrompt||'', reflection_response:e.reflectionResponse||''}; }
 function journalNatKey(e){ return (e.date||'')+' '+(e.body||''); }
 
-function miracleFromCloud(r){ return {id:uid(), cloudId:r.id, date:r.entry_date||'', timestamp:r.created_at?Date.parse(r.created_at):Date.now(), body:r.body||''}; }
+function miracleFromCloud(r){ return {id:uid(), cloudId:r.id, date:r.entry_date||'', timestamp:r.created_at?parseDate(r.created_at):Date.now(), body:r.body||''}; }
 function miracleToCloud(e){ return {entry_date:e.date||'', body:e.body||''}; }
 function miracleNatKey(e){ return (e.date||'')+' '+(e.body||''); }
 
-function glossaryFromCloud(r){ return {id:uid(), cloudId:r.id, term:r.term||'', child:r.child_explanation||'', skeptic:r.skeptic_explanation||'', adult:r.adult_explanation||'', createdAt:r.created_at?Date.parse(r.created_at):Date.now()}; }
+function glossaryFromCloud(r){ return {id:uid(), cloudId:r.id, term:r.term||'', child:r.child_explanation||'', skeptic:r.skeptic_explanation||'', adult:r.adult_explanation||'', createdAt:r.created_at?parseDate(r.created_at):Date.now()}; }
 function glossaryToCloud(t){ return {term:t.term||'', child_explanation:t.child||'', skeptic_explanation:t.skeptic||'', adult_explanation:t.adult||''}; }
 function glossaryNatKey(t){ return (t.term||'').trim().toLowerCase(); }
 
 /* workout tables are optional — if the SQL hasn't been run yet these calls fail
    quietly and everything stays in localStorage. */
 let workoutTablesOk = true;
-function routineFromCloud(r){ return {id:uid(), cloudId:r.id, name:r.name||'', steps:Array.isArray(r.steps)?r.steps:[], createdAt:r.created_at?Date.parse(r.created_at):Date.now()}; }
+function routineFromCloud(r){ return {id:uid(), cloudId:r.id, name:r.name||'', steps:Array.isArray(r.steps)?r.steps:[], createdAt:r.created_at?parseDate(r.created_at):Date.now()}; }
 function routineToCloud(r){ return {name:r.name||'', steps:r.steps||[]}; }
 function routineNatKey(r){ return (r.name||'').trim().toLowerCase(); }
 function wlogFromCloud(r){ return {id:uid(), cloudId:r.id, routineName:r.routine_name||'', date:r.performed_at?fmtDateTime(new Date(r.performed_at)):'', timestamp:r.performed_at?Date.parse(r.performed_at):Date.now(), durationSec:r.duration_seconds||0, stepsCompleted:r.steps_completed||0}; }
@@ -5177,6 +5184,7 @@ async function cloudSaveRoutine(r){
     else{
       const ins=await sb.from('workout_routines').insert(routineToCloud(r)).select('id').single();
       if(ins.error) throw ins.error;
+      if(!ins.data) throw new Error('No data returned from insert');
       stamp('workoutRoutines', x=>x.id===r.id && !x.cloudId, ins.data.id);
     }
     flashSaved();
@@ -5187,6 +5195,7 @@ async function cloudSaveWorkoutLog(e){
   try{
     const ins=await sb.from('workout_log').insert(wlogToCloud(e)).select('id').single();
     if(ins.error) throw ins.error;
+    if(!ins.data) throw new Error('No data returned from insert');
     stamp('workoutLog', x=>x.id===e.id && !x.cloudId, ins.data.id);
     flashSaved();
   }catch(err){ /* table may not exist yet; stays local */ }
@@ -5195,7 +5204,7 @@ async function cloudSaveWorkoutLog(e){
 /* saved foods — a persistent quick-log list, synced like routines */
 let savedFoodsOk = true;   // set false if the saved_foods table isn't there yet
 function savedFoodToCloud(r){ const o={name:r.name||''}; if(r.calories!=null) o.calories=r.calories; if(r.protein!=null) o.protein=r.protein; return o; }
-function savedFoodFromCloud(r){ return {id:uid(), cloudId:r.id, name:r.name||'', calories:(r.calories==null?null:r.calories), protein:(r.protein==null?null:r.protein), createdAt:r.created_at?Date.parse(r.created_at):Date.now()}; }
+function savedFoodFromCloud(r){ return {id:uid(), cloudId:r.id, name:r.name||'', calories:(r.calories==null?null:r.calories), protein:(r.protein==null?null:r.protein), createdAt:r.created_at?parseDate(r.created_at):Date.now()}; }
 function savedFoodNatKey(r){ return (r.name||'').trim().toLowerCase()+'|'+(r.calories==null?'':r.calories)+'|'+(r.protein==null?'':r.protein); }
 async function cloudSaveSavedFood(r){
   if(!cloudReady || !sbOnline() || !savedFoodsOk) return;
@@ -5204,6 +5213,7 @@ async function cloudSaveSavedFood(r){
     else{
       const ins=await sb.from('saved_foods').insert(savedFoodToCloud(r)).select('id').single();
       if(ins.error) throw ins.error;
+      if(!ins.data) throw new Error('No data returned from insert');
       stamp('savedFoods', x=>x.id===r.id && !x.cloudId, ins.data.id);
     }
     flashSaved();
@@ -5235,15 +5245,15 @@ const HEALTH_LOGS = {
                  if(foodGramsOk && r.grams!=null && r.grams!=='') o.grams=parseFloat(r.grams)||0;
                  if(foodSourceOk && r.source) o.source=r.source;
                  return o; },
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0, protein:(r.protein==null?null:r.protein), grams:(r.grams==null?null:r.grams), source:(r.source||null)}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?parseDate(r.created_at):Date.now(), description:r.description||'', calories:r.calories||0, protein:(r.protein==null?null:r.protein), grams:(r.grams==null?null:r.grams), source:(r.source||null)}),
     nat:r=>r.entryDate+'|'+(r.description||'')+'|'+(r.calories||0) },
   healthWeight: { table:'health_weight_log',    day:true,
     toCloud:r=>({entry_date:r.entryDate, weight:r.weight}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), weight:r.weight}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?parseDate(r.created_at):Date.now(), weight:r.weight}),
     nat:r=>r.entryDate },
   healthSleep:  { table:'health_sleep_log',     day:true,
     toCloud:r=>({entry_date:r.entryDate, hours:r.hours}),
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), hours:r.hours}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?parseDate(r.created_at):Date.now(), hours:r.hours}),
     nat:r=>r.entryDate },
   /* append-only per-tap rows (day:false -> each tap inserts its own row).
      natural key is the cloud id when synced, else a local marker, so identical
@@ -5252,12 +5262,12 @@ const HEALTH_LOGS = {
     /* per-tap amount goes in the existing int "cups" column (value is ounces) */
     toCloud:r=>{ const o={entry_date:r.entryDate, cups:parseInt(r.oz,10)||0};
                  if(hydroElectrolytesOk && r.electrolytes!=null) o.electrolytes=parseInt(r.electrolytes,10)||0; return o; },
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), oz:r.cups!=null?r.cups:0, electrolytes:(r.electrolytes==null?null:r.electrolytes)}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?parseDate(r.created_at):Date.now(), oz:r.cups!=null?r.cups:0, electrolytes:(r.electrolytes==null?null:r.electrolytes)}),
     nat:r=> r.cloudId ? r.cloudId : ('L:'+r.id) },
   healthMood:   { table:'health_mood_log',      day:true,
     toCloud:r=>{ const o={entry_date:r.entryDate, score:(r.score!=null?parseInt(r.score,10):null)};
                  if(moodEnergyOk) o.energy=(r.energy!=null?parseInt(r.energy,10):null); return o; },
-    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?Date.parse(r.created_at):Date.now(), score:(r.score==null?null:r.score), energy:(r.energy==null?null:r.energy)}),
+    from:r=>({id:uid(), cloudId:r.id, entryDate:r.entry_date, timestamp:r.created_at?parseDate(r.created_at):Date.now(), score:(r.score==null?null:r.score), energy:(r.energy==null?null:r.energy)}),
     nat:r=>r.entryDate }
 };
 async function cloudSaveHealth(localKey, row, _retry){
@@ -5270,9 +5280,9 @@ async function cloudSaveHealth(localKey, row, _retry){
       const ex=await sb.from(cfg.table).select('id').eq('entry_date',row.entryDate).limit(1); if(ex.error) throw ex.error;
       const exist=(ex.data||[])[0];
       if(exist){ const up=await sb.from(cfg.table).update(cfg.toCloud(row)).eq('id',exist.id); if(up.error) throw up.error; stamp(localKey,x=>x.id===row.id&&!x.cloudId,exist.id); }
-      else { const ins=await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single(); if(ins.error) throw ins.error; stamp(localKey,x=>x.id===row.id&&!x.cloudId,ins.data.id); }
+      else { const ins=await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert'); stamp(localKey,x=>x.id===row.id&&!x.cloudId,ins.data.id); }
     } else {
-      const ins=await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single(); if(ins.error) throw ins.error; stamp(localKey,x=>x.id===row.id&&!x.cloudId,ins.data.id);
+      const ins=await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert'); stamp(localKey,x=>x.id===row.id&&!x.cloudId,ins.data.id);
     }
     flashSaved();
   }catch(e){
@@ -5507,14 +5517,14 @@ function stampScripture(scripId, cloudId){ const deck=getDeck(); const c=deck.fi
 async function cloudSaveJournal(entry){
   if(!cloudReady) return;
   if(!sbOnline()){ markPending(); return; }
-  try{ const ins=await sb.from('journal_entries').insert(journalToCloud(entry)).select('id').single(); if(ins.error) throw ins.error;
+  try{ const ins=await sb.from('journal_entries').insert(journalToCloud(entry)).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert');
     stamp('journalEntries', x=> x.date===entry.date && x.body===entry.body && !x.cloudId, ins.data.id); flashSaved(); hideOfflineBanner();
   }catch(e){ markPending(); }
 }
 async function cloudSaveMiracle(entry){
   if(!cloudReady) return;
   if(!sbOnline()){ markPending(); return; }
-  try{ const ins=await sb.from('miracle_entries').insert(miracleToCloud(entry)).select('id').single(); if(ins.error) throw ins.error;
+  try{ const ins=await sb.from('miracle_entries').insert(miracleToCloud(entry)).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert');
     stamp('miracleEntries', x=> x.date===entry.date && x.body===entry.body && !x.cloudId, ins.data.id); flashSaved(); hideOfflineBanner();
   }catch(e){ markPending(); }
 }
@@ -5523,7 +5533,7 @@ async function cloudSaveGlossary(term){
   if(!sbOnline()){ markPending(); return; }
   try{
     if(term.cloudId){ const up=await sb.from('glossary_terms').update(glossaryToCloud(term)).eq('id',term.cloudId); if(up.error) throw up.error; }
-    else { const ins=await sb.from('glossary_terms').insert(glossaryToCloud(term)).select('id').single(); if(ins.error) throw ins.error; stamp('glossaryTerms', x=> x.id===term.id && !x.cloudId, ins.data.id); }
+    else { const ins=await sb.from('glossary_terms').insert(glossaryToCloud(term)).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert'); stamp('glossaryTerms', x=> x.id===term.id && !x.cloudId, ins.data.id); }
     flashSaved(); hideOfflineBanner();
   }catch(e){ markPending(); }
 }
@@ -5536,7 +5546,7 @@ async function cloudSaveScripture(card){
       const ex=await sb.from('scripture_progress').select('id').eq('scripture_id',card.id).limit(1);
       const exRow=(ex.data||[])[0];
       if(exRow && exRow.id){ await sb.from('scripture_progress').update({confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).eq('id',exRow.id); stampScripture(card.id, exRow.id); }
-      else { const ins=await sb.from('scripture_progress').insert({scripture_id:card.id, confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).select('id').single(); if(ins.error) throw ins.error; stampScripture(card.id, ins.data.id); }
+      else { const ins=await sb.from('scripture_progress').insert({scripture_id:card.id, confidence:card.confidence||0, review_count:card.reviewCount||0, last_reviewed:card.lastReviewed||null}).select('id').single(); if(ins.error) throw ins.error; if(!ins.data) throw new Error('No data returned from insert'); stampScripture(card.id, ins.data.id); }
     }
     flashSaved(); hideOfflineBanner();
   }catch(e){ markPending(); }
