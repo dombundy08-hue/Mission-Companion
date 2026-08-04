@@ -1908,13 +1908,16 @@ function showApp(){
   if(!navigator.onLine) showOfflineBanner();
   render();
 }
-document.getElementById('setupSave').addEventListener('click', ()=>{
-  const k = document.getElementById('setupKey').value.trim();
-  if(!k){ alert("Please enter your API key."); return; }
-  localStorage.setItem('apiKey', k);
-  cloudSaveSetting('apiKey', k);
-  activeTab='journal'; setLS('activeTab','journal');
-  showApp();
+document.addEventListener('DOMContentLoaded', ()=>{
+  const setupSaveBtn = document.getElementById('setupSave');
+  if(setupSaveBtn) setupSaveBtn.addEventListener('click', ()=>{
+    const k = document.getElementById('setupKey').value.trim();
+    if(!k){ alert("Please enter your API key."); return; }
+    localStorage.setItem('apiKey', k);
+    cloudSaveSetting('apiKey', k);
+    activeTab='journal'; setLS('activeTab','journal');
+    showApp();
+  });
 });
 
 /* settings modal */
@@ -2206,43 +2209,66 @@ window.addEventListener('message', (event)=>{
 });
 
 // Settings card navigation
-document.getElementById('settingsAppearanceCard').addEventListener('click', ()=>{ state.settings.currentPage='appearance'; renderSettingsView(); });
-document.getElementById('settingsPopupsCard').addEventListener('click', ()=>{ state.settings.currentPage='popups'; renderSettingsView(); });
-document.getElementById('settingsHealthMetricsCard').addEventListener('click', ()=>{ state.settings.currentPage='healthMetrics'; renderSettingsView(); });
-document.getElementById('settingsAPICard').addEventListener('click', ()=>{ state.settings.currentPage='apiKeys'; renderSettingsView(); });
-document.getElementById('settingsVoiceCard').addEventListener('click', ()=>{ state.settings.currentPage='voice'; renderSettingsView(); });
-document.getElementById('settingsAccountCard').addEventListener('click', ()=>{ state.settings.currentPage='account'; renderSettingsView(); });
-// dark mode toggle
-document.getElementById('darkModeToggle').addEventListener('change', e=>{
-  setTheme(e.target.checked);
+// Deferred settings card listeners until DOM is ready
+document.addEventListener('DOMContentLoaded', ()=>{
+  const cards = [
+    { id: 'settingsAppearanceCard', page: 'appearance' },
+    { id: 'settingsPopupsCard', page: 'popups' },
+    { id: 'settingsHealthMetricsCard', page: 'healthMetrics' },
+    { id: 'settingsAPICard', page: 'apiKeys' },
+    { id: 'settingsVoiceCard', page: 'voice' },
+    { id: 'settingsAccountCard', page: 'account' }
+  ];
+  cards.forEach(({id, page})=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('click', ()=>{ state.settings.currentPage=page; renderSettingsView(); });
+  });
+
+  const darkToggle = document.getElementById('darkModeToggle');
+  if(darkToggle) darkToggle.addEventListener('change', e=>{ setTheme(e.target.checked); });
+
+  const apiToggle = document.getElementById('apiKeysToggle');
+  if(apiToggle) apiToggle.addEventListener('click', ()=>{
+    const toggle = document.getElementById('apiKeysToggle');
+    const unlock = document.getElementById('apiKeysUnlock');
+    const err = document.getElementById('apiKeysPwErr');
+    if(toggle) toggle.style.display='none';
+    if(unlock) unlock.style.display='';
+    if(err) err.style.display='none';
+    const pw = document.getElementById('apiKeysPw');
+    if(pw) { pw.value=''; setTimeout(()=>pw.focus(),50); }
+  });
+
+  const pwGo = document.getElementById('apiKeysPwGo');
+  if(pwGo) pwGo.addEventListener('click', tryRevealKeys);
+
+  const pwInput = document.getElementById('apiKeysPw');
+  if(pwInput) pwInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
+
+  const pwCancel = document.getElementById('apiKeysPwCancel');
+  if(pwCancel) pwCancel.addEventListener('click', resetApiKeysLock);
 });
 
-/* Reflection reminder settings are now handled in renderSettingsView() */
-
-/* --- API keys: password-gated reveal --- */
-document.getElementById('apiKeysToggle').addEventListener('click', ()=>{
-  document.getElementById('apiKeysToggle').style.display='none';
-  document.getElementById('apiKeysUnlock').style.display='';
-  document.getElementById('apiKeysPwErr').style.display='none';
-  const pw=document.getElementById('apiKeysPw'); pw.value=''; setTimeout(()=>pw.focus(),50);
-});
 function tryRevealKeys(){
   const pw=document.getElementById('apiKeysPw');
+  if(!pw) return;
   if(pw.value === APP_PASSWORD){
-    document.getElementById('apiKeysUnlock').style.display='none';
-    document.getElementById('apiKeysPwErr').style.display='none';
-    // refresh from storage in case they changed on another device this session
-    document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
-    document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
-    document.getElementById('apiKeysPanel').style.display='';
+    const unlock = document.getElementById('apiKeysUnlock');
+    const err = document.getElementById('apiKeysPwErr');
+    const panel = document.getElementById('apiKeysPanel');
+    if(unlock) unlock.style.display='none';
+    if(err) err.style.display='none';
+    const key = document.getElementById('settingsKey');
+    const usda = document.getElementById('settingsUsda');
+    if(key) key.value = localStorage.getItem('apiKey')||'';
+    if(usda) usda.value = localStorage.getItem('usdaApiKey')||'';
+    if(panel) panel.style.display='';
   } else {
-    document.getElementById('apiKeysPwErr').style.display='';
+    const err = document.getElementById('apiKeysPwErr');
+    if(err) err.style.display='';
     pw.value=''; pw.focus();
   }
 }
-document.getElementById('apiKeysPwGo').addEventListener('click', tryRevealKeys);
-document.getElementById('apiKeysPw').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
-document.getElementById('apiKeysPwCancel').addEventListener('click', resetApiKeysLock);
 
 /* Open Food Facts is always enabled (no user toggle) */
 /* Settings handlers are now in setupAPIKeysHandlers() and called from renderSettingsView() */
@@ -2471,9 +2497,15 @@ function openSectionModal(){
   });
   document.getElementById('sectionModal').classList.add('show');
 }
-document.getElementById('sectionBtn').addEventListener('click', openSectionModal);
-document.getElementById('sectionCancel').addEventListener('click', ()=>{
-  document.getElementById('sectionModal').classList.remove('show');
+document.addEventListener('DOMContentLoaded', ()=>{
+  const sectionBtn = document.getElementById('sectionBtn');
+  if(sectionBtn) sectionBtn.addEventListener('click', openSectionModal);
+
+  const sectionCancel = document.getElementById('sectionCancel');
+  if(sectionCancel) sectionCancel.addEventListener('click', ()=>{
+    const modal = document.getElementById('sectionModal');
+    if(modal) modal.classList.remove('show');
+  });
 });
 
 /* ===================================================================
