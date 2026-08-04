@@ -2,7 +2,7 @@
    Bump CACHE to ship a new version — the old cache is cleared on activate,
    and updated files flow in via stale-while-revalidate on the next load.
    Supabase data traffic is never cached, so cloud sync stays live/fresh. */
-const CACHE = 'mission-companion-v1';
+const CACHE = 'mission-companion-v2';
 
 const CORE = [
   './',
@@ -32,17 +32,21 @@ self.addEventListener('activate', event => {
 });
 
 /* Serve from cache immediately, refresh the cache from the network in the
-   background so the newest version is ready for the next load. */
-async function staleWhileRevalidate(request, key) {
+   background so the newest version is ready for the next load. `key` is
+   always the actual request being served — every distinct URL (the app
+   shell, the react-build iframe pages, etc.) gets its own cache entry.
+   `fallback` is what to serve if this exact URL was never cached and the
+   network is unreachable (true offline fallback, not a forced substitution). */
+async function staleWhileRevalidate(request, fallback) {
   const cache = await caches.open(CACHE);
-  const cached = await cache.match(key);
+  const cached = await cache.match(request);
   const network = fetch(request).then(res => {
     if (res && (res.ok || res.type === 'opaque')) {
-      cache.put(key, res.clone());
+      cache.put(request, res.clone());
     }
     return res;
   }).catch(() => null);
-  return cached || network.then(r => r || cache.match('./index.html'));
+  return cached || network.then(r => r || (fallback ? cache.match(fallback) : null));
 }
 
 self.addEventListener('fetch', event => {
@@ -54,15 +58,19 @@ self.addEventListener('fetch', event => {
   // sync is never served stale. Offline failures are handled by the app.
   if (url.hostname.endsWith('.supabase.co')) return;
 
-  // App shell navigations: SWR, falling back to the cached shell when offline.
+  // App shell navigations: SWR, keyed by the actual URL requested. Only the
+  // top-level app itself falls back to the cached shell when offline and
+  // uncached — the react-build iframe pages (?app=health / ?app=exercise)
+  // must never be substituted with the outer app shell.
   if (req.mode === 'navigate') {
-    event.respondWith(staleWhileRevalidate(req, './index.html'));
+    const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html') && !url.pathname.includes('react-build');
+    event.respondWith(staleWhileRevalidate(req, isAppShell ? './index.html' : null));
     return;
   }
 
   // Our own static assets + the Supabase CDN script: cache-first + bg refresh.
   if (url.origin === self.location.origin || url.hostname === 'cdn.jsdelivr.net') {
-    event.respondWith(staleWhileRevalidate(req, req));
+    event.respondWith(staleWhileRevalidate(req, null));
     return;
   }
 
