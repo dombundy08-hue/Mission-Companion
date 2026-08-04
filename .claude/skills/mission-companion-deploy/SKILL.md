@@ -15,11 +15,20 @@ Runs automatically on every `git push origin main`. Deploys code, audits for bug
 **Role**: Build React components and push to production
 
 ```
+⚠️ 2026-08-04 cutover: react-components/ IS the site now, not an embedded
+iframe sub-app. The old vanilla index.html + react-build/ iframe
+architecture is retired (preserved at git tag pre-build-website if ever
+needed). Deploy accordingly:
+
 Build React project:
 - cd react-components && npm run build
-- Verify dist/ contains assets with correct names
-- Copy dist/* to ../react-build/
-- Verify /Mission-Companion/ prefix is on all asset paths
+- Verify vite.config.ts `base` is '/' (root deployment, NOT '/react-build/')
+- Copy dist/* to the REPO ROOT (not react-build/) - dist/index.html becomes
+  the real root index.html, dist/assets/* -> root assets/, etc.
+- Copy the fresh root index.html to 404.html too (GitHub Pages SPA fallback
+  - see Code Audit item #8b; this must stay in sync on every deploy or a
+  build with new hashed asset filenames will make 404.html reference
+  stale/missing files)
 - git add -A
 - git commit -m "Deploy: [auto-deployed changes]"
 - git push origin main
@@ -31,36 +40,67 @@ Report: Commit hash, bundle sizes, any errors
 **Role**: Scan entire codebase AND the Supabase backend for bugs, errors, and issues
 
 ```
-Frontend scan — C:\Users\shan_\mission-companion\:
-1. Module-level DOM access (document.getElementById outside functions)
-2. Event listeners on non-existent elements
-3. Missing null checks on DOM operations
-4. Console errors or TypeScript issues
-5. Deprecated patterns or old code
-6. Duplicate code or redundant logic
-7. Missing error handling in critical paths
-8. Path issues — **the site is served at its custom domain root (missionarycompanion.com), with NO `/Mission-Companion/` prefix** (the github.io project-page URL redirects to the custom domain root too, confirmed live 2026-08-03). Any code or config that hardcodes a `/Mission-Companion/` prefix is the bug, not the fix — react-build asset/base paths must be root-relative (`/react-build/...`).
-9. iframe recursion or nesting issues
-10. Settings visibility/state inconsistencies
-11. postMessage origin security — using `'*'` instead of `window.location.origin` as the target origin
-12. Message listener missing `event.origin` check (accepts messages from any source)
-13. `useMemo`/`useEffect` missing dependencies for `window.location` reads (stale closures on navigation)
-14. setTimeout-based iframe readiness checks — should use the iframe's `onload` event instead of a fixed delay
-15. Hardcoded absolute paths (e.g. `/Mission-Companion/...`) vs dynamic URL construction (e.g. relative to `import.meta.env.BASE_URL` or current origin)
-16. New setting written via `cloudSaveSetting()`/`putSetting()` but never added to the corresponding `map.has('<key>')` pull-down branch in `syncSettings()` — writes but never reads back on a second device. Grep every `cloudSaveSetting('X', ...)` call site and confirm a matching `map.has('X')` branch exists.
-17. Sentinel/tag string fields (e.g. a `fallacy`/`category` value meaning "not applicable") checked with exact equality (`x==='none'`) instead of a prefix-safe test — breaks the moment the authored value is `"none — because ..."` rather than the bare word. Prefer `/^none\b/i.test(x)` (or a real `null`/absent field) over string-literal equality on human-authored content.
-18. `react-components/vite.config.ts` missing a `base` setting — without it, `vite build` emits root-relative-to-nothing asset paths that only happen to be right by accident of whatever they were last hand-patched to. Always check `base` is explicitly `'/react-build/'` (per #8 above) rather than trusting a prior manual patch of `react-build/index.html`'s committed asset paths — the patch and the actual build will drift the next time anyone runs `npm run build` without re-patching.
-19. Service worker (`sw.js`) fetch handler bugs specific to this app's iframe architecture: any `navigate`-mode request handling that keys its cache by a **hardcoded** string (e.g. `'./index.html'`) instead of the actual request/URL will silently serve the wrong page for every other navigation — including the Health/Exercise `react-build/index.html?app=...` iframes, which are `navigate`-mode requests from the browser's perspective. Symptom: an iframe's `contentDocument` turns out to be the outer app shell instead of its own content. Check `sw.js`'s cache key is always the actual `request`/URL, and that any app-shell fallback is scoped to real top-level app navigations only (not `react-build` paths).
+Frontend scan — C:\Users\shan_\mission-companion\react-components\src\ (⚠️ 2026-08-04: this
+is the real source now — the old vanilla index.html at repo root no longer exists, don't scan
+for it):
+1. Missing error handling in critical paths
+2. Console errors or TypeScript issues (`npm run build` inside react-components/ must pass clean)
+3. Deprecated patterns or dead code
+4. Duplicate code or redundant logic
+5. Settings visibility/state inconsistencies
+6. Hardcoded absolute paths that assume the old `/react-build/` or `/Mission-Companion/`
+   prefixes — both are gone now, everything is root-relative (`/assets/...`, `/icons/...`)
+7. `useEffect` missing dependencies causing stale closures (React equivalent of the old
+   vanilla "stale window.location read" pattern)
+8. **A dead safety-gate flag that's set but never unlocked.** Found 2026-08-04:
+   `supabase-sync.ts` had a `cloudReady` flag defaulting `false` with no code path anywhere
+   that ever called the setter — every single `cloudSave*`/`cloudDeleteRow` function opened
+   with `if (!cloudReady) return`, so ALL cloud writes silently no-op'd for the entire session
+   they were built in. Nothing crashed, nothing errored — it just quietly never wrote
+   anything. **General pattern to grep for**: any module-level `let x = false` (or similar)
+   gating a side effect, where `x` is set to `true` in exactly zero places in the codebase.
+   Fix: either wire the real trigger that should unlock it, or remove the gate if — like here
+   — it was a half-built safety mechanism with no corresponding "other half."
+8b. **GitHub Pages has no server-side routing.** Since the site is now a client-side-routed
+    React Router SPA served from a static host, a direct request (fresh load, bookmark,
+    reload) to any non-root path (e.g. `/spiritual/journal`) has no matching file and 404s —
+    GH Pages serves whatever `404.html` exists at the root for any unmatched path, but the
+    browser keeps the originally-requested URL, so React Router picks it up correctly once
+    the JS loads. **Check on every deploy: does `404.html` exist at repo root, and is it an
+    up-to-date copy of `index.html` (same hashed asset filenames)?** A stale 404.html
+    referencing a deleted/renamed hashed bundle is a real, easy-to-miss regression — verify
+    with a test harness that actually reproduces GH Pages' 404-fallback behavior (a plain
+    `python -m http.server` does NOT replicate this — its own generic 404 page hides the bug
+    completely; write/reuse a small custom handler that serves 404.html's body with a 404
+    status for any unmatched path before trusting a "it loaded" local check).
+9. Service worker (`sw.js`): cache key must always be the actual request/URL (never a
+   hardcoded string); `isAppShell` in the fetch handler's navigate-mode branch should match
+   any same-origin navigation now (the whole site is client-side-routed, there's no more
+   iframe-vs-outer-shell distinction to worry about); install handler should call
+   `self.skipWaiting()` so a new SW version activates immediately rather than leaving a stale
+   one serving old content until every tab closes (this exact gap caused a real "briefly
+   showed old content" symptom on 2026-08-04's cutover).
+10. New setting written via `cloudSaveSetting()` but never read back anywhere — this app
+    doesn't have a boot-time pull/merge sync yet at all (tracked in
+    `react-components/docs/build-plan.md`, "Supabase sync module 🟡 Partial"), so *no*
+    setting round-trips across devices right now. Don't flag every individual missing
+    pull-down as a new bug until the boot sync itself is built — flag the boot sync's absence
+    once, not per-setting.
+11. Sentinel/tag string fields checked with exact equality instead of a prefix-safe test —
+    still applies, same reasoning as before (breaks the moment authored text isn't the bare
+    sentinel word). Already fixed correctly in `Objections.tsx`'s fallacy check as a reference
+    example (`/^none\b/i.test(...)`).
 
 Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP tools):
-20. Table/schema mismatch — every table referenced in index.html's `cloudSave*`/`sync*` functions (grep for `sb.from(...)`) must actually exist; use `list_tables` to compare against the code
-21. Recent API errors — check `get_logs` (service: api) for 4xx/5xx responses tied to app traffic, not infra health checks
-22. Column mismatch — a save function referencing a column that doesn't exist in the table (surfaces as repeated silent failures via the `foodProteinOk`-style feature-flag pattern in cloudSaveHealth)
-23. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes
-24. Orphaned/dead tables — tables that exist in Supabase but nothing in the code writes to or reads from them (candidates for cleanup, not auto-fix)
-25. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
-26. Known pre-existing gap (2026-08-03): `saved_foods` table is referenced by code (`index.html:3752,5287,5289,5557`) but returns 404 — doesn't exist in `list_tables`. Not caused by any single commit; flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
-27. Known pre-existing bug (2026-08-03, not yet fixed): `renderHealthFood()` in index.html (~lines 3882-3903) uses curly/typographic quotes (` ” `) instead of straight `"` as HTML attribute delimiters (e.g. `class=”tabtitle”`, `data-fmode=”search”`). This breaks the Food-mode toggle buttons (`data-fmode` reads back with the curly quotes embedded, so `st.foodMode==='search'` never matches after the first click) and leaves those elements unstyled. Frontend issue, not Supabase, but logged here alongside the other known gap since it was found the same day and not yet fixed — flag for the next audit pass to actually fix.
+12. Table/schema mismatch — every table referenced in `react-components/src/lib/*.ts`'s
+    `cloudSave*`/`sb.from(...)` calls must actually exist; use `list_tables` to compare
+13. Recent API errors — check `get_logs` (service: api) for 4xx/5xx responses tied to app traffic, not infra health checks
+14. Column mismatch — a save function referencing a column that doesn't exist in the table
+15. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes. Note: as of 2026-08-04 every table's RLS policy is `USING (true)`/`WITH CHECK (true)` (fully open to anyone with the anon key) — this is the app's known, accepted security posture for a single-user personal tool (confirmed with the user), not a bug to silently "fix" by tightening policies without asking first.
+16. Orphaned/dead tables — tables that exist in Supabase but nothing in the code writes to or reads from them (candidates for cleanup, not auto-fix)
+17. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
+18. Known pre-existing gap: `saved_foods` table is referenced by code but returns 404 — doesn't exist in `list_tables`. Flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
+19. Known gap found 2026-08-04: `glossary_terms` table also doesn't exist, so the React port's Glossary screen has been failing to sync to the backend since it was built (caught by its own try/catch, so no crash — just silent). Combined with Glossary never having been part of the vanilla app's live nav (`SECTIONS` object never included it), this confirms Glossary was genuinely abandoned/incomplete functionality upstream, not something this migration broke. Currently kept in the React nav (flagged to the user, not yet resolved either way) — don't auto-create the table without asking, same reasoning as `saved_foods`.
 
 For each bug found (frontend or backend):
 - Exact file/line number, OR exact table/column/project_id for Supabase issues
@@ -160,8 +200,9 @@ Complete: Skill self-improved, code fixed, docs updated
 
 ## Benchmarks
 - **2026-08-03 run (commit ee6edbd):** 10 bugs found (1 critical, 3 high, 4 medium, 1 low), all 10 fixed in one pass — **100% first-pass fix success, zero retries needed.** Use this as the target: retries should be the exception, not the norm.
-- **2026-08-03 run (commit d6d9d99, Phase 2 Scripture/Objections):** 2 must-fix bugs found (both new-code regressions: a setting missing from the cloud pull-down sync, and a sentinel-string exact-match bug), both fixed in one pass, zero retries. Both bug classes are now checklist items #16-17 above so future audits catch them without a live incident first.
-- **2026-08-03 run (commits 38884f7, 497bdbf, Health ActivityCard integration):** found live in production, not by static audit — ground-truthed by directly navigating the deployed site. Two foundational bugs, both now fixed and checklisted (#8/#18/#19): a never-configured Vite `base` (checklist item #8 previously *encoded the wrong fix direction* — corrected), and a service worker caching every navigation under one hardcoded key, silently serving the outer app shell in place of the Health/Exercise react-build iframes. Lesson: when a fix touches deploy-path or service-worker code, ground-truth against the actual live URL before trusting docs/checklist — CLAUDE.md/SKILL.md had both been wrong about the correct base path.
+- **2026-08-03 run (commit d6d9d99, Phase 2 Scripture/Objections):** 2 must-fix bugs found (both new-code regressions: a setting missing from the cloud pull-down sync, and a sentinel-string exact-match bug), both fixed in one pass, zero retries.
+- **2026-08-03 run (commits 38884f7, 497bdbf, Health ActivityCard integration):** found live in production, not by static audit — ground-truthed by directly navigating the deployed site. A never-configured Vite `base`, and a service worker caching every navigation under one hardcoded key. Lesson: when a fix touches deploy-path or service-worker code, ground-truth against the actual live URL before trusting docs/checklist.
+- **2026-08-04 run (commits 689d02b, 86fba67, 335570a — React-app cutover):** the whole site architecture changed (vanilla index.html retired, react-components/ promoted to site root) in the same session as the audit, so most of the old checklist (iframe/postMessage items) went obsolete in one shot — rewritten above rather than incrementally patched. Two critical bugs found and fixed same-session: (1) GH Pages 404 on any direct-navigated client-side route (no 404.html fallback existed yet — this is a **structural gap for any React-Router-on-GH-Pages deploy**, not a regression, so it should be checked on the *first* deploy of any new SPA-on-static-host setup, not just as a regression check); (2) the dead `cloudReady` gate (checklist item #8) — **found only by actually tracing the write path with fresh eyes, not by pattern-matching against a known bug list**, since this bug class (a half-built safety mechanism, not a "regression") wasn't on the checklist at all before this run. Verified fixed by a real live round-trip: wrote a labeled test row via the actual production UI, confirmed it in `journal_entries` via `execute_sql`, deleted it via the UI's own delete flow. Lesson: **"no errors in the console" and "the UI looks right" are not proof data is actually persisting anywhere** — when a fix specifically touches the write path, verify with a real write+read, not just a UI smoke test.
 
 ## Error Handling
 - Build fails: Code Audit still runs to find root cause
@@ -170,7 +211,7 @@ Complete: Skill self-improved, code fixed, docs updated
 - Learning fails: Log error, next deployment will retry
 
 ## Files Modified
-- `react-build/` (Deploy Agent)
-- `index.html` (Auto-Fix Agent)
+- `react-components/src/` (Auto-Fix Agent — this is the real source now)
+- Repo root `index.html`, `404.html`, `assets/`, `icons/`, `fonts/`, `sw.js`, `manifest.json` (Deploy Agent — these are `react-components/dist/*` copied to root, keep `index.html`/`404.html` in sync)
 - `.claude/skills/mission-companion-deploy/SKILL.md` (Learning Agent)
 - `CLAUDE.md` (Learning Agent)
