@@ -6,14 +6,21 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Architecture Overview
 
-**Mission Companion** is a single-file PWA (~2,800 lines vanilla JS/HTML/CSS) for LDS missionaries—personal journal, language practice, scripture mastery, health tracking, and exercise building.
+**⚠️ 2026-08-03 cutover: the React app is now the primary, deployed site.**
+The old single-file vanilla `index.html` (~6,000 lines by the end) has been
+retired from the site root — it's fully preserved in git history and at the
+`pre-build-website` tag if a rollback is ever needed, but it is no longer
+what's live. **Mission Companion** is now a React 19 + Vite + TypeScript +
+Tailwind v4 + shadcn PWA for LDS missionaries — personal journal, language
+practice, scripture mastery, health tracking, and exercise building.
 
-- **Single source of truth:** `C:\Users\shan_\missionary-companion\index.html` (ONLY file to edit for vanilla features)
-- **Deployment:** `git add -A && git commit -m "message" && git push` → live in ~60 seconds
-- **Data:** localStorage (canonical, sync) + Supabase (cloud layer, pulled on boot, pushed on save)
-- **Architecture:** Vanilla JavaScript, no build system, no dependencies, event-driven modal/render pattern
-- **React integration:** Vite project in `react-components/` builds to `react-build/`, deployed as an iframe (Health Metrics — live; Exercise Logger component exists but isn't currently embedded)
-- **Hosting:** GitHub Pages at https://missionarycompanion.com (aliases to https://dombundy08-hue.github.io/Mission-Companion/)
+- **Single source of truth:** `C:\Users\shan_\mission-companion\react-components\src\` — this IS the site now, not a sub-widget.
+- **Build:** `cd react-components && npm run build` → outputs to `react-components/dist/`, which gets copied to the repo root (`index.html`, `assets/`, `icons/`, `fonts/`) — that root output is what GitHub Pages actually serves.
+- **Deployment:** build react-components, copy `dist/*` to repo root, `git add -A && git commit -m "message" && git push` → live in ~60 seconds. (The `mission-companion-deploy` skill below still auto-runs on push but its "Build React project" step description predates this cutover — see its own file for current accuracy before trusting it blindly.)
+- **Data:** localStorage (canonical, sync) + Supabase (cloud layer, pulled on boot, pushed on save) — same tables/natural-key dedup as the vanilla app had, ported 1:1 in `react-components/src/lib/supabase-sync.ts`.
+- **Progress tracking:** `react-components/docs/build-plan.md` is the authoritative, honest checklist of what's been ported vs. still pending (Health/Exercise families and Settings were still in progress at cutover time — those tabs may show a "not yet ported" placeholder until finished).
+- **Design system:** `design-system/mission-companion/MASTER.md` — source of truth for colors/fonts/spacing/anti-pattern overrides (e.g. emoji icons kept everywhere except the 3 top-level section icons, which use real illustrated images).
+- **Hosting:** GitHub Pages at https://missionarycompanion.com (aliases to https://dombundy08-hue.github.io/Mission-Companion/), same as before — only what's served at the root changed, not the hosting setup itself.
 
 ---
 

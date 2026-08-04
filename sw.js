@@ -2,16 +2,24 @@
    Bump CACHE to ship a new version — the old cache is cleared on activate,
    and updated files flow in via stale-while-revalidate on the next load.
    Supabase data traffic is never cached, so cloud sync stays live/fresh. */
-const CACHE = 'mission-companion-v3';
+const CACHE = 'mission-companion-v4';
 
+/* v4: the React app is now the primary site (was previously the vanilla
+   index.html + an embedded react-build/ iframe). Bumping CACHE purges
+   every old cached entry on activate, so no stale vanilla page can ever
+   be served. Vite's own bundled JS/CSS use hashed filenames that change
+   every build, so they're intentionally NOT precached here — they flow
+   in via the fetch handler's stale-while-revalidate on first request,
+   keyed by their real (hashed) URL like everything else. Only truly
+   stable, unhashed public/ assets are safe to precache by name. */
 const CORE = [
   './',
   './index.html',
   './manifest.json',
-  './assets/icon-192.png',
-  './assets/icon-512.png',
-  './assets/fonts/lexend-variable.woff2',
-  './assets/fonts/newsreader-variable.woff2',
+  './icons/app-icon-192.png',
+  './icons/app-icon-512.png',
+  './fonts/lexend-variable.woff2',
+  './fonts/newsreader-variable.woff2',
 ];
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
