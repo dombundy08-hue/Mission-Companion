@@ -45,30 +45,71 @@ export function excuseArea(area: string) {
   setLS('weeklyReflectionExcused', rec);
 }
 
-export function isFastSunday(date: string): boolean {
-  return getLS<string | null>('healthFastSunday', null) === date;
+// Fasting is tracked per calendar date, not a single slot — a missionary
+// can fast more than once (not just Sundays), and each fast day needs to
+// stay excluded from calorie/protein averages permanently, not just while
+// it happens to be the one "active" day.
+function migrateLegacyFastDataOnce() {
+  const legacyDate = localStorage.getItem('healthFastSunday');
+  if (legacyDate == null) return; // nothing to migrate, or already migrated
+  let date: string | null = null;
+  try { date = JSON.parse(legacyDate); } catch { /* ignore */ }
+  if (date) {
+    const days = getLS<string[]>('healthFastDays', []);
+    if (!days.includes(date)) {
+      const next = [...days, date];
+      setLS('healthFastDays', next);
+      cloudSaveSetting('healthFastDays', next);
+    }
+    const legacyIntentionRaw = localStorage.getItem('healthFastSundayIntention');
+    let legacyIntention = '';
+    try { legacyIntention = legacyIntentionRaw ? JSON.parse(legacyIntentionRaw) : ''; } catch { /* ignore */ }
+    if (legacyIntention.trim()) {
+      const intentions = getLS<Record<string, string>>('healthFastIntentions', {});
+      if (!intentions[date]) {
+        intentions[date] = legacyIntention;
+        setLS('healthFastIntentions', intentions);
+        cloudSaveSetting('healthFastIntentions', intentions);
+      }
+    }
+  }
+  localStorage.removeItem('healthFastSunday');
+  localStorage.removeItem('healthFastSundayIntention');
 }
-export function toggleFastSunday(date: string) {
-  const fsd = getLS<string | null>('healthFastSunday', null);
-  const next = fsd === date ? null : date;
-  setLS('healthFastSunday', next);
-  cloudSaveSetting('healthFastSunday', next);
-  if (!next) {
-    setLS('healthFastSundayIntention', '');
-    cloudSaveSetting('healthFastSundayIntention', '');
+export function getFastDays(): string[] {
+  migrateLegacyFastDataOnce();
+  return getLS<string[]>('healthFastDays', []);
+}
+export function isFasting(date: string): boolean {
+  return getFastDays().includes(date);
+}
+export function toggleFasting(date: string) {
+  const days = getFastDays();
+  const isOn = days.includes(date);
+  const next = isOn ? days.filter((d) => d !== date) : [...days, date];
+  setLS('healthFastDays', next);
+  cloudSaveSetting('healthFastDays', next);
+  if (isOn) {
+    const intentions = getLS<Record<string, string>>('healthFastIntentions', {});
+    delete intentions[date];
+    setLS('healthFastIntentions', intentions);
+    cloudSaveSetting('healthFastIntentions', intentions);
   }
 }
-export function getFastSundayIntention(): string {
-  return getLS<string>('healthFastSundayIntention', '');
+export function getFastingIntention(date: string): string {
+  migrateLegacyFastDataOnce();
+  return getLS<Record<string, string>>('healthFastIntentions', {})[date] || '';
 }
-export function setFastSundayIntention(text: string) {
-  setLS('healthFastSundayIntention', text);
-  cloudSaveSetting('healthFastSundayIntention', text);
+export function setFastingIntention(date: string, text: string) {
+  const intentions = getLS<Record<string, string>>('healthFastIntentions', {});
+  intentions[date] = text;
+  setLS('healthFastIntentions', intentions);
+  cloudSaveSetting('healthFastIntentions', intentions);
 }
 
-// First-open-of-the-day reminder of what you fasted for — separate from the
-// Weekly Reflection pop-up, keyed by calendar day (not week) since it only
-// applies on an active Fast Sunday with a saved intention.
+// First-open-of-the-day reminder of what you're fasting for — separate from
+// the Weekly Reflection pop-up, keyed by calendar day since it only applies
+// when today is an active fast day with a saved intention.
 export function fastReminderShownToday(): boolean {
   return getLS<string | null>('fastReminderShown', null) === isoDate();
 }
@@ -77,8 +118,8 @@ export function markFastReminderShown() {
 }
 export function shouldShowFastReminder(): boolean {
   const today = isoDate();
-  if (!isFastSunday(today)) return false;
-  if (!getFastSundayIntention().trim()) return false;
+  if (!isFasting(today)) return false;
+  if (!getFastingIntention(today).trim()) return false;
   return !fastReminderShownToday();
 }
 
@@ -293,10 +334,10 @@ function weeklyBucketAverage(dayValues: Record<string, number>, days: number): {
 export function healthAverages(days: number): HealthAverages {
   const foodSums: Record<string, number> = {};
   const protSums: Record<string, number> = {};
-  const fastSundayDate = getLS<string | null>('healthFastSunday', null);
+  const fastDays = new Set(getFastDays());
   getLS<FoodEntry[]>('healthFood', []).forEach((e) => {
     if (e.timestamp >= daysAgoTs(days)) {
-      if (fastSundayDate && e.entryDate === fastSundayDate) return;
+      if (fastDays.has(e.entryDate)) return;
       foodSums[e.entryDate] = (foodSums[e.entryDate] || 0) + (e.calories || 0);
       protSums[e.entryDate] = (protSums[e.entryDate] || 0) + (e.protein || 0);
     }

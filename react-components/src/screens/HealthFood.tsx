@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import {
   isoDate,
-  isFastSunday,
-  toggleFastSunday,
+  isFasting,
+  toggleFasting,
   usdaSearch,
   offSearch,
   getSavedFoods,
@@ -39,7 +39,7 @@ export function HealthFood() {
     getLS<FoodEntry[]>('healthFood', []).filter((e) => e.entryDate === today).sort((a, b) => b.timestamp - a.timestamp)
   );
   const hasUsda = !!localStorage.getItem('usdaApiKey');
-  const [isFast, setIsFast] = useState(() => isFastSunday(today));
+  const [isFast, setIsFast] = useState(() => isFasting(today));
   const [lastLogged, setLastLogged] = useState<{ name: string; calories: number | null; protein: number | null } | null>(null);
 
   // search mode state
@@ -357,7 +357,7 @@ export function HealthFood() {
         <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Today · {total} cal · {Math.round(totalProt)}g protein</div>
         <button
           type="button"
-          onClick={() => { toggleFastSunday(today); setIsFast(isFastSunday(today)); }}
+          onClick={() => { toggleFasting(today); setIsFast(isFasting(today)); }}
           className="mb-3 text-sm"
           style={{ color: isFast ? 'var(--foreground)' : 'var(--muted-foreground)' }}
         >

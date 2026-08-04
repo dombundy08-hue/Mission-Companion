@@ -16,10 +16,10 @@ import {
   SYMPTOMS,
   symptomData,
   isoDate,
-  isFastSunday,
-  toggleFastSunday,
-  getFastSundayIntention,
-  setFastSundayIntention,
+  isFasting,
+  toggleFasting,
+  getFastingIntention,
+  setFastingIntention,
   healthAverages,
 } from '@/lib/health-data';
 import { getLS } from '@/lib/storage';
@@ -50,9 +50,9 @@ export function HealthToday() {
   const [el, setEl] = useState(() => electroTotal());
   const [mRow, setMRow] = useState(() => todaysRow('healthMood'));
   const today = isoDate();
-  const [fastToday, setFastToday] = useState(() => isFastSunday(today));
-  const [fastIntention, setFastIntentionState] = useState(() => getFastSundayIntention());
-  const [editingIntention, setEditingIntention] = useState(() => !getFastSundayIntention().trim());
+  const [fastToday, setFastToday] = useState(() => isFasting(today));
+  const [fastIntention, setFastIntentionState] = useState(() => getFastingIntention(today));
+  const [editingIntention, setEditingIntention] = useState(() => !getFastingIntention(today).trim());
   const [visible, setVisible] = useState<string[]>(() => getLS('health_visibleMetrics', DEFAULT_VISIBLE));
   useSettingsChanged(() => setVisible(getLS('health_visibleMetrics', DEFAULT_VISIBLE)));
 
@@ -100,14 +100,14 @@ export function HealthToday() {
     setMRow(todaysRow('healthMood'));
   }
   function toggleFast() {
-    toggleFastSunday(today);
-    setFastToday(isFastSunday(today));
-    setFastIntentionState(getFastSundayIntention());
-    setEditingIntention(!getFastSundayIntention().trim());
+    toggleFasting(today);
+    setFastToday(isFasting(today));
+    setFastIntentionState(getFastingIntention(today));
+    setEditingIntention(!getFastingIntention(today).trim());
   }
   function saveFastIntention(text: string) {
     setFastIntentionState(text);
-    setFastSundayIntention(text);
+    setFastingIntention(today, text);
   }
   function confirmFastIntention() {
     if (fastIntention.trim()) setEditingIntention(false);
@@ -150,7 +150,7 @@ export function HealthToday() {
         <label className="flex cursor-pointer items-center gap-2.5">
           <input type="checkbox" checked={fastToday} onChange={toggleFast} className="h-5 w-5 flex-none" />
           <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
-            🕊️ Today is a Fast Sunday <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(excluded from calorie/protein averages)</span>
+            🕊️ I'm fasting today <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(excluded from calorie/protein averages)</span>
           </span>
         </label>
         {fastToday && (

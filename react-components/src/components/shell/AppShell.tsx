@@ -9,7 +9,7 @@ import { FastReminderModal } from './FastReminderModal';
 import { UpdateBanner } from './UpdateBanner';
 import { DemoModeBanner } from './DemoModeBanner';
 import { isDemoMode } from '@/lib/demo';
-import { shouldShowFastReminder, getFastSundayIntention } from '@/lib/health-data';
+import { shouldShowFastReminder, getFastingIntention, isoDate } from '@/lib/health-data';
 
 export function AppShell() {
   const { sectionId = 'spiritual', tabId = 'journal' } = useParams();
@@ -42,7 +42,7 @@ export function AppShell() {
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ScriptureLockOverlay />
       {showFastReminder ? (
-        <FastReminderModal intention={getFastSundayIntention()} onClose={() => setShowFastReminder(false)} />
+        <FastReminderModal intention={getFastingIntention(isoDate())} onClose={() => setShowFastReminder(false)} />
       ) : (
         showReflection && <WeeklyReflectionModal onClose={() => setShowReflection(false)} />
       )}
