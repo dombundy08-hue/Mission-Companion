@@ -12,7 +12,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - **Deployment:** `git add -A && git commit -m "message" && git push` → live in ~60 seconds
 - **Data:** localStorage (canonical, sync) + Supabase (cloud layer, pulled on boot, pushed on save)
 - **Architecture:** Vanilla JavaScript, no build system, no dependencies, event-driven modal/render pattern
-- **React integration:** Vite project in `react-components/` builds to `react-build/`, deployed as iframes (Health Metrics, Exercise Logger)
+- **React integration:** Vite project in `react-components/` builds to `react-build/`, deployed as an iframe (Health Metrics — live; Exercise Logger component exists but isn't currently embedded)
 - **Hosting:** GitHub Pages at https://missionarycompanion.com (aliases to https://dombundy08-hue.github.io/Mission-Companion/)
 
 ---
@@ -28,7 +28,7 @@ This project uses the **`mission-companion-deploy` skill** which runs **automati
 
 **Result**: Every push is automatically audited and fixed on both the frontend and Supabase backend, then documented. Skill continuously improves itself.
 
-**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). Also now covers two regression classes found during the Phase 2 (Scripture/Objections) deploy: (1) a new setting saved via `cloudSaveSetting()` but never added to its `map.has()` pull-down branch in `syncSettings()` — silently write-only across devices; (2) sentinel strings meaning "not applicable" (e.g. a `fallacy` field of `"none"`) checked with exact equality instead of a prefix-safe regex — breaks the moment the authored value has an explanatory suffix. See SKILL.md for full details.
+**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). Also now covers two regression classes found during the Phase 2 (Scripture/Objections) deploy: (1) a new setting saved via `cloudSaveSetting()` but never added to its `map.has()` pull-down branch in `syncSettings()` — silently write-only across devices; (2) sentinel strings meaning "not applicable" (e.g. a `fallacy` field of `"none"`) checked with exact equality instead of a prefix-safe regex — breaks the moment the authored value has an explanatory suffix. And two foundational bugs found the same day while integrating a shared `ActivityCard` component for Health, both fixed: (3) `react-components/vite.config.ts` never set a `base`, so a prior session was hand-patching built asset paths to `/Mission-Companion/...` — **wrong**, the site is served at its custom domain root with no prefix, confirmed live; `base` is now `'/react-build/'`; (4) `sw.js`'s fetch handler cached every `navigate`-mode request under one hardcoded key, so the Health/Exercise `react-build` iframes (themselves navigations) got served the outer app shell instead of their own content — this is almost certainly what the earlier "iframe recursion" fix (removing the Exercise iframe) was actually band-aiding. See SKILL.md for full details.
 
 See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
 
@@ -184,20 +184,17 @@ Tracks UI state; render functions read `state.<section>` to decide what to show.
 
 ### Structure
 **Source:** `react-components/` (Vite + React + TypeScript + Tailwind)  
-**Output:** `react-build/` (deployed as `/Mission-Companion/react-build/`)
+**Output:** `react-build/` — the site is served at its custom domain root (missionarycompanion.com), **no `/Mission-Companion/` prefix**. `vite.config.ts` sets `base: '/react-build/'` so `npm run build` always emits correct root-relative asset paths — never hand-patch `react-build/index.html`'s asset paths after a build.
 
 ### Integration
-Health Metrics iframe (line 4178):
-```html
-<iframe id="healthActivityFrame" src="/Mission-Companion/react-build/index.html?app=health" 
-  style="width:100%;height:600px;border:none;border-radius:12px;background:var(--card);"></iframe>
+Health Metrics iframe (`renderHealthStats()`, ~index.html:4258) — src is built dynamically, not hardcoded:
+```js
+const healthFrameUrl = new URL('react-build/index.html?app=health', window.location.href).href;
+// <iframe id="healthActivityFrame" src="${healthFrameUrl}" onload="sendHealthMetricsUpdate();">
 ```
+`HealthActivityCard` (react-components/src/components/health/health-activity-card.tsx) renders the shared `components/ui/activity-card.tsx` `ActivityCard` component — the reusable ring/goals card style — mapping the postMessage'd metrics into its `Metric[]` shape.
 
-Exercise Logger iframe (line 2618):
-```html
-<iframe id="exerciseActivityFrame" src="/Mission-Companion/react-build/index.html?app=exercise" 
-  style="width:100%;height:650px;border:none;border-radius:12px;background:var(--card);"></iframe>
-```
+**Exercise Logger iframe is currently NOT embedded** — `exerciseActivityFrame` was removed from index.html (fixed an iframe-recursion-looking bug that was actually the service worker below). `ExerciseActivityCard`/`ExerciseApp` still exist in react-components and build fine, just unused until re-wired.
 
 ### postMessage Protocol
 **Vanilla → React (health data):**

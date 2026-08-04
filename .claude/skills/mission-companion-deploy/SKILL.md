@@ -39,7 +39,7 @@ Frontend scan — C:\Users\shan_\mission-companion\:
 5. Deprecated patterns or old code
 6. Duplicate code or redundant logic
 7. Missing error handling in critical paths
-8. Path issues (/Mission-Companion/ prefix missing)
+8. Path issues — **the site is served at its custom domain root (missionarycompanion.com), with NO `/Mission-Companion/` prefix** (the github.io project-page URL redirects to the custom domain root too, confirmed live 2026-08-03). Any code or config that hardcodes a `/Mission-Companion/` prefix is the bug, not the fix — react-build asset/base paths must be root-relative (`/react-build/...`).
 9. iframe recursion or nesting issues
 10. Settings visibility/state inconsistencies
 11. postMessage origin security — using `'*'` instead of `window.location.origin` as the target origin
@@ -49,15 +49,18 @@ Frontend scan — C:\Users\shan_\mission-companion\:
 15. Hardcoded absolute paths (e.g. `/Mission-Companion/...`) vs dynamic URL construction (e.g. relative to `import.meta.env.BASE_URL` or current origin)
 16. New setting written via `cloudSaveSetting()`/`putSetting()` but never added to the corresponding `map.has('<key>')` pull-down branch in `syncSettings()` — writes but never reads back on a second device. Grep every `cloudSaveSetting('X', ...)` call site and confirm a matching `map.has('X')` branch exists.
 17. Sentinel/tag string fields (e.g. a `fallacy`/`category` value meaning "not applicable") checked with exact equality (`x==='none'`) instead of a prefix-safe test — breaks the moment the authored value is `"none — because ..."` rather than the bare word. Prefer `/^none\b/i.test(x)` (or a real `null`/absent field) over string-literal equality on human-authored content.
+18. `react-components/vite.config.ts` missing a `base` setting — without it, `vite build` emits root-relative-to-nothing asset paths that only happen to be right by accident of whatever they were last hand-patched to. Always check `base` is explicitly `'/react-build/'` (per #8 above) rather than trusting a prior manual patch of `react-build/index.html`'s committed asset paths — the patch and the actual build will drift the next time anyone runs `npm run build` without re-patching.
+19. Service worker (`sw.js`) fetch handler bugs specific to this app's iframe architecture: any `navigate`-mode request handling that keys its cache by a **hardcoded** string (e.g. `'./index.html'`) instead of the actual request/URL will silently serve the wrong page for every other navigation — including the Health/Exercise `react-build/index.html?app=...` iframes, which are `navigate`-mode requests from the browser's perspective. Symptom: an iframe's `contentDocument` turns out to be the outer app shell instead of its own content. Check `sw.js`'s cache key is always the actual `request`/URL, and that any app-shell fallback is scoped to real top-level app navigations only (not `react-build` paths).
 
 Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP tools):
-18. Table/schema mismatch — every table referenced in index.html's `cloudSave*`/`sync*` functions (grep for `sb.from(...)`) must actually exist; use `list_tables` to compare against the code
-19. Recent API errors — check `get_logs` (service: api) for 4xx/5xx responses tied to app traffic, not infra health checks
-20. Column mismatch — a save function referencing a column that doesn't exist in the table (surfaces as repeated silent failures via the `foodProteinOk`-style feature-flag pattern in cloudSaveHealth)
-21. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes
-22. Orphaned/dead tables — tables that exist in Supabase but nothing in the code writes to or reads from them (candidates for cleanup, not auto-fix)
-23. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
-24. Known pre-existing gap (2026-08-03): `saved_foods` table is referenced by code (`index.html:3752,5287,5289,5557`) but returns 404 — doesn't exist in `list_tables`. Not caused by any single commit; flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
+20. Table/schema mismatch — every table referenced in index.html's `cloudSave*`/`sync*` functions (grep for `sb.from(...)`) must actually exist; use `list_tables` to compare against the code
+21. Recent API errors — check `get_logs` (service: api) for 4xx/5xx responses tied to app traffic, not infra health checks
+22. Column mismatch — a save function referencing a column that doesn't exist in the table (surfaces as repeated silent failures via the `foodProteinOk`-style feature-flag pattern in cloudSaveHealth)
+23. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes
+24. Orphaned/dead tables — tables that exist in Supabase but nothing in the code writes to or reads from them (candidates for cleanup, not auto-fix)
+25. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
+26. Known pre-existing gap (2026-08-03): `saved_foods` table is referenced by code (`index.html:3752,5287,5289,5557`) but returns 404 — doesn't exist in `list_tables`. Not caused by any single commit; flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
+27. Known pre-existing bug (2026-08-03, not yet fixed): `renderHealthFood()` in index.html (~lines 3882-3903) uses curly/typographic quotes (` ” `) instead of straight `"` as HTML attribute delimiters (e.g. `class=”tabtitle”`, `data-fmode=”search”`). This breaks the Food-mode toggle buttons (`data-fmode` reads back with the curly quotes embedded, so `st.foodMode==='search'` never matches after the first click) and leaves those elements unstyled. Frontend issue, not Supabase, but logged here alongside the other known gap since it was found the same day and not yet fixed — flag for the next audit pass to actually fix.
 
 For each bug found (frontend or backend):
 - Exact file/line number, OR exact table/column/project_id for Supabase issues
@@ -158,6 +161,7 @@ Complete: Skill self-improved, code fixed, docs updated
 ## Benchmarks
 - **2026-08-03 run (commit ee6edbd):** 10 bugs found (1 critical, 3 high, 4 medium, 1 low), all 10 fixed in one pass — **100% first-pass fix success, zero retries needed.** Use this as the target: retries should be the exception, not the norm.
 - **2026-08-03 run (commit d6d9d99, Phase 2 Scripture/Objections):** 2 must-fix bugs found (both new-code regressions: a setting missing from the cloud pull-down sync, and a sentinel-string exact-match bug), both fixed in one pass, zero retries. Both bug classes are now checklist items #16-17 above so future audits catch them without a live incident first.
+- **2026-08-03 run (commits 38884f7, 497bdbf, Health ActivityCard integration):** found live in production, not by static audit — ground-truthed by directly navigating the deployed site. Two foundational bugs, both now fixed and checklisted (#8/#18/#19): a never-configured Vite `base` (checklist item #8 previously *encoded the wrong fix direction* — corrected), and a service worker caching every navigation under one hardcoded key, silently serving the outer app shell in place of the Health/Exercise react-build iframes. Lesson: when a fix touches deploy-path or service-worker code, ground-truth against the actual live URL before trusting docs/checklist — CLAUDE.md/SKILL.md had both been wrong about the correct base path.
 
 ## Error Handling
 - Build fails: Code Audit still runs to find root cause
