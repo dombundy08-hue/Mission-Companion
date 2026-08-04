@@ -17,6 +17,21 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ---
 
+## Auto-Deployment & Self-Improvement Skill
+
+This project uses the **`mission-companion-deploy` skill** which runs **automatically on every `git push origin main`**:
+
+1. **Deploy Agent** — Builds React components, copies to react-build/, commits, and pushes
+2. **Code Audit Agent** — Scans entire codebase for bugs, DOM errors, path issues, and deprecated patterns
+3. **Auto-Fix Loop Agent** — Takes audit findings, fixes each issue, rebuilds, and verifies (up to 3 retries per bug)
+4. **Learning Agent** — Updates SKILL.md and CLAUDE.md based on lessons learned, making both more advanced and efficient
+
+**Result**: Every push is automatically audited, fixed, and documented. Skill continuously improves itself.
+
+See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
+
+---
+
 ## Data & Sync Model
 
 ### localStorage (canonical, synchronous)
