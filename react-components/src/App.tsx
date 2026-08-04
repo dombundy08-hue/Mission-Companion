@@ -4,6 +4,8 @@ import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
 import { Glossary } from '@/screens/Glossary';
+import { Spanish } from '@/screens/Spanish';
+import { Objections } from '@/screens/Objections';
 import { findTab } from '@/lib/sections';
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
@@ -14,6 +16,10 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <Miracles />;
     case 'spiritual/glossary':
       return <Glossary />;
+    case 'spiritual/spanish':
+      return <Spanish />;
+    case 'spiritual/objections':
+      return <Objections />;
     default: {
       const tab = findTab(sectionId, tabId);
       return <Placeholder label={tab?.label ?? tabId} icon={tab?.icon ?? '•'} />;
