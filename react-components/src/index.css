@@ -96,6 +96,110 @@
   --shadow-lg: 0 16px 40px rgba(0,0,0,.55), 0 6px 12px rgba(0,0,0,.35);
 }
 
+/* ---------- Per-section color schemes ----------
+   Spiritual intentionally uses the base palette above, unchanged, per
+   explicit request. Exercise (energetic/warm) and Health (calm/green) get
+   their own palettes, applied via a `.section-exercise`/`.section-health`
+   class on the app shell root — see AppShell.tsx. Each needs both a light
+   and a `.dark` variant so dark mode still works per section. */
+.section-exercise {
+  --background: #FBF6F2;
+  --foreground: #3A241A;
+  --card: #FFFFFF;
+  --card-foreground: #3A241A;
+  --popover: #FFFFFF;
+  --popover-foreground: #3A241A;
+  --primary: #D9622B;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5E6DD;
+  --secondary-foreground: #6B3B23;
+  --muted: #F5E6DD;
+  --muted-foreground: #8A6650;
+  --accent: #D9622B;
+  --accent-foreground: #FFFFFF;
+  --border: #EDD9CB;
+  --input: #EDD9CB;
+  --ring: #D9622B;
+
+  --navy: #4A2A1C;
+  --navy-soft: #6B3B23;
+  --gold: #D9622B;
+  --gold-dark: #A8431A;
+}
+.dark.section-exercise {
+  --background: #1A100B;
+  --foreground: #F0DED2;
+  --card: #241812;
+  --card-foreground: #F0DED2;
+  --popover: #241812;
+  --popover-foreground: #F0DED2;
+  --primary: #E27A45;
+  --primary-foreground: #1A100B;
+  --secondary: #3A2418;
+  --secondary-foreground: #F0DED2;
+  --muted: #3A2418;
+  --muted-foreground: #C7A692;
+  --accent: #E27A45;
+  --accent-foreground: #1A100B;
+  --border: #4A2E1F;
+  --input: #4A2E1F;
+  --ring: #E27A45;
+
+  --navy: #2B1810;
+  --navy-soft: #3A2418;
+  --gold: #E27A45;
+  --gold-dark: #C25F2F;
+}
+
+.section-health {
+  --background: #F3FAF7;
+  --foreground: #143A30;
+  --card: #FFFFFF;
+  --card-foreground: #143A30;
+  --popover: #FFFFFF;
+  --popover-foreground: #143A30;
+  --primary: #1E8F6F;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E1F2EC;
+  --secondary-foreground: #145440;
+  --muted: #E1F2EC;
+  --muted-foreground: #4E8474;
+  --accent: #1E8F6F;
+  --accent-foreground: #FFFFFF;
+  --border: #D6EDE4;
+  --input: #D6EDE4;
+  --ring: #1E8F6F;
+
+  --navy: #163C33;
+  --navy-soft: #145440;
+  --gold: #1E8F6F;
+  --gold-dark: #12664F;
+}
+.dark.section-health {
+  --background: #08120F;
+  --foreground: #DCEFE7;
+  --card: #101E19;
+  --card-foreground: #DCEFE7;
+  --popover: #101E19;
+  --popover-foreground: #DCEFE7;
+  --primary: #4FC79E;
+  --primary-foreground: #08120F;
+  --secondary: #16342A;
+  --secondary-foreground: #DCEFE7;
+  --muted: #16342A;
+  --muted-foreground: #93BFB0;
+  --accent: #4FC79E;
+  --accent-foreground: #08120F;
+  --border: #1F4536;
+  --input: #1F4536;
+  --ring: #4FC79E;
+
+  --navy: #0D2A21;
+  --navy-soft: #16342A;
+  --gold: #4FC79E;
+  --gold-dark: #3AA07E;
+}
+
 /* Tailwind v4: map the CSS variables above to utility classes
    (bg-primary, text-foreground, border-border, etc.) */
 @theme inline {

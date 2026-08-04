@@ -29,12 +29,25 @@ function pickBestVoice(list: SpeechSynthesisVoice[]): SpeechSynthesisVoice | nul
   }
   return list.find((v) => v.default) || list[0];
 }
-/* saved choice (set in Settings, not yet ported), else best guess */
+/* saved choice (set in Settings), else best guess */
 function currentVoice(): SpeechSynthesisVoice | null {
   const list = englishVoices();
   if (!list.length) return null;
   const want = localStorage.getItem('preferredVoiceName');
   return list.find((v) => v.name === want) || pickBestVoice(list);
+}
+
+/* PUBLIC: Settings' voice picker. */
+export function listEnglishVoiceNames(): string[] {
+  return englishVoices()
+    .map((v) => v.name)
+    .sort((a, b) => a.localeCompare(b));
+}
+export function getPreferredVoiceName(): string {
+  return localStorage.getItem('preferredVoiceName') || currentVoice()?.name || '';
+}
+export function setPreferredVoiceName(name: string) {
+  localStorage.setItem('preferredVoiceName', name);
 }
 
 interface SpeakOpts {

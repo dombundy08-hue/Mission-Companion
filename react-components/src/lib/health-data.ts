@@ -17,12 +17,53 @@ function avgOf(arr: number[]): number | null {
 export function round1(x: number | null): number | null {
   return x == null ? null : Math.round(x * 10) / 10;
 }
+/* ---------- Weekly reflection pop-up: surfaces whichever tracked area
+   (calories/protein/journal/miracles) is lowest relative to its own goal
+   this week, with a gentle nudge — and a per-week "excuse this" so a false
+   flag (e.g. journaling on paper instead) doesn't nag every time. */
+export function weekKey(): string {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((day + 6) % 7));
+  return isoDate(monday);
+}
+export function reflectionShownThisWeek(): boolean {
+  return getLS<string | null>('weeklyReflectionShown', null) === weekKey();
+}
+export function markReflectionShown() {
+  setLS('weeklyReflectionShown', weekKey());
+}
+export function getExcusedAreas(): string[] {
+  const rec = getLS<Record<string, string[]>>('weeklyReflectionExcused', {});
+  return rec[weekKey()] || [];
+}
+export function excuseArea(area: string) {
+  const rec = getLS<Record<string, string[]>>('weeklyReflectionExcused', {});
+  const wk = weekKey();
+  rec[wk] = [...(rec[wk] || []), area];
+  setLS('weeklyReflectionExcused', rec);
+}
+
 export function isFastSunday(date: string): boolean {
   return getLS<string | null>('healthFastSunday', null) === date;
 }
 export function toggleFastSunday(date: string) {
   const fsd = getLS<string | null>('healthFastSunday', null);
-  setLS('healthFastSunday', fsd === date ? null : date);
+  const next = fsd === date ? null : date;
+  setLS('healthFastSunday', next);
+  cloudSaveSetting('healthFastSunday', next);
+  if (!next) {
+    setLS('healthFastSundayIntention', '');
+    cloudSaveSetting('healthFastSundayIntention', '');
+  }
+}
+export function getFastSundayIntention(): string {
+  return getLS<string>('healthFastSundayIntention', '');
+}
+export function setFastSundayIntention(text: string) {
+  setLS('healthFastSundayIntention', text);
+  cloudSaveSetting('healthFastSundayIntention', text);
 }
 
 export interface HealthGoals {
@@ -187,6 +228,8 @@ export interface HealthAverages {
   water: number | null;
   mood: number | null;
   energy: number | null;
+  calUsedMedian: boolean;
+  protUsedMedian: boolean;
 }
 
 interface FoodEntry {
@@ -194,6 +237,40 @@ interface FoodEntry {
   timestamp: number;
   calories?: number;
   protein?: number;
+}
+
+function daysAgoFromDate(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(isoDate() + 'T00:00:00');
+  return Math.round((today.getTime() - d.getTime()) / 86400000);
+}
+
+/* Averages per-week first, then averages those weekly averages — rather than
+   pooling every logged day together — so a week with fewer logged days
+   doesn't get silently over- or under-weighted against a fuller week.
+   Falls back to the median of the weekly averages when they vary a lot
+   from each other (>35% deviation from their mean), since a wildly
+   different week is more likely a real anomaly than representative noise. */
+function weeklyBucketAverage(dayValues: Record<string, number>, days: number): { value: number | null; usedMedian: boolean } {
+  const numBuckets = Math.max(1, Math.ceil(days / 7));
+  const buckets: number[][] = Array.from({ length: numBuckets }, () => []);
+  Object.entries(dayValues).forEach(([date, val]) => {
+    const ago = daysAgoFromDate(date);
+    const idx = Math.floor(ago / 7);
+    if (idx >= 0 && idx < numBuckets) buckets[idx].push(val);
+  });
+  const weekAvgs = buckets.map((b) => avgOf(b)).filter((v): v is number => v != null);
+  if (!weekAvgs.length) return { value: null, usedMedian: false };
+  if (weekAvgs.length === 1) return { value: weekAvgs[0], usedMedian: false };
+  const mean = avgOf(weekAvgs) as number;
+  const maxDevRatio = mean ? Math.max(...weekAvgs.map((v) => Math.abs(v - mean))) / Math.abs(mean) : 0;
+  if (maxDevRatio > 0.35) {
+    const sorted = [...weekAvgs].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return { value: median, usedMedian: true };
+  }
+  return { value: mean, usedMedian: false };
 }
 
 /* same averaging logic the Today snapshot uses - shared so Stats matches exactly */
@@ -209,9 +286,13 @@ export function healthAverages(days: number): HealthAverages {
     }
   });
   const eatingDays = Object.keys(foodSums).length;
+  const calResult = weeklyBucketAverage(foodSums, days);
+  const protResult = weeklyBucketAverage(protSums, days);
   return {
-    cal: avgOf(Object.values(foodSums)),
-    prot: avgOf(Object.values(protSums)),
+    cal: calResult.value,
+    prot: protResult.value,
+    calUsedMedian: calResult.usedMedian,
+    protUsedMedian: protResult.usedMedian,
     eatingDays,
     sleep: avgOf(getLS<DayRow[]>('healthSleep', []).filter((e) => e.timestamp >= daysAgoTs(days) && e.hours != null).map((e) => +(e.hours as number))),
     water: avgOf(Object.values(waterDayMap(days)).map((d) => d.oz)),

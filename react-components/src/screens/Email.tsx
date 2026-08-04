@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLS, setLS } from '@/lib/storage';
-import { callClaude, AI_ERROR } from '@/lib/claude-api';
+import { callClaude, aiErrorMessage } from '@/lib/claude-api';
 import { cloudSaveSetting } from '@/lib/supabase-sync';
+import { thisWeeksHabitTip } from '@/lib/seven-habits';
 
 const EMAIL_SYSTEM = `You are helping a missionary write his weekly family email. Below are examples of his previous emails that show his voice, tone, and style. Study them carefully. Then, using the bullet points he has provided about this week, write a warm, personal, faith-centered weekly missionary email in his exact voice. Do not add events or details he did not mention. Do not make the email longer than 400 words. Do not use bullet points in the output — write it as flowing paragraphs. Sign off naturally in his voice.`;
 
@@ -95,7 +96,7 @@ export function Email() {
         <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>✉️ Weekly Email</h2>
         {error && (
           <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
-            {AI_ERROR}
+            {aiErrorMessage()}
           </div>
         )}
         <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
@@ -140,13 +141,16 @@ export function Email() {
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>✉️ Weekly Email</h2>
       {error && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
-          {AI_ERROR}
+          {aiErrorMessage()}
         </div>
       )}
 
       <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
         <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>This Week's Highlights</label>
         <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>Enter bullet points — one per line.</div>
+        <div className="mb-3 rounded-lg p-2.5 text-xs italic" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
+          💭 {thisWeeksHabitTip().prompt}
+        </div>
         <textarea
           value={highlights}
           onChange={(e) => setHighlights(e.target.value)}

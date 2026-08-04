@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { callClaude, AI_ERROR, type ClaudeMessage } from '@/lib/claude-api';
+import { callClaude, aiErrorMessage, type ClaudeMessage } from '@/lib/claude-api';
 import { SPANISH_MODES, spanishSystem } from '@/lib/spanish-modes';
 
 export function Spanish() {
@@ -81,7 +81,7 @@ export function Spanish() {
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🗣️ Spanish Practice</h2>
       {error && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
-          {AI_ERROR}
+          {aiErrorMessage()}
         </div>
       )}
       <div className="mb-4 flex gap-2">

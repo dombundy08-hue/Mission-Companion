@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/shell/AppShell';
 import { KineticLoader } from '@/components/shell/KineticLoader';
+import { AuthProvider, useAuth } from '@/components/shell/AuthContext';
+import { LockScreen } from '@/components/shell/LockScreen';
+import { ContactShare } from '@/screens/ContactShare';
 import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
@@ -83,18 +86,39 @@ function useBootReady() {
   return ready;
 }
 
-export default function App() {
+function GatedApp() {
   const ready = useBootReady();
+  const { authenticated } = useAuth();
 
   if (!ready) return <KineticLoader />;
+  if (!authenticated) return <LockScreen />;
 
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/spiritual/journal" replace />} />
+      <Route element={<AppShell />}>
+        <Route path="/:sectionId/:tabId" element={<TabPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+// The QR contact-share page is public — reached by a stranger scanning a
+// missionary's QR code — so it must live outside AuthProvider/LockScreen
+// entirely, not just skip the password check while still gated.
+export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
-        <Route path="/" element={<Navigate to="/spiritual/journal" replace />} />
-        <Route element={<AppShell />}>
-          <Route path="/:sectionId/:tabId" element={<TabPage />} />
-        </Route>
+        <Route path="/contact/:code" element={<ContactShare />} />
+        <Route
+          path="/*"
+          element={
+            <AuthProvider>
+              <GatedApp />
+            </AuthProvider>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

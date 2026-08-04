@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getRoutines,
@@ -11,16 +11,26 @@ import {
   fmtClock,
   clonePart,
   SAMPLE_ROUTINE,
+  BUILT_IN_WORKOUTS,
+  getPrograms,
+  saveProgram,
+  deleteProgram,
+  getActiveProgram,
+  setActiveProgram,
+  todaysProgramSlot,
+  type BuiltInWorkout,
   type Routine,
   type RoutinePart,
   type TimedItem,
   type RepItem,
   type CircuitItem,
+  type WorkoutProgram,
 } from '@/lib/exercise-data';
-import { setLS, uid } from '@/lib/storage';
-import { cloudSaveRoutine, cloudDeleteRow } from '@/lib/supabase-sync';
+import { setLS, getLS, uid } from '@/lib/storage';
+import { cloudSaveRoutine, cloudDeleteRow, fetchSharedPrograms, postSharedProgram, likeSharedProgram, type SharedProgram } from '@/lib/supabase-sync';
+import { programSnapshot, importSharedProgram } from '@/lib/exercise-data';
 
-type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble';
+type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble' | 'programs' | 'program-edit' | 'community';
 type PartType = 'timed' | 'rep' | 'circuit';
 
 interface Build {
@@ -43,6 +53,23 @@ export function Routines() {
   const [editId, setEditId] = useState<string | null>(null);
   const [build, setBuild] = useState<Build>(newBuild());
   const [flash, setFlash] = useState<string | null>(null);
+  const [programs, setPrograms] = useState<WorkoutProgram[]>(() => getPrograms());
+  const [activeProgram, setActiveProgramState] = useState(() => getActiveProgram());
+  const [programEditId, setProgramEditId] = useState<string | null>(null);
+  const [programName, setProgramName] = useState('');
+  const [programRoutineIds, setProgramRoutineIds] = useState<string[]>([]);
+  const [shared, setShared] = useState<SharedProgram[]>([]);
+  const [sharedLoading, setSharedLoading] = useState(false);
+  const [likedIds, setLikedIds] = useState<string[]>(() => getLS('likedSharedPrograms', []));
+
+  useEffect(() => {
+    if (view !== 'community') return;
+    setSharedLoading(true);
+    fetchSharedPrograms().then((rows) => {
+      setShared(rows);
+      setSharedLoading(false);
+    });
+  }, [view]);
 
   const [draftTimed, setDraftTimed] = useState<TimedItem[]>([{ name: '', seconds: 45 }]);
   const [draftRep, setDraftRep] = useState<RepItem[]>([{ name: '', sets: 3, reps: null, rest: 60, note: '' }]);
@@ -66,6 +93,90 @@ export function Routines() {
     saveRoutine(r);
     refresh();
     say('Sample routine added.');
+  }
+  function useTemplate(t: BuiltInWorkout) {
+    const r: Routine = { id: uid(), name: t.name, steps: t.parts.map(clonePart), createdAt: Date.now() };
+    saveRoutine(r);
+    refresh();
+    say(`"${t.name}" added — edit it however you like.`);
+  }
+
+  function refreshPrograms() {
+    setPrograms(getPrograms());
+    setActiveProgramState(getActiveProgram());
+  }
+  function startNewProgram() {
+    setProgramEditId(null);
+    setProgramName('');
+    setProgramRoutineIds([]);
+    setView('program-edit');
+  }
+  function editProgram(p: WorkoutProgram) {
+    setProgramEditId(p.id);
+    setProgramName(p.name);
+    setProgramRoutineIds([...p.routineIds]);
+    setView('program-edit');
+  }
+  function addRoutineToProgram(id: string) {
+    setProgramRoutineIds((arr) => [...arr, id]);
+  }
+  function removeProgramDay(idx: number) {
+    setProgramRoutineIds((arr) => arr.filter((_, i) => i !== idx));
+  }
+  function moveProgramDay(idx: number, dir: -1 | 1) {
+    setProgramRoutineIds((arr) => {
+      const next = [...arr];
+      const j = idx + dir;
+      if (j < 0 || j >= next.length) return next;
+      [next[idx], next[j]] = [next[j], next[idx]];
+      return next;
+    });
+  }
+  function saveProgramFinal() {
+    const name = programName.trim();
+    if (!name) { alert('Give the program a name.'); return; }
+    if (!programRoutineIds.length) { alert('Add at least one day.'); return; }
+    saveProgram({ id: programEditId || uid(), name, routineIds: programRoutineIds, createdAt: Date.now() });
+    refreshPrograms();
+    setView('programs');
+    say('Program saved.');
+  }
+  function removeProgram(id: string) {
+    if (!confirm('Delete this program?')) return;
+    deleteProgram(id);
+    refreshPrograms();
+  }
+  function applyProgram(id: string) {
+    setActiveProgram(id);
+    refreshPrograms();
+    say('Program activated — today\'s workout is ready.');
+  }
+  function stopProgram() {
+    setActiveProgram(null);
+    refreshPrograms();
+  }
+  async function shareProgram(p: WorkoutProgram) {
+    const author = prompt('Post as (optional name):', getLS('communityAuthorName', ''));
+    if (author === null) return;
+    setLS('communityAuthorName', author);
+    const ok = await postSharedProgram(p.name, author, programSnapshot(p));
+    say(ok ? 'Shared to Community.' : "Couldn't share right now — check your connection.");
+  }
+  async function likeProgram(sp: SharedProgram) {
+    if (likedIds.includes(sp.id)) return;
+    const ok = await likeSharedProgram(sp.id, sp.likes);
+    if (ok) {
+      const nextLiked = [...likedIds, sp.id];
+      setLikedIds(nextLiked);
+      setLS('likedSharedPrograms', nextLiked);
+      setShared((arr) => arr.map((x) => (x.id === sp.id ? { ...x, likes: x.likes + 1 } : x)).sort((a, b) => b.likes - a.likes));
+    }
+  }
+  function useSharedProgram(sp: SharedProgram) {
+    importSharedProgram(sp.name, sp.workouts as { name: string; parts: RoutinePart[] }[]);
+    refresh();
+    refreshPrograms();
+    say(`"${sp.name}" added to your routines and programs.`);
   }
   function editRoutine(r: Routine) {
     setEditId(r.id);
@@ -345,11 +456,167 @@ export function Routines() {
     );
   }
 
+  if (view === 'programs') {
+    return (
+      <div>
+        <button type="button" onClick={() => setView('list')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
+        <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📆 Programs</h2>
+        {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
+        <button type="button" onClick={startNewProgram} className="mb-2.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Program</button>
+        <button type="button" onClick={() => setView('community')} className="mb-4 w-full rounded-xl py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Browse Community Programs</button>
+        {!programs.length ? (
+          <div className="rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Bundle a week or month of routines into one program you can apply all at once.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {programs.map((p) => {
+              const isActive = activeProgram?.programId === p.id;
+              return (
+                <div key={p.id} className="rounded-[14px] border p-3.5" style={{ borderColor: isActive ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }}>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="font-bold" style={{ color: 'var(--navy)' }}>{p.name}</span>
+                    {isActive && <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: 'var(--primary)' }}>ACTIVE</span>}
+                  </div>
+                  <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>{p.routineIds.length} day{p.routineIds.length === 1 ? '' : 's'}</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => editProgram(p)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Edit</button>
+                    <button type="button" onClick={() => shareProgram(p)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Share</button>
+                    {isActive ? (
+                      <button type="button" onClick={stopProgram} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Stop</button>
+                    ) : (
+                      <button type="button" onClick={() => applyProgram(p.id)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>Apply Program</button>
+                    )}
+                    <button type="button" onClick={() => removeProgram(p.id)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--destructive)' }}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (view === 'community') {
+    return (
+      <div>
+        <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
+        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🌐 Community</h2>
+        <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Programs other missionaries have shared. No chat — just browse, like, and use.</p>
+        {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
+        {sharedLoading ? (
+          <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading…</div>
+        ) : !shared.length ? (
+          <div className="rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Nothing shared yet — be the first from the Programs page.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {shared.map((sp) => (
+              <div key={sp.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+                <div className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>{sp.name}</div>
+                <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+                  {sp.workouts.length} day{sp.workouts.length === 1 ? '' : 's'}{sp.author ? ` · by ${sp.author}` : ''}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => likeProgram(sp)}
+                    disabled={likedIds.includes(sp.id)}
+                    className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60"
+                    style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}
+                  >
+                    {likedIds.includes(sp.id) ? '❤️' : '🤍'} {sp.likes}
+                  </button>
+                  <button type="button" onClick={() => useSharedProgram(sp)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>Use This Program</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (view === 'program-edit') {
+    return (
+      <div>
+        <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
+        <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>Program name</label>
+          <input value={programName} onChange={(e) => setProgramName(e.target.value)} placeholder="e.g. 4-Week Strength Build" className={inputCls + ' mb-4'} style={inputStyle} />
+
+          <div className="mb-1 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Days, in order</div>
+          {!programRoutineIds.length && <div className="my-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>No days yet — add routines below.</div>}
+          <div className="mb-3 space-y-2">
+            {programRoutineIds.map((rid, i) => {
+              const r = routines.find((x) => x.id === rid);
+              return (
+                <div key={i} className="flex items-center justify-between rounded-xl border p-2.5" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-sm" style={{ color: 'var(--foreground)' }}>Day {i + 1}: <b>{r ? r.name : '(deleted routine)'}</b></span>
+                  <div className="flex gap-1 text-sm">
+                    <button type="button" disabled={i === 0} onClick={() => moveProgramDay(i, -1)} className="rounded px-2 disabled:opacity-30" style={{ color: 'var(--muted-foreground)' }}>▲</button>
+                    <button type="button" disabled={i === programRoutineIds.length - 1} onClick={() => moveProgramDay(i, 1)} className="rounded px-2 disabled:opacity-30" style={{ color: 'var(--muted-foreground)' }}>▼</button>
+                    <button type="button" onClick={() => removeProgramDay(i)} className="rounded px-2" style={{ color: 'var(--destructive)' }}>✕</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mb-1 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Add a routine as the next day</div>
+          {!routines.length ? (
+            <div className="my-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>Build a routine first, then come back here.</div>
+          ) : (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {routines.map((r) => (
+                <button key={r.id} type="button" onClick={() => addRoutineToProgram(r.id)} className="rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>＋ {r.name}</button>
+              ))}
+            </div>
+          )}
+
+          <button type="button" onClick={saveProgramFinal} className="w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)' }}>Save Program</button>
+        </div>
+      </div>
+    );
+  }
+
+  const todaySlot = todaysProgramSlot();
+
   return (
     <div>
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📋 Routines</h2>
+      <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>📆 Programs {activeProgram && '· 1 active'}</button>
+      {todaySlot && !todaySlot.complete && todaySlot.routine && (
+        <div className="mb-3 rounded-[14px] border p-3.5" style={{ borderColor: 'var(--primary)', background: 'var(--card)' }}>
+          <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--gold-dark)' }}>{todaySlot.program.name} · Day {todaySlot.dayIndex + 1}</div>
+          <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Today: {todaySlot.routine.name}</div>
+          <button type="button" onClick={() => navigate(`/exercise/workout?start=${todaySlot.routine!.id}`)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>▶ Start Today's Workout</button>
+        </div>
+      )}
+      {todaySlot?.complete && (
+        <div className="mb-3 rounded-[14px] border p-3.5 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>
+          🎉 You finished "{todaySlot.program.name}"! Apply it again or start a new program from the Programs page.
+        </div>
+      )}
       {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
       <button type="button" onClick={startNew} className="mb-4 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Routine</button>
+
+      <div className="mb-4">
+        <h3 className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Built-in Workouts</h3>
+        <p className="mb-2.5 text-xs" style={{ color: 'var(--muted-foreground)' }}>Use one as a starting point — it's copied into your routines so you can edit it freely.</p>
+        <div className="space-y-2">
+          {BUILT_IN_WORKOUTS.map((t) => (
+            <div key={t.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+              <div className="mb-0.5 text-sm font-bold" style={{ color: 'var(--navy)' }}>{t.name}</div>
+              <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>{t.description}</div>
+              <button type="button" onClick={() => useTemplate(t)} className="rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Use as Template</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {!routines.length ? (
         <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-2 text-3xl">📋</div>

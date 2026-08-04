@@ -24,9 +24,15 @@ export function HealthStats() {
     { label: 'Energy', value: avgs.energy != null ? avgs.energy.toFixed(1) : '—', trend: avgs.energy ? Math.min(100, Math.round((avgs.energy / 5) * 100)) : 0 },
   ];
 
+  const usedMedian = avgs.calUsedMedian || avgs.protUsedMedian;
+
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📊 Stats</h2>
+      <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📊 Stats</h2>
+      <p className="mb-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>
+        Averaged per week, then those weeks are averaged together — so a lighter-logging week doesn't skew the total.
+        {usedMedian && ' One week this period was unusually different, so the typical (median) week is shown instead of the mean.'}
+      </p>
 
       <div className="mb-4 flex gap-2">
         <button type="button" onClick={() => setRange('week')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'week' ? 'var(--navy)' : 'var(--card)', color: range === 'week' ? 'white' : 'var(--navy)' }}>This Week</button>

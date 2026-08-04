@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getLS, setLS, uid } from './storage';
+import { isDemoMode } from './demo';
 
 // Same project + same publishable (anon, RLS-protected) key already public
 // in index.html — this is not a secret, safe to ship client-side.
@@ -17,8 +18,11 @@ export const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 // removed rather than half-finished.)
 let pendingPush = false;
 
+// Demo Mode is treated as permanently offline — every cloud write below
+// checks this first and silently no-ops instead, so a demo session can
+// never reach Dom's real Supabase data.
 function sbOnline(): boolean {
-  return !!sb && navigator.onLine;
+  return !!sb && navigator.onLine && !isDemoMode();
 }
 
 function markPending() {
@@ -443,6 +447,110 @@ export async function cloudSaveWorkoutLog(e: WorkoutLogRow): Promise<void> {
     const msg = String(err instanceof Error ? err.message : err).toLowerCase();
     if (msg.includes('could not find the table')) workoutTablesOk = false;
     markPending();
+  }
+}
+
+/* ---------- Community: shared workout programs. Post/browse/like only —
+   no chat, kept low-distraction per explicit request. Anyone can post or
+   like (same open-RLS trust model as every other table here); "already
+   liked" is tracked per-device in localStorage since there's no real user
+   account system yet, not enforced server-side. */
+export interface SharedProgram {
+  id: string;
+  createdAt: string;
+  name: string;
+  author: string | null;
+  workouts: { name: string; parts: unknown }[];
+  likes: number;
+}
+
+export async function fetchSharedPrograms(): Promise<SharedProgram[]> {
+  if (!sb) return [];
+  try {
+    const res = await sb.from('shared_programs').select('*').order('likes', { ascending: false }).limit(50);
+    if (res.error || !res.data) return [];
+    return res.data.map((r) => ({
+      id: r.id,
+      createdAt: r.created_at,
+      name: r.name,
+      author: r.author,
+      workouts: r.workouts,
+      likes: r.likes,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function postSharedProgram(
+  name: string,
+  author: string,
+  workouts: { name: string; parts: unknown }[]
+): Promise<boolean> {
+  if (!sbOnline()) return false;
+  try {
+    const ins = await sb.from('shared_programs').insert({ name, author: author || null, workouts, likes: 0 });
+    return !ins.error;
+  } catch {
+    return false;
+  }
+}
+
+export async function likeSharedProgram(id: string, currentLikes: number): Promise<boolean> {
+  if (!sbOnline()) return false;
+  try {
+    const up = await sb.from('shared_programs').update({ likes: currentLikes + 1 }).eq('id', id);
+    return !up.error;
+  } catch {
+    return false;
+  }
+}
+
+/* ---------- QR contact exchange: a visitor who scans a missionary's QR
+   code leaves their own contact info here. No auth required to submit —
+   the public /contact/:code page is reached outside the app's lock screen. */
+export interface ContactLead {
+  id: string;
+  createdAt: string;
+  code: string | null;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  note: string | null;
+}
+
+export async function submitContactLead(code: string, name: string, phone: string, email: string, note: string): Promise<boolean> {
+  if (!sb) return false;
+  try {
+    const ins = await sb.from('contact_leads').insert({
+      code: code || null,
+      name,
+      phone: phone || null,
+      email: email || null,
+      note: note || null,
+    });
+    return !ins.error;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchContactLeads(): Promise<ContactLead[]> {
+  if (!sbOnline()) return [];
+  try {
+    const res = await sb.from('contact_leads').select('*').order('created_at', { ascending: false }).limit(100);
+    if (res.error || !res.data) return [];
+    return res.data.map((r) => ({
+      id: r.id,
+      createdAt: r.created_at,
+      code: r.code,
+      name: r.name,
+      phone: r.phone,
+      email: r.email,
+      note: r.note,
+    }));
+  } catch {
+    return [];
   }
 }
 

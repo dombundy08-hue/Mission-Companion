@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { callClaude, AI_ERROR, type ClaudeMessage } from '@/lib/claude-api';
+import { callClaude, aiErrorMessage, type ClaudeMessage } from '@/lib/claude-api';
 import { OBJECTIONS, OBJECTION_SYSTEM, type Objection } from '@/lib/objections-data';
 
 export function Objections() {
@@ -69,7 +69,7 @@ export function Objections() {
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🙋 Objection Practice</h2>
       {error && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
-          {AI_ERROR}
+          {aiErrorMessage()}
         </div>
       )}
 

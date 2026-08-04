@@ -15,6 +15,12 @@ import {
   calStatusColor,
   SYMPTOMS,
   symptomData,
+  isoDate,
+  isFastSunday,
+  toggleFastSunday,
+  getFastSundayIntention,
+  setFastSundayIntention,
+  healthAverages,
 } from '@/lib/health-data';
 import { getLS } from '@/lib/storage';
 import { HealthSetup } from './HealthSetup';
@@ -40,20 +46,16 @@ export function HealthToday() {
   const [oz, setOz] = useState(() => waterTotal());
   const [el, setEl] = useState(() => electroTotal());
   const [mRow, setMRow] = useState(() => todaysRow('healthMood'));
+  const today = isoDate();
+  const [fastToday, setFastToday] = useState(() => isFastSunday(today));
+  const [fastIntention, setFastIntentionState] = useState(() => getFastSundayIntention());
 
   if (!g) return <HealthSetup />;
 
   const days = range === 'month' ? 30 : 7;
-  const foodSums: Record<string, number> = {};
-  const protSums: Record<string, number> = {};
-  getLS<FoodEntry[]>('healthFood', []).forEach((e) => {
-    if (e.timestamp >= daysAgoTs(days)) {
-      foodSums[e.entryDate] = (foodSums[e.entryDate] || 0) + (e.calories || 0);
-      protSums[e.entryDate] = (protSums[e.entryDate] || 0) + (e.protein || 0);
-    }
-  });
-  const calAvg = avgOf(Object.values(foodSums));
-  const protAvg = avgOf(Object.values(protSums));
+  const avgs = healthAverages(days);
+  const calAvg = avgs.cal;
+  const protAvg = avgs.prot;
   const sleepAvg = avgOf(getLS<DayEntry[]>('healthSleep', []).filter((e) => e.timestamp >= daysAgoTs(days) && e.hours != null).map((e) => +(e.hours as number)));
   const waterDayMapLocal: Record<string, number> = {};
   getLS<{ entryDate: string; timestamp: number; oz?: number; cups?: number }[]>('healthWater', []).forEach((e) => {
@@ -91,6 +93,15 @@ export function HealthToday() {
     saveDayRow('healthMood', 'energy', n);
     setMRow(todaysRow('healthMood'));
   }
+  function toggleFast() {
+    toggleFastSunday(today);
+    setFastToday(isFastSunday(today));
+    setFastIntentionState(getFastSundayIntention());
+  }
+  function saveFastIntention(text: string) {
+    setFastIntentionState(text);
+    setFastSundayIntention(text);
+  }
 
   return (
     <div>
@@ -121,6 +132,32 @@ export function HealthToday() {
           <span style={{ color: 'var(--foreground)' }}>Weight</span>
           <span className="font-bold" style={{ color: 'var(--navy)' }}>{wt.label}</span>
         </div>
+      </div>
+
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input type="checkbox" checked={fastToday} onChange={toggleFast} className="h-5 w-5 flex-none" />
+          <span className="text-sm font-bold" style={{ color: 'var(--navy)' }}>
+            🕊️ Today is a Fast Sunday <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(excluded from calorie/protein averages)</span>
+          </span>
+        </label>
+        {fastToday && (
+          <div className="mt-3">
+            <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--navy)' }}>What are you fasting for?</label>
+            <textarea
+              value={fastIntention}
+              onChange={(e) => saveFastIntention(e.target.value)}
+              placeholder="e.g. a companion who's struggling, an investigator's family…"
+              className="min-h-[60px] w-full rounded-xl border p-2.5 text-sm"
+              style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
+            />
+            {fastIntention.trim() && (
+              <div className="mt-2 rounded-lg p-2.5 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
+                🙏 Fasting today for: <b>{fastIntention}</b>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {ceilNote && (
