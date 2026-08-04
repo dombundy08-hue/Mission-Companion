@@ -383,4 +383,67 @@ export async function cloudSaveSavedFood(r: SavedFoodRow): Promise<void> {
   }
 }
 
+/* ---------- Exercise: routines + workout log. Isolated like health -
+   if the tables don't exist yet, sync disables itself for the session
+   rather than retrying forever, and never breaks anything else. */
+let workoutTablesOk = true;
+
+interface RoutineRow {
+  id: string;
+  cloudId?: string;
+  name: string;
+  steps: unknown;
+}
+function routineToCloud(r: RoutineRow) {
+  return { name: r.name || '', steps: r.steps || [] };
+}
+export async function cloudSaveRoutine(r: RoutineRow): Promise<void> {
+  if (!sbOnline() || !workoutTablesOk) return;
+  try {
+    if (r.cloudId) {
+      const up = await sb.from('workout_routines').update(routineToCloud(r)).eq('id', r.cloudId);
+      if (up.error) throw up.error;
+    } else {
+      const ins = await sb.from('workout_routines').insert(routineToCloud(r)).select('id').single();
+      if (ins.error) throw ins.error;
+      if (!ins.data) throw new Error('No data returned from insert');
+      stamp<RoutineRow>('workoutRoutines', (x) => x.id === r.id && !x.cloudId, ins.data.id);
+    }
+  } catch (e) {
+    const msg = String(e instanceof Error ? e.message : e).toLowerCase();
+    if (msg.includes('could not find the table')) workoutTablesOk = false;
+    markPending();
+  }
+}
+
+interface WorkoutLogRow {
+  id: string;
+  cloudId?: string;
+  routineName: string;
+  timestamp: number;
+  durationSec: number;
+  stepsCompleted: number;
+}
+function wlogToCloud(e: WorkoutLogRow) {
+  return {
+    routine_name: e.routineName || '',
+    performed_at: new Date(e.timestamp || Date.now()).toISOString(),
+    duration_seconds: e.durationSec || 0,
+    steps_completed: e.stepsCompleted || 0,
+  };
+}
+export async function cloudSaveWorkoutLog(e: WorkoutLogRow): Promise<void> {
+  if (!sbOnline() || !workoutTablesOk) return;
+  try {
+    const ins = await sb.from('workout_log').insert(wlogToCloud(e)).select('id').single();
+    if (ins.error) throw ins.error;
+    if (!ins.data) throw new Error('No data returned from insert');
+    stamp<WorkoutLogRow>('workoutLog', (x) => x.id === e.id && !x.cloudId, ins.data.id);
+  } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err).toLowerCase();
+    if (msg.includes('could not find the table')) workoutTablesOk = false;
+    markPending();
+  }
+}
+
 export { uid };

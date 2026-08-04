@@ -15,6 +15,9 @@ import { HealthFood } from '@/screens/HealthFood';
 import { HealthBody } from '@/screens/HealthBody';
 import { HealthStats } from '@/screens/HealthStats';
 import { HealthSetup } from '@/screens/HealthSetup';
+import { Routines } from '@/screens/Routines';
+import { Workout } from '@/screens/Workout';
+import { WorkoutLog } from '@/screens/WorkoutLog';
 import { findTab } from '@/lib/sections';
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
@@ -43,6 +46,12 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <HealthStats />;
     case 'health/hsetup':
       return <HealthSetup />;
+    case 'exercise/routines':
+      return <Routines />;
+    case 'exercise/workout':
+      return <Workout />;
+    case 'exercise/wlog':
+      return <WorkoutLog />;
     default: {
       const tab = findTab(sectionId, tabId);
       return <Placeholder label={tab?.label ?? tabId} icon={tab?.icon ?? '•'} />;
