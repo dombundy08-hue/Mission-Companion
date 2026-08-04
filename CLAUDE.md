@@ -254,11 +254,15 @@ git push  # Live in ~60 seconds
 
 ### Common Gotchas
 1. **Service worker caching:** Hard-refresh if changes don't appear
-2. **Password hardcoded:** Search `APP_PASSWORD` to change it
+2. **Password hardcoded:** Search `APP_PASSWORD` in `react-components/src/lib/auth.ts` (single source of truth as of 2026-08-04; used to be duplicated)
 3. **localStorage keys:** Use `isoDate()` (ISO string, timezone-safe), not `Date.now()`
 4. **Cloud tables optional:** Missing table won't break other syncs (isolated error handling)
 5. **Natural-key dedup:** Collisions resolved by meaningful fields, not UUIDs
 6. **Async reads:** localStorage is sync; Supabase pulled once at boot (all reads hit localStorage)
+7. **`react-components` dev server vs static preview:** `.claude/launch.json` has two configs — `mission-companion` serves a stale prebuilt `dist/` via `python -m http.server` and will NOT reflect source edits; `mission-companion-react` runs the real Vite dev server. Use the latter when testing changes.
+8. **Vite HMR on files exporting both a component and a hook** (e.g. `AuthContext.tsx` exporting `AuthProvider` + `useAuth`) **can silently serve stale code** — logs "Could not Fast Refresh ... export is incompatible" and the browser keeps running old closures even after the file changes on disk. A `preview_stop` + `preview_start` (full server restart), not just a page reload, is sometimes required to actually pick up the fix. Always re-verify the actual behavior after a fix touching one of these files, don't trust that a reload was enough.
+9. **A "reset on exit" feature also needs a "reset on entry" check.** Demo Mode (`AuthContext.tsx`'s `unlockDemo()`) originally only wiped `localStorage` on lock/exit, not on entry — so a device with real data would leak it into the demo session the first time before the first lock. Fixed 2026-08-04. General lesson: any "starts clean" guarantee needs both ends checked.
+10. **Community/shared-data tables have fully open RLS + the client's anon key is public** — anyone can POST directly to `shared_programs` or `contact_leads` without going through the app UI at all. Code that reads these back must validate shape (`Array.isArray`, etc.) before using it, same as any other untrusted input.
 
 ### Debugging Cloud Sync
 1. DevTools → Network tab
@@ -279,7 +283,10 @@ Before pushing:
 4. Dark mode — both light and dark readable
 5. No secrets — no API keys/passwords in code
 6. Commit message — describe what changed (e.g., "Add saved foods frequency-gating")
-7. `git push` → verify live in ~60 seconds
+7. `npm run build` in `react-components/` (as of 2026-08-04 this also auto-copies the fresh `dist/index.html` over `dist/404.html`, so its hashed asset refs never go stale — don't hand-copy 404.html separately anymore)
+8. `git push` → verify live in ~60 seconds
+9. Any feature with a "starts from a clean/safe state" guarantee (demo modes, guest sessions, etc.) — verify BOTH entry and exit reset the state, not just one
+10. Confirm HTTPS is actually enforced on the custom domain (`curl -sI http://missionarycompanion.com/` should redirect to `https://` — as of 2026-08-04 it does not; this is a GitHub repo Settings → Pages toggle, not something a deploy can fix)
 
 ---
 

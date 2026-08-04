@@ -101,6 +101,31 @@ Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP t
 17. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
 18. Known pre-existing gap: `saved_foods` table is referenced by code but returns 404 — doesn't exist in `list_tables`. Flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
 19. Known gap found 2026-08-04: `glossary_terms` table also doesn't exist, so the React port's Glossary screen has been failing to sync to the backend since it was built (caught by its own try/catch, so no crash — just silent). Combined with Glossary never having been part of the vanilla app's live nav (`SECTIONS` object never included it), this confirms Glossary was genuinely abandoned/incomplete functionality upstream, not something this migration broke. Currently kept in the React nav (flagged to the user, not yet resolved either way) — don't auto-create the table without asking, same reasoning as `saved_foods`.
+20. **A "wipe on exit" without a matching "wipe on entry."** Found 2026-08-04: Demo Mode's
+    `unlockDemo()` set `demoMode=true` but never cleared `localStorage` first — only `lock()`
+    (exit) wiped it. Any device that already held real user data would show all of it to
+    whoever Demo Mode was being demonstrated to, the first time, before the first lock. **General
+    pattern to grep for**: any feature whose whole safety premise is "starts from a clean
+    slate" — check BOTH the entry point and the exit point wipe/reset state, not just one.
+    A privacy/safety guarantee that only holds after the first use of the feature is not a
+    guarantee.
+21. **Open-RLS tables need client-side shape validation, not just server-side trust.** Found
+    2026-08-04: a `shared_programs` (Community) table with `USING (true)` RLS means literally
+    anyone with the anon key (which ships in the client bundle) can `POST` arbitrary JSON
+    directly to the REST API, not just through this app's own UI. Code that reads such a
+    table (`sp.workouts.length`, `.map()` over a nested field, etc.) crashed on `undefined`/
+    wrong-shape data with zero validation. **General pattern**: for any table with open RLS
+    that the client reads back and renders/iterates, validate the shape (`Array.isArray`,
+    `typeof` checks) before using it — treat it the same as any other untrusted external input,
+    because that's what it structurally is.
+22. **Deploy-adjacent infra settings the code can't see.** Found 2026-08-04: the custom domain
+    (`missionarycompanion.com`) serves plain `http://` with no redirect to `https://` — GitHub
+    repo Settings → Pages → "Enforce HTTPS" is off. This breaks service-worker registration
+    (requires a secure context) and sends the app password / API keys in cleartext for anyone
+    who reaches the bare domain or the `.github.io` URL without an explicit `https://`. Not
+    fixable via a commit — it's a one-click GitHub setting. **Check on every deploy**: does
+    `curl -sI http://<custom-domain>/` redirect to `https://`? If not, flag it — don't assume
+    it's "probably already on" just because DNS/TLS otherwise works.
 
 For each bug found (frontend or backend):
 - Exact file/line number, OR exact table/column/project_id for Supabase issues
@@ -203,6 +228,7 @@ Complete: Skill self-improved, code fixed, docs updated
 - **2026-08-03 run (commit d6d9d99, Phase 2 Scripture/Objections):** 2 must-fix bugs found (both new-code regressions: a setting missing from the cloud pull-down sync, and a sentinel-string exact-match bug), both fixed in one pass, zero retries.
 - **2026-08-03 run (commits 38884f7, 497bdbf, Health ActivityCard integration):** found live in production, not by static audit — ground-truthed by directly navigating the deployed site. A never-configured Vite `base`, and a service worker caching every navigation under one hardcoded key. Lesson: when a fix touches deploy-path or service-worker code, ground-truth against the actual live URL before trusting docs/checklist.
 - **2026-08-04 run (commits 689d02b, 86fba67, 335570a — React-app cutover):** the whole site architecture changed (vanilla index.html retired, react-components/ promoted to site root) in the same session as the audit, so most of the old checklist (iframe/postMessage items) went obsolete in one shot — rewritten above rather than incrementally patched. Two critical bugs found and fixed same-session: (1) GH Pages 404 on any direct-navigated client-side route (no 404.html fallback existed yet — this is a **structural gap for any React-Router-on-GH-Pages deploy**, not a regression, so it should be checked on the *first* deploy of any new SPA-on-static-host setup, not just as a regression check); (2) the dead `cloudReady` gate (checklist item #8) — **found only by actually tracing the write path with fresh eyes, not by pattern-matching against a known bug list**, since this bug class (a half-built safety mechanism, not a "regression") wasn't on the checklist at all before this run. Verified fixed by a real live round-trip: wrote a labeled test row via the actual production UI, confirmed it in `journal_entries` via `execute_sql`, deleted it via the UI's own delete flow. Lesson: **"no errors in the console" and "the UI looks right" are not proof data is actually persisting anywhere** — when a fix specifically touches the write path, verify with a real write+read, not just a UI smoke test.
+- **2026-08-04 run (commits d85c613/105b78e then a580454/4afc498 — Accounts & Security + a huge feature batch: Fast Sunday, averages rewrite, built-in workout templates, multi-week Programs, Community, QR contact exchange, per-section color schemes, and more):** the largest single-session diff yet (21 features, 2 new Supabase tables). Audit found 1 critical (checklist item #20, demo mode not wiping on entry — a real, currently-live privacy hole on the developer's own device), 1 high (#22, HTTPS not enforced — infra setting, not a code fix, correctly identified as un-auto-fixable and flagged to the user instead of attempted), 1 medium (#21, Community import trusting unvalidated open-RLS data). Both code-fixable bugs fixed in one pass, zero retries, verified live (localStorage before/after check for the demo-mode fix, reproduced via the actual "Try Demo Mode" button — not just read the code and assumed it worked). Lesson: **when a session builds many independent features back-to-back, the interactions between them are where bugs actually hide** — demo mode and the lock screen were each individually correct in isolation; the bug was specifically in how demo-mode *entry* interacted with pre-existing localStorage state that the lock-screen work didn't create but also didn't need to worry about. A feature-by-feature audit would likely have missed this; auditing the full session's diff as one unit caught it.
 
 ## Error Handling
 - Build fails: Code Audit still runs to find root cause
