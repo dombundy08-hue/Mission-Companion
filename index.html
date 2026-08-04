@@ -5628,12 +5628,23 @@ async function startApp(){
    BOOT
 =================================================================== */
 (function init(){
-  // Glossary feature was removed — drop any leftover local data on every device.
-  localStorage.removeItem('glossaryTerms');
-  activeTab = getLS('activeTab','journal') || 'journal';
-  if(activeTab==='glossary') activeTab='journal';
-  if(localStorage.getItem('authenticated')==='true'){ startApp(); }
-  else { showLock(); }
+  console.log('[BOOT] Initializing app...');
+  try {
+    localStorage.removeItem('glossaryTerms');
+    activeTab = getLS('activeTab','journal') || 'journal';
+    if(activeTab==='glossary') activeTab='journal';
+    if(localStorage.getItem('authenticated')==='true'){
+      console.log('[BOOT] Authenticated, starting app');
+      startApp();
+    }
+    else {
+      console.log('[BOOT] Not authenticated, showing lock screen');
+      showLock();
+    }
+  } catch(e) {
+    console.error('[BOOT] Initialization error:', e);
+    showLock();
+  }
 })();
 
 /* PWA: register the service worker for offline use + installability.
