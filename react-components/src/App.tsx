@@ -7,6 +7,7 @@ import { Glossary } from '@/screens/Glossary';
 import { Spanish } from '@/screens/Spanish';
 import { Objections } from '@/screens/Objections';
 import { Email } from '@/screens/Email';
+import { Mastery } from '@/screens/Mastery';
 import { findTab } from '@/lib/sections';
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
@@ -23,6 +24,8 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <Objections />;
     case 'spiritual/email':
       return <Email />;
+    case 'spiritual/mastery':
+      return <Mastery />;
     default: {
       const tab = findTab(sectionId, tabId);
       return <Placeholder label={tab?.label ?? tabId} icon={tab?.icon ?? '•'} />;

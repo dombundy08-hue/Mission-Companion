@@ -167,6 +167,61 @@ export async function cloudDeleteRow(table: string, item: { cloudId?: string }) 
   }
 }
 
+interface ScriptureProgressCard {
+  id: number;
+  cloudId?: string;
+  confidence: number;
+  reviewCount: number;
+  lastReviewed: string | null;
+}
+
+function stampScripture(scripId: number, cloudId: string) {
+  const deck = getLS<ScriptureProgressCard[]>('scriptureDeck', []);
+  const c = deck.find((x) => x.id === scripId);
+  if (c) {
+    c.cloudId = cloudId;
+    setLS('scriptureDeck', deck);
+  }
+}
+
+export async function cloudSaveScripture(card: ScriptureProgressCard) {
+  if (!cloudReady) return;
+  if (!sbOnline()) {
+    markPending();
+    return;
+  }
+  try {
+    if (card.cloudId) {
+      const up = await sb
+        .from('scripture_progress')
+        .update({ confidence: card.confidence || 0, review_count: card.reviewCount || 0, last_reviewed: card.lastReviewed || null })
+        .eq('id', card.cloudId);
+      if (up.error) throw up.error;
+    } else {
+      const ex = await sb.from('scripture_progress').select('id').eq('scripture_id', card.id).limit(1);
+      const exRow = (ex.data || [])[0];
+      if (exRow && exRow.id) {
+        await sb
+          .from('scripture_progress')
+          .update({ confidence: card.confidence || 0, review_count: card.reviewCount || 0, last_reviewed: card.lastReviewed || null })
+          .eq('id', exRow.id);
+        stampScripture(card.id, exRow.id);
+      } else {
+        const ins = await sb
+          .from('scripture_progress')
+          .insert({ scripture_id: card.id, confidence: card.confidence || 0, review_count: card.reviewCount || 0, last_reviewed: card.lastReviewed || null })
+          .select('id')
+          .single();
+        if (ins.error) throw ins.error;
+        if (!ins.data) throw new Error('No data returned from insert');
+        stampScripture(card.id, ins.data.id);
+      }
+    }
+  } catch {
+    markPending();
+  }
+}
+
 export async function cloudSaveSetting(key: string, value: unknown) {
   if (!cloudReady) return;
   if (!sbOnline()) {

@@ -16,7 +16,7 @@ Design system: `design-system/mission-companion/MASTER.md`.
 | 4 | Spiritual → Glossary | ✅ Done | Full CRUD (add/list/edit/delete) + search + cloud sync, matches vanilla 1:1 |
 | 5 | Spiritual → Spanish | ✅ Done | 3 practice modes (street/doorstep/lesson) + AI chat via shared `lib/claude-api.ts`, matches vanilla 1:1 |
 | 6 | Spiritual → Objections | ✅ Done | Real 43-entry `OBJECTIONS` array (verbatim from vanilla — the earlier "50" note was an inaccurate estimate, not a real target) + fallacy/comeback reveal panel + `callClaude()`, matches vanilla 1:1 |
-| 7 | Spiritual → Mastery | ⏳ Placeholder | ~176 lines vanilla incl. streak/grace-day logic (added today) — 109-card `SCRIPTURE_DEFAULTS` array + spaced-repetition practice modes |
+| 7 | Spiritual → Mastery | ✅ Done | Real 109-card `SCRIPTURE_DEFAULTS` deck, weighted spaced-repetition selection, 3 practice modes (ref→text/blank/text→ref), grace-day streak logic, cloud sync via `cloudSaveScripture`, "Add My Own" custom cards, matches vanilla 1:1 |
 | 8 | Spiritual → Email | ✅ Done | Voice-example collection (first-run + "Update My Voice"), highlights composer, `callClaude()` write, copy-to-clipboard, backup-reminder banner (routes to Journal via React Router instead of the vanilla DOM-scroll approach), matches vanilla 1:1 |
 | 9 | Exercise → Routines | ⏳ Placeholder | Largest/most complex screen family: Routines list (~52) + part-type picker (~39) + Timed/Rep/Circuit editors (~32/32/41) + Assemble (~231, multi-part state machine) + Workout player (~109) + Rep player (~62) + Workout log (~166) |
 | 10 | Health → Food | ⏳ Placeholder | ~320 lines vanilla — food search (USDA API), rough-estimate mode (AI), Saved Foods (frequency-gated), Fast Sunday toggle |
