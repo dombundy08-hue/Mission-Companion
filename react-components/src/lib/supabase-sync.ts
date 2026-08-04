@@ -540,18 +540,18 @@ export interface ContactLead {
   code: string | null;
   name: string;
   phone: string | null;
-  email: string | null;
+  address: string | null;
   note: string | null;
 }
 
-export async function submitContactLead(code: string, name: string, phone: string, email: string, note: string): Promise<boolean> {
+export async function submitContactLead(code: string, name: string, phone: string, address: string, note: string): Promise<boolean> {
   if (!sb) return false;
   try {
     const ins = await sb.from('contact_leads').insert({
       code: code || null,
       name,
       phone: phone || null,
-      email: email || null,
+      address: address || null,
       note: note || null,
     });
     return !ins.error;
@@ -571,7 +571,9 @@ export async function fetchContactLeads(): Promise<ContactLead[]> {
       code: r.code,
       name: r.name,
       phone: r.phone,
-      email: r.email,
+      // legacy rows collected an email instead of an address — fall back so
+      // old entries still show something in the Address column.
+      address: r.address ?? r.email ?? null,
       note: r.note,
     }));
   } catch {

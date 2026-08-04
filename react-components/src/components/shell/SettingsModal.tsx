@@ -515,16 +515,29 @@ function ContactsPage({ onBack }: { onBack: () => void }) {
       ) : !leads.length ? (
         <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No one has sent their info yet.</div>
       ) : (
-        <div className="space-y-2">
-          {leads.map((l) => (
-            <div key={l.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>{l.name}</div>
-              {(l.phone || l.email) && (
-                <div className="text-sm" style={{ color: 'var(--foreground)' }}>{[l.phone, l.email].filter(Boolean).join(' · ')}</div>
-              )}
-              {l.note && <div className="mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>{l.note}</div>}
-            </div>
-          ))}
+        <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+          <table className="w-full min-w-[600px] border-collapse text-sm">
+            <thead>
+              <tr style={{ background: 'var(--secondary)' }}>
+                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Name</th>
+                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Phone</th>
+                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Address</th>
+                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Note</th>
+                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.map((l, i) => (
+                <tr key={l.id} style={{ background: i % 2 ? 'var(--card)' : 'var(--background)', borderTop: '1px solid var(--border)' }}>
+                  <td className="px-3 py-2 font-medium" style={{ color: 'var(--foreground)' }}>{l.name}</td>
+                  <td className="px-3 py-2" style={{ color: 'var(--foreground)' }}>{l.phone || '—'}</td>
+                  <td className="px-3 py-2" style={{ color: 'var(--foreground)' }}>{l.address || '—'}</td>
+                  <td className="px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>{l.note || '—'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap" style={{ color: 'var(--muted-foreground)' }}>{new Date(l.createdAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

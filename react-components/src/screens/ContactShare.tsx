@@ -11,7 +11,7 @@ export function ContactShare() {
   const { code = '' } = useParams();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
@@ -22,7 +22,7 @@ export function ContactShare() {
       return;
     }
     setStatus('sending');
-    const ok = await submitContactLead(code, trimmed, phone.trim(), email.trim(), note.trim());
+    const ok = await submitContactLead(code, trimmed, phone.trim(), address.trim(), note.trim());
     setStatus(ok ? 'sent' : 'error');
   }
 
@@ -45,8 +45,8 @@ export function ContactShare() {
               <h2 className="mb-3 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Leave your contact info</h2>
               <div className="space-y-3">
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={fieldClass} style={fieldStyle} />
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" className={fieldClass} style={fieldStyle} />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" className={fieldClass} style={fieldStyle} />
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number (optional)" className={fieldClass} style={fieldStyle} />
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address (optional)" className={fieldClass} style={fieldStyle} />
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything you'd like us to know (optional)" className="min-h-[70px] w-full rounded-xl border p-3 text-base" style={fieldStyle} />
                 <button
                   type="button"
