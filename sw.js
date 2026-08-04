@@ -24,6 +24,7 @@ const CORE = [
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
 self.addEventListener('install', event => {
+  self.skipWaiting();   // activate a new SW version immediately, don't wait for old tabs to close
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     // Core app shell must all cache for offline to work.
@@ -68,12 +69,16 @@ self.addEventListener('fetch', event => {
   // sync is never served stale. Offline failures are handled by the app.
   if (url.hostname.endsWith('.supabase.co')) return;
 
-  // App shell navigations: SWR, keyed by the actual URL requested. Only the
-  // top-level app itself falls back to the cached shell when offline and
-  // uncached — the react-build iframe pages (?app=health / ?app=exercise)
-  // must never be substituted with the outer app shell.
+  // App shell navigations: SWR, keyed by the actual URL requested. The app is
+  // entirely client-side-routed (React Router) now — every same-origin
+  // navigation IS the app shell (just rendering a different view once the
+  // JS loads), so every one of them falls back to the cached shell when
+  // offline and uncached. GitHub Pages itself has no server-side rewrite for
+  // client-side routes, so a fresh 404.html (a copy of index.html) handles
+  // the direct-navigation/reload case at the host level; this SW fallback
+  // covers the offline case.
   if (req.mode === 'navigate') {
-    const isAppShell = url.pathname === '/' || url.pathname.endsWith('/index.html') && !url.pathname.includes('react-build');
+    const isAppShell = url.origin === self.location.origin;
     event.respondWith(staleWhileRevalidate(req, isAppShell ? './index.html' : null));
     return;
   }

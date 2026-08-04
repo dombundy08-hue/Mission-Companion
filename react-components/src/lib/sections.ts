@@ -23,12 +23,15 @@ export const SECTIONS: SectionDef[] = [
     iconImage: '/icons/section-spiritual.png',
     tabs: [
       { id: 'journal', label: 'Journal', icon: '📓' },
+      { id: 'miracles', label: 'Miracles', icon: '✨' },
+      { id: 'objections', label: 'Objections', icon: '🙋' },
       { id: 'spanish', label: 'Spanish', icon: '🗣️' },
       { id: 'mastery', label: 'Mastery', icon: '📖' },
       { id: 'email', label: 'Email', icon: '✉️' },
-      { id: 'objections', label: 'Objections', icon: '🙋' },
+      // Not in the vanilla app's live nav (real code/data exist but it was
+      // never wired to a tab) — kept here so the working feature stays
+      // reachable. Flagged to the user; move/remove if they'd rather not.
       { id: 'glossary', label: 'Glossary', icon: '📔' },
-      { id: 'miracles', label: 'Miracles', icon: '✨' },
     ],
   },
   {
