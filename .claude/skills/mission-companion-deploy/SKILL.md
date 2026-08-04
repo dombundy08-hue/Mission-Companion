@@ -29,6 +29,9 @@ Build React project:
   - see Code Audit item #8b; this must stay in sync on every deploy or a
   build with new hashed asset filenames will make 404.html reference
   stale/missing files)
+- ⚠️ NEVER delete old-hash files from assets/ before copying the new build
+  in — see Code Audit item #23. Old files are small, immutable, and harmless
+  to leave forever. Just copy dist/* over (new files land, old ones stay).
 - git add -A
 - git commit -m "Deploy: [auto-deployed changes]"
 - git push origin main
@@ -126,6 +129,25 @@ Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP t
     fixable via a commit — it's a one-click GitHub setting. **Check on every deploy**: does
     `curl -sI http://<custom-domain>/` redirect to `https://`? If not, flag it — don't assume
     it's "probably already on" just because DNS/TLS otherwise works.
+23. **CRITICAL — deleting old-hash asset files causes a real blank-screen crash for PWA
+    users, not just staleness.** Found 2026-08-04: the deploy process was deleting old
+    `assets/index-XXXX.js`/`.css` files before copying the new build in, to keep the repo
+    tidy. The service worker precaches/stale-while-revalidates `index.html` — a session
+    whose cached HTML shell hadn't yet revalidated past a given deploy still references
+    that deploy's hashed JS/CSS filenames. Once those files are deleted a few deploys
+    later, that session's next load 404s on the JS bundle, React never mounts, `<div
+    id="root">` stays empty — a totally blank white screen with no visible error, and
+    critically the in-app "new version available" UpdateBanner never gets a chance to
+    run either, since it's part of the React app that just failed to load. Reproduced
+    live against production: a real browser tab was stuck 3 deploys behind with two
+    404s on since-deleted files. **Fix**: never delete old hashed asset files — they're
+    small and immutable, just let them accumulate in `assets/`. This turns "stale shell"
+    back into "runs a slightly older but working version" (which the update banner can
+    then correctly detect and prompt a refresh for) instead of a hard crash. Bumped
+    `sw.js` CACHE to v8 to force every existing session to purge and refetch a shell
+    matching what's actually live. **Check on every deploy**: does the deploy step ever
+    run `rm`/delete anything under `assets/` before copying the new build in? If so,
+    that's this bug — remove the deletion, just copy over.
 
 For each bug found (frontend or backend):
 - Exact file/line number, OR exact table/column/project_id for Supabase issues

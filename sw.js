@@ -2,7 +2,7 @@
    Bump CACHE to ship a new version — the old cache is cleared on activate,
    and updated files flow in via stale-while-revalidate on the next load.
    Supabase data traffic is never cached, so cloud sync stays live/fresh. */
-const CACHE = 'mission-companion-v7';
+const CACHE = 'mission-companion-v8';
 
 /* v4: the React app is now the primary site (was previously the vanilla
    index.html + an embedded react-build/ iframe). Bumping CACHE purges
@@ -18,7 +18,20 @@ const CACHE = 'mission-companion-v7';
    Bumping CACHE forces every device to refetch them fresh on next load.
    v6: same issue for favicon.png and app-icon-192/512.png (logo swap).
    v7: favicon/app-icon swapped again — Book of Mormon logo -> missionary
-   silhouette pair (elder + sister) on the same navy background. */
+   silhouette pair (elder + sister) on the same navy background.
+   v8: found a real crash, not just staleness — deploys after v7 deleted
+   the OLD hashed JS/CSS files from the repo as part of the deploy step.
+   A PWA session whose cached HTML shell (this SW's own precached/SWR'd
+   index.html) hadn't yet revalidated past that point kept referencing a
+   now-deleted /assets/index-XXXX.js — 404, React never mounts, blank
+   white screen, and the in-app update banner never gets a chance to run
+   since it's part of the React app that just failed to load. Deploys
+   going forward MUST keep old hashed asset files around indefinitely
+   (they're small, immutable, and harmless to leave) instead of deleting
+   them — that turns "stale shell" back into "runs a slightly older but
+   working version" instead of a hard crash. This bump forces every
+   session to purge its cache and refetch a shell matching what's
+   actually live right now. */
 const CORE = [
   './',
   './index.html',
