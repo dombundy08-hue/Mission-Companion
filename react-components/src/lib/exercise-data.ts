@@ -1,5 +1,5 @@
 import { getLS, setLS, uid } from './storage';
-import { cloudSaveRoutine, cloudSaveWorkoutLog } from './supabase-sync';
+import { cloudSaveRoutine, cloudSaveWorkoutLog, cloudSaveProgram, cloudDeleteRow } from './supabase-sync';
 import { isoDate } from './health-data';
 
 export interface TimedItem { name: string; seconds: number }
@@ -203,10 +203,13 @@ export function saveRoutine(r: Routine) {
 /* ---------- Multi-week workout programs: a named, ordered sequence of
    existing routines (one per day) that can be "applied" — activated from
    a start date so Routines can show "today's workout" from the bundle.
-   Local-only for now (no Supabase table yet); references routines by id,
-   so deleting a referenced routine just leaves that day showing nothing. */
+   References routines by local id, so deleting a referenced routine just
+   leaves that day showing nothing. Synced to Supabase's workout_programs
+   table as a self-contained snapshot (see programSnapshot below), same
+   approach as Community sharing — avoids cross-device local-id mismatches. */
 export interface WorkoutProgram {
   id: string;
+  cloudId?: string;
   name: string;
   routineIds: string[];
   createdAt: number;
@@ -219,8 +222,11 @@ export function saveProgram(p: WorkoutProgram) {
   const arr = getPrograms().filter((x) => x.id !== p.id);
   arr.push(p);
   setLS('workoutPrograms', arr);
+  cloudSaveProgram(p, programSnapshot(p));
 }
 export function deleteProgram(id: string) {
+  const p = getPrograms().find((x) => x.id === id);
+  if (p?.cloudId) cloudDeleteRow('workout_programs', p);
   setLS('workoutPrograms', getPrograms().filter((p) => p.id !== id));
   const active = getActiveProgram();
   if (active?.programId === id) setActiveProgram(null);

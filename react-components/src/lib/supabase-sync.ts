@@ -450,6 +450,31 @@ export async function cloudSaveWorkoutLog(e: WorkoutLogRow): Promise<void> {
   }
 }
 
+/* ---------- Multi-week workout programs. Stored as a self-contained
+   snapshot (full routine content, not local-only routine ids) — same
+   approach as Community sharing — so it survives a pull to a device with
+   different local routine ids. `workouts` is pre-built by the caller
+   (exercise-data.ts's programSnapshot) to avoid a circular import. */
+export async function cloudSaveProgram(
+  program: { id: string; cloudId?: string; name: string },
+  workouts: unknown
+): Promise<void> {
+  if (!sbOnline()) return;
+  try {
+    if (program.cloudId) {
+      const up = await sb.from('workout_programs').update({ name: program.name, workouts }).eq('id', program.cloudId);
+      if (up.error) throw up.error;
+    } else {
+      const ins = await sb.from('workout_programs').insert({ name: program.name, workouts }).select('id').single();
+      if (ins.error) throw ins.error;
+      if (!ins.data) throw new Error('No data returned from insert');
+      stamp<{ id: string; cloudId?: string }>('workoutPrograms', (x) => x.id === program.id && !x.cloudId, ins.data.id);
+    }
+  } catch {
+    markPending();
+  }
+}
+
 /* ---------- Community: shared workout programs. Post/browse/like only —
    no chat, kept low-distraction per explicit request. Anyone can post or
    like (same open-RLS trust model as every other table here); "already

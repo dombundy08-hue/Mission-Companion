@@ -9,6 +9,7 @@
 import { sb } from './supabase-sync';
 import { getLS, setLS, uid } from './storage';
 import { isDemoMode } from './demo';
+import { saveRoutine, clonePart, type Routine, type RoutinePart, type WorkoutProgram } from './exercise-data';
 
 interface Row {
   id: string;
@@ -132,6 +133,36 @@ async function pullHealthLog(
   }
 }
 
+async function pullPrograms(): Promise<void> {
+  try {
+    const res = await sb.from('workout_programs').select('*');
+    if (res.error || !res.data) return;
+    const local = getLS<WorkoutProgram[]>('workoutPrograms', []);
+    const haveCloudIds = new Set(local.filter((x) => x.cloudId).map((x) => x.cloudId));
+    const haveNames = new Set(local.map((x) => x.name));
+    let changed = false;
+    for (const row of res.data as Record<string, unknown>[]) {
+      const cloudId = String(row.id);
+      if (haveCloudIds.has(cloudId) || haveNames.has(String(row.name))) continue;
+      const workouts = Array.isArray(row.workouts) ? row.workouts : [];
+      const routineIds = workouts
+        .filter((w): w is { name: string; parts: RoutinePart[] } => !!w && typeof w.name === 'string' && Array.isArray(w.parts))
+        .map((w) => {
+          const r: Routine = { id: uid(), name: w.name, steps: w.parts.map(clonePart), createdAt: Date.now() };
+          saveRoutine(r);
+          return r.id;
+        });
+      if (!routineIds.length) continue;
+      local.push({ id: uid(), cloudId, name: String(row.name), routineIds, createdAt: new Date(String(row.created_at)).getTime() });
+      haveNames.add(String(row.name));
+      changed = true;
+    }
+    if (changed) setLS('workoutPrograms', local);
+  } catch {
+    // ignore, retried next boot
+  }
+}
+
 export async function pullAndMergeAll(): Promise<void> {
   if (!sb || !navigator.onLine || isDemoMode()) return;
   await Promise.all([
@@ -153,6 +184,7 @@ export async function pullAndMergeAll(): Promise<void> {
       (r) => ({ name: String(r.name || ''), steps: r.steps, createdAt: new Date(String(r.created_at)).getTime() }),
       (x) => x.name
     ),
+    pullPrograms(),
     pullSimple(
       'workout_log',
       'workoutLog',
