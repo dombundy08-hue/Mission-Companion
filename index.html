@@ -2133,8 +2133,13 @@ function renderSettingsView(){
     setupAccountHandlers();
   }
 
-  // Setup back button
-  const backBtn=document.getElementById('settingsBackBtn');
+  // Setup back button — scoped to the currently visible page. Every subpage
+  // reuses the same id in its own markup and old pages' innerHTML is never
+  // cleared, so an unscoped getElementById can grab a stale, hidden page's
+  // button instead of the one actually on screen.
+  const SETTINGS_PAGE_IDS={appearance:'settingsAppearancePage', popups:'settingsPopupsPage', healthMetrics:'settingsHealthMetricsPage', apiKeys:'settingsAPIPage', voice:'settingsVoicePage', account:'settingsAccountPage'};
+  const activePageEl = st.currentPage ? document.getElementById(SETTINGS_PAGE_IDS[st.currentPage]) : null;
+  const backBtn = activePageEl ? activePageEl.querySelector('#settingsBackBtn') : null;
   if(backBtn) backBtn.onclick=()=>{
     state.settings.currentPage=null;
     renderSettingsView();
