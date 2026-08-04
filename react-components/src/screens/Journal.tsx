@@ -127,7 +127,7 @@ export function Journal() {
         ＋ New Entry
       </button>
 
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>Past Entries</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>Past Entries</h2>
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -146,7 +146,7 @@ export function Journal() {
             const preview = (e.body || '').slice(0, 100) + ((e.body || '').length > 100 ? '…' : '');
             return (
               <div key={e.id} className="rounded-[14px] border p-3.5" style={{ background: 'var(--card)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>{e.date}</div>
+                <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{e.date}</div>
                 <div className="mb-2.5 text-[15px]" style={{ color: preview ? 'var(--foreground)' : 'var(--muted-foreground)' }}>
                   {preview || '(no text)'}
                 </div>

@@ -29,7 +29,7 @@ export function WorkoutLog() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📈 Log</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📈 Log</h2>
 
       <ActivityCard category="This week" title="📊 Workout Log" metrics={metrics} className="mb-4" />
 
@@ -41,7 +41,7 @@ export function WorkoutLog() {
         <div className="space-y-2.5">
           {log.map((e) => (
             <div key={e.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>{e.routineName || 'Workout'}</div>
+              <div className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>{e.routineName || 'Workout'}</div>
               <div className="mb-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>{e.date || ''}</div>
               <div className="mb-2.5 text-sm" style={{ color: 'var(--foreground)' }}>{fmtClock(e.durationSec || 0)} · {e.stepsCompleted || 0} steps</div>
               <button type="button" onClick={() => deleteEntry(e.id)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Delete</button>

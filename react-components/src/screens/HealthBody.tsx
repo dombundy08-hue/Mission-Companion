@@ -83,7 +83,7 @@ export function HealthBody() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>⚖️ Body</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>⚖️ Body</h2>
       {flash && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>
           {flash}
@@ -91,7 +91,7 @@ export function HealthBody() {
       )}
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Weight today ({unit})</div>
+        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Weight today ({unit})</div>
         <div className="mb-3 flex gap-2">
           <input type="number" min={40} max={600} step={0.1} value={weightInput} onChange={(e) => setWeightInput(e.target.value)} className="h-12 w-full rounded-xl border px-3" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }} />
           <button type="button" onClick={saveWeight} className="min-w-[96px] rounded-xl px-4 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>Save</button>
@@ -126,7 +126,7 @@ export function HealthBody() {
       </div>
 
       <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>Sleep last night</div>
+        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Sleep last night</div>
         <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>Goal: {g ? g.sleep : 7.5} hours</div>
         <div className="flex gap-2">
           <input type="number" min={0} max={16} step={0.5} placeholder="hours" value={sleepInput} onChange={(e) => setSleepInput(e.target.value)} className="h-12 w-full rounded-xl border px-3" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }} />

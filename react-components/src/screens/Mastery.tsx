@@ -131,7 +131,7 @@ export function Mastery() {
               style={{
                 borderColor: mode === m.k ? 'var(--navy)' : 'var(--border)',
                 background: mode === m.k ? 'var(--navy)' : 'var(--card)',
-                color: mode === m.k ? 'white' : 'var(--navy)',
+                color: mode === m.k ? 'white' : 'var(--foreground)',
               }}
             >
               {m.label}
@@ -143,7 +143,7 @@ export function Mastery() {
         {!flipped ? (
           <div>
             <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              {mode === 'ref2text' && <div className="text-lg font-bold" style={{ color: 'var(--navy)' }}>{card.reference}</div>}
+              {mode === 'ref2text' && <div className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>{card.reference}</div>}
               {mode === 'blank' && (
                 <div>
                   <div className="mb-2 text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--gold-dark)' }}>Fill in the Blanks</div>
@@ -173,7 +173,7 @@ export function Mastery() {
               )}
               {mode === 'text2ref' && (
                 <div>
-                  <div className="text-lg font-bold" style={{ color: 'var(--navy)' }}>{card.reference}</div>
+                  <div className="text-lg font-bold" style={{ color: 'var(--foreground)' }}>{card.reference}</div>
                   <div className="mt-2.5 text-[15px] italic" style={{ color: 'var(--foreground)' }}>{card.keyPhrase}</div>
                 </div>
               )}
@@ -212,7 +212,7 @@ export function Mastery() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📖 Scripture Mastery</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📖 Scripture Mastery</h2>
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
         <div className="mb-1 text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--gold-dark)' }}>📊 Progress</div>

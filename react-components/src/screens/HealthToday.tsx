@@ -23,7 +23,10 @@ import {
   healthAverages,
 } from '@/lib/health-data';
 import { getLS } from '@/lib/storage';
+import { useSettingsChanged } from '@/lib/settings-bus';
 import { HealthSetup } from './HealthSetup';
+
+const DEFAULT_VISIBLE = ['calories', 'protein', 'sleep', 'water', 'mood', 'energy', 'weight'];
 
 interface FoodEntry { entryDate: string; timestamp: number; calories?: number; protein?: number }
 interface DayEntry { entryDate: string; timestamp: number; hours?: number; score?: number; energy?: number }
@@ -49,6 +52,8 @@ export function HealthToday() {
   const today = isoDate();
   const [fastToday, setFastToday] = useState(() => isFastSunday(today));
   const [fastIntention, setFastIntentionState] = useState(() => getFastSundayIntention());
+  const [visible, setVisible] = useState<string[]>(() => getLS('health_visibleMetrics', DEFAULT_VISIBLE));
+  useSettingsChanged(() => setVisible(getLS('health_visibleMetrics', DEFAULT_VISIBLE)));
 
   if (!g) return <HealthSetup />;
 
@@ -105,7 +110,7 @@ export function HealthToday() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🍎 Today</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🍎 Today</h2>
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
         <div className="mb-3 flex gap-2">
@@ -113,37 +118,39 @@ export function HealthToday() {
           <button type="button" onClick={() => setRange('month')} className="flex-1 rounded-lg py-2 text-sm font-bold" style={{ background: range === 'month' ? 'var(--navy)' : 'var(--secondary)', color: range === 'month' ? 'white' : 'var(--secondary-foreground)' }}>This Month</button>
         </div>
         {[
-          { label: 'Calories', sub: 'avg/day', val: calAvg == null ? dash : Math.round(calAvg), goal: `goal ${g.calories}`, dot: calStatusColor(calAvg, g.calories) },
-          { label: 'Protein', sub: 'avg/day', val: protAvg == null ? dash : Math.round(protAvg) + 'g', goal: proteinGoal != null ? `goal ${proteinGoal}g` : '', dot: proteinGoal != null ? statusColor(protAvg, proteinGoal) : null },
-          { label: 'Sleep', sub: 'avg', val: sleepAvg == null ? dash : round1(sleepAvg) + ' hrs', goal: `goal ${g.sleep}`, dot: statusColor(sleepAvg, g.sleep) },
-          { label: 'Water', sub: 'avg', val: waterAvg == null ? dash : Math.round(waterAvg) + ' oz', goal: `goal ${g.water}`, dot: statusColor(waterAvg, g.water) },
-          { label: 'Mood', sub: 'avg', val: moodAvg == null ? dash : round1(moodAvg) + '/5', goal: '', dot: null },
-          { label: 'Energy', sub: 'avg', val: energyAvg == null ? dash : round1(energyAvg) + '/5', goal: '', dot: null },
-        ].map((row) => (
+          { key: 'calories', label: 'Calories', sub: 'avg/day', val: calAvg == null ? dash : Math.round(calAvg), goal: `goal ${g.calories}`, dot: calStatusColor(calAvg, g.calories) },
+          { key: 'protein', label: 'Protein', sub: 'avg/day', val: protAvg == null ? dash : Math.round(protAvg) + 'g', goal: proteinGoal != null ? `goal ${proteinGoal}g` : '', dot: proteinGoal != null ? statusColor(protAvg, proteinGoal) : null },
+          { key: 'sleep', label: 'Sleep', sub: 'avg', val: sleepAvg == null ? dash : round1(sleepAvg) + ' hrs', goal: `goal ${g.sleep}`, dot: statusColor(sleepAvg, g.sleep) },
+          { key: 'water', label: 'Water', sub: 'avg', val: waterAvg == null ? dash : Math.round(waterAvg) + ' oz', goal: `goal ${g.water}`, dot: statusColor(waterAvg, g.water) },
+          { key: 'mood', label: 'Mood', sub: 'avg', val: moodAvg == null ? dash : round1(moodAvg) + '/5', goal: '', dot: null },
+          { key: 'energy', label: 'Energy', sub: 'avg', val: energyAvg == null ? dash : round1(energyAvg) + '/5', goal: '', dot: null },
+        ].filter((row) => visible.includes(row.key)).map((row) => (
           <div key={row.label} className="flex items-center justify-between border-t py-2 text-sm first:border-t-0" style={{ borderColor: 'var(--border)' }}>
             <span style={{ color: 'var(--foreground)' }}>{row.label} <span style={{ color: 'var(--muted-foreground)' }}>{row.sub}</span></span>
-            <span className="font-bold" style={{ color: 'var(--navy)' }}>
+            <span className="font-bold" style={{ color: 'var(--foreground)' }}>
               {row.val} {row.goal && <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>· {row.goal}</span>}
               <StatusDot color={row.dot as 'green' | 'gray' | 'red' | null} />
             </span>
           </div>
         ))}
-        <div className="flex items-center justify-between border-t py-2 text-sm" style={{ borderColor: 'var(--border)' }}>
-          <span style={{ color: 'var(--foreground)' }}>Weight</span>
-          <span className="font-bold" style={{ color: 'var(--navy)' }}>{wt.label}</span>
-        </div>
+        {visible.includes('weight') && (
+          <div className="flex items-center justify-between border-t py-2 text-sm" style={{ borderColor: 'var(--border)' }}>
+            <span style={{ color: 'var(--foreground)' }}>Weight</span>
+            <span className="font-bold" style={{ color: 'var(--foreground)' }}>{wt.label}</span>
+          </div>
+        )}
       </div>
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
         <label className="flex cursor-pointer items-center gap-2.5">
           <input type="checkbox" checked={fastToday} onChange={toggleFast} className="h-5 w-5 flex-none" />
-          <span className="text-sm font-bold" style={{ color: 'var(--navy)' }}>
+          <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             🕊️ Today is a Fast Sunday <span className="font-normal" style={{ color: 'var(--muted-foreground)' }}>(excluded from calorie/protein averages)</span>
           </span>
         </label>
         {fastToday && (
           <div className="mt-3">
-            <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--navy)' }}>What are you fasting for?</label>
+            <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--foreground)' }}>What are you fasting for?</label>
             <textarea
               value={fastIntention}
               onChange={(e) => saveFastIntention(e.target.value)}
@@ -165,11 +172,11 @@ export function HealthToday() {
       )}
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>💧 Water today</div>
+        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>💧 Water today</div>
         <div className="mb-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>Goal: {g.water} oz</div>
         <div className="flex items-center justify-center gap-6">
           <button type="button" onClick={() => tapWater(-8)} className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>−8</button>
-          <div className="text-2xl font-bold" style={{ color: 'var(--navy)' }}>{oz}<span className="ml-1 text-sm font-normal" style={{ color: 'var(--muted-foreground)' }}>oz</span></div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>{oz}<span className="ml-1 text-sm font-normal" style={{ color: 'var(--muted-foreground)' }}>oz</span></div>
           <button type="button" onClick={() => tapWater(8)} className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>＋8</button>
         </div>
         <div className="mt-3 flex items-center justify-between">
@@ -182,7 +189,7 @@ export function HealthToday() {
       </div>
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>🙂 Mood today</div>
+        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>🙂 Mood today</div>
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} type="button" onClick={() => tapMood(n)} className="flex-1 rounded-lg py-2.5 text-sm font-bold" style={{ background: mood === n ? 'var(--primary)' : 'var(--secondary)', color: mood === n ? 'white' : 'var(--secondary-foreground)' }}>{n}</button>
@@ -191,7 +198,7 @@ export function HealthToday() {
       </div>
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>⚡ Energy today</div>
+        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>⚡ Energy today</div>
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} type="button" onClick={() => tapEnergy(n)} className="flex-1 rounded-lg py-2.5 text-sm font-bold" style={{ background: energy === n ? 'var(--primary)' : 'var(--secondary)', color: energy === n ? 'white' : 'var(--secondary-foreground)' }}>{n}</button>
@@ -200,7 +207,7 @@ export function HealthToday() {
       </div>
 
       <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>How are you feeling?</div>
+        <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>How are you feeling?</div>
         <div className="mb-2.5 text-xs" style={{ color: 'var(--muted-foreground)' }}>Tap one to see your own recent numbers.</div>
         <div className="mb-2 flex flex-wrap gap-2">
           {SYMPTOMS.map((s) => (
@@ -215,7 +222,7 @@ export function HealthToday() {
                 <div className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Furthest below your goal right now: <b>{sd.lowSpot.name}</b>.</div>
                 {sd.factors.map((f) => (
                   <div key={f.name} className="flex justify-between border-t py-1 text-sm" style={{ borderColor: 'var(--border)' }}>
-                    <span style={{ color: f.isLowest ? 'var(--navy)' : 'var(--foreground)', fontWeight: f.isLowest ? 700 : 400 }}>{f.name}</span>
+                    <span style={{ color: 'var(--foreground)', fontWeight: f.isLowest ? 700 : 400 }}>{f.name}</span>
                     <span style={{ color: 'var(--muted-foreground)' }}>{f.fmt} / {f.goalTxt} · {f.pct}%</span>
                   </div>
                 ))}

@@ -73,7 +73,7 @@ export function Miracles() {
 
   return (
     <div>
-      <h2 className="tabtitle mb-4 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>
+      <h2 className="tabtitle mb-4 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>
         ✨ Capture a Miracle
       </h2>
       <div className="card mb-4" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, boxShadow: 'var(--shadow-sm)' }}>
@@ -103,7 +103,7 @@ export function Miracles() {
       {resurfaced && (
         <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--gold-dark)' }}>✨ Remember this?</div>
-          <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>{resurfaced.date}</div>
+          <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{resurfaced.date}</div>
           <div className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>
             {(resurfaced.body || '').slice(0, 160)}{(resurfaced.body || '').length > 160 ? '…' : ''}
           </div>
@@ -124,7 +124,7 @@ export function Miracles() {
       {feelingDown && (
         downPick ? (
           <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--primary)', background: 'var(--card)' }}>
-            <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>{downPick.date}</div>
+            <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{downPick.date}</div>
             <div className="mb-2.5 text-sm" style={{ color: 'var(--foreground)' }}>{downPick.body}</div>
             <div className="flex gap-2">
               <button type="button" onClick={pickForFeelingDown} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Another one</button>
@@ -136,7 +136,7 @@ export function Miracles() {
         )
       )}
 
-      <h2 className="tabtitle mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>
+      <h2 className="tabtitle mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>
         Past Miracles
       </h2>
       <input
@@ -161,7 +161,7 @@ export function Miracles() {
                 className="rounded-[14px] border p-3.5"
                 style={{ background: 'var(--card)', borderColor: 'var(--border)', boxShadow: 'var(--shadow-sm)' }}
               >
-                <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>{e.date}</div>
+                <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{e.date}</div>
                 <div className="mb-2.5 text-[15px]" style={{ color: 'var(--foreground)' }}>{preview}</div>
                 <button
                   type="button"

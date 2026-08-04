@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/shell/AppShell';
 import { KineticLoader } from '@/components/shell/KineticLoader';
+import { AppIntro } from '@/components/shell/AppIntro';
 import { AuthProvider, useAuth } from '@/components/shell/AuthContext';
 import { LockScreen } from '@/components/shell/LockScreen';
 import { ContactShare } from '@/screens/ContactShare';
 import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
-import { Glossary } from '@/screens/Glossary';
 import { Spanish } from '@/screens/Spanish';
 import { Objections } from '@/screens/Objections';
 import { Email } from '@/screens/Email';
@@ -29,8 +29,6 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <Journal />;
     case 'spiritual/miracles':
       return <Miracles />;
-    case 'spiritual/glossary':
-      return <Glossary />;
     case 'spiritual/spanish':
       return <Spanish />;
     case 'spiritual/objections':
@@ -87,9 +85,11 @@ function useBootReady() {
 }
 
 function GatedApp() {
+  const [introDone, setIntroDone] = useState(false);
   const ready = useBootReady();
   const { authenticated } = useAuth();
 
+  if (!introDone) return <AppIntro onDone={() => setIntroDone(true)} />;
   if (!ready) return <KineticLoader />;
   if (!authenticated) return <LockScreen />;
 

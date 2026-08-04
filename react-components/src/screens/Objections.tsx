@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { callClaude, aiErrorMessage, type ClaudeMessage } from '@/lib/claude-api';
 import { OBJECTIONS, OBJECTION_SYSTEM, type Objection } from '@/lib/objections-data';
+import { demoLimitReached, incrementDemoUsage, DEMO_LIMIT_MESSAGE } from '@/lib/demo';
 
 export function Objections() {
   const [started, setStarted] = useState(false);
@@ -9,6 +10,7 @@ export function Objections() {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [limited, setLimited] = useState(false);
   const [input, setInput] = useState('');
 
   useEffect(() => {
@@ -20,6 +22,7 @@ export function Objections() {
     setStarted(true);
     setSummary(null);
     setError(false);
+    setLimited(false);
     setBusy(false);
     setQuestion(pick);
     setMsgs([]);
@@ -28,6 +31,10 @@ export function Objections() {
   async function send() {
     const txt = input.trim();
     if (!txt || busy || !question) return;
+    if (demoLimitReached('objections')) {
+      setLimited(true);
+      return;
+    }
     const next: ClaudeMessage[] = [...msgs, { role: 'user', content: txt }];
     setMsgs(next);
     setInput('');
@@ -36,6 +43,7 @@ export function Objections() {
     try {
       const history: ClaudeMessage[] = [{ role: 'assistant', content: question.text }, ...next];
       const reply = await callClaude(OBJECTION_SYSTEM, history, 400);
+      incrementDemoUsage('objections');
       setMsgs((m) => [...m, { role: 'assistant', content: reply }]);
     } catch {
       setError(true);
@@ -45,6 +53,10 @@ export function Objections() {
 
   async function end() {
     if (!question) return;
+    if (demoLimitReached('objections')) {
+      setLimited(true);
+      return;
+    }
     setBusy(true);
     try {
       const history: ClaudeMessage[] = [
@@ -57,6 +69,7 @@ export function Objections() {
         },
       ];
       const reply = await callClaude(OBJECTION_SYSTEM, history, 150);
+      incrementDemoUsage('objections');
       setSummary(reply);
     } catch {
       setError(true);
@@ -66,8 +79,13 @@ export function Objections() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🙋 Objection Practice</h2>
-      {error && (
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🙋 Objection Practice</h2>
+      {limited && (
+        <div className="mb-3 rounded-xl border p-3 text-sm font-medium" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
+          {DEMO_LIMIT_MESSAGE}
+        </div>
+      )}
+      {error && !limited && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
           {aiErrorMessage()}
         </div>

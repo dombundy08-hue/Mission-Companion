@@ -31,7 +31,7 @@ export function ContactShare() {
       <div className="mx-auto max-w-[420px]">
         <div className="mb-6 text-center">
           <div className="mb-2 text-4xl">✝️</div>
-          <h1 className="mb-1 font-heading text-xl font-semibold" style={{ color: 'var(--navy)' }}>Elder Bundy's Mission Companion</h1>
+          <h1 className="mb-1 font-heading text-xl font-semibold" style={{ color: 'var(--foreground)' }}>Elder Bundy's Mission Companion</h1>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Reach out anytime: 720-745-0911 or 720-745-3166</p>
         </div>
 
@@ -42,7 +42,7 @@ export function ContactShare() {
             </div>
           ) : (
             <>
-              <h2 className="mb-3 text-sm font-bold" style={{ color: 'var(--navy)' }}>Leave your contact info</h2>
+              <h2 className="mb-3 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Leave your contact info</h2>
               <div className="space-y-3">
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={fieldClass} style={fieldStyle} />
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" className={fieldClass} style={fieldStyle} />

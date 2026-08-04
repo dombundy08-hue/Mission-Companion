@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { callClaude, aiErrorMessage, type ClaudeMessage } from '@/lib/claude-api';
 import { SPANISH_MODES, spanishSystem } from '@/lib/spanish-modes';
+import { demoLimitReached, incrementDemoUsage, DEMO_LIMIT_MESSAGE } from '@/lib/demo';
 
 export function Spanish() {
   const [mode, setMode] = useState<string | null>(null);
@@ -8,6 +9,7 @@ export function Spanish() {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [limited, setLimited] = useState(false);
   const [input, setInput] = useState('');
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -17,10 +19,15 @@ export function Spanish() {
 
   async function startMode(modeKey: string) {
     if (busy) return;
+    if (demoLimitReached('spanish')) {
+      setLimited(true);
+      return;
+    }
     setMode(modeKey);
     setMsgs([]);
     setSummary(null);
     setError(false);
+    setLimited(false);
     setBusy(true);
     try {
       const reply = await callClaude(
@@ -28,6 +35,7 @@ export function Spanish() {
         [{ role: 'user', content: '(El misionero se acerca. Empieza la conversación con una línea natural y apropiada para esta situación.)' }],
         400
       );
+      incrementDemoUsage('spanish');
       setMsgs([{ role: 'assistant', content: reply }]);
     } catch {
       setError(true);
@@ -38,6 +46,10 @@ export function Spanish() {
   async function send() {
     const txt = input.trim();
     if (!txt || busy || !mode) return;
+    if (demoLimitReached('spanish')) {
+      setLimited(true);
+      return;
+    }
     const next: ClaudeMessage[] = [...msgs, { role: 'user', content: txt }];
     setMsgs(next);
     setInput('');
@@ -45,6 +57,7 @@ export function Spanish() {
     setBusy(true);
     try {
       const reply = await callClaude(spanishSystem(mode), next, 500);
+      incrementDemoUsage('spanish');
       setMsgs((m) => [...m, { role: 'assistant', content: reply }]);
     } catch {
       setError(true);
@@ -58,6 +71,10 @@ export function Spanish() {
       setMode(null);
       return;
     }
+    if (demoLimitReached('spanish')) {
+      setLimited(true);
+      return;
+    }
     setBusy(true);
     try {
       const withAsk: ClaudeMessage[] = [
@@ -69,6 +86,7 @@ export function Spanish() {
         },
       ];
       const reply = await callClaude(spanishSystem(mode), withAsk, 200);
+      incrementDemoUsage('spanish');
       setSummary(reply);
     } catch {
       setError(true);
@@ -78,8 +96,13 @@ export function Spanish() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🗣️ Spanish Practice</h2>
-      {error && (
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🗣️ Spanish Practice</h2>
+      {limited && (
+        <div className="mb-3 rounded-xl border p-3 text-sm font-medium" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
+          {DEMO_LIMIT_MESSAGE}
+        </div>
+      )}
+      {error && !limited && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}>
           {aiErrorMessage()}
         </div>

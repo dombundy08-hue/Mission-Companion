@@ -301,6 +301,20 @@ export function healthAverages(days: number): HealthAverages {
   };
 }
 
+// Today's actual logged totals (not averaged) — for a "Today" snapshot.
+export function todaysFoodTotals(): { calories: number; protein: number } {
+  const t = isoDate();
+  let calories = 0;
+  let protein = 0;
+  getLS<FoodEntry[]>('healthFood', []).forEach((e) => {
+    if (e.entryDate === t) {
+      calories += e.calories || 0;
+      protein += e.protein || 0;
+    }
+  });
+  return { calories, protein };
+}
+
 interface WaterRow {
   entryDate: string;
   timestamp: number;

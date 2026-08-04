@@ -98,7 +98,7 @@ export function HealthSetup() {
           ← Back
         </button>
       )}
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🍎 Health setup</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🍎 Health setup</h2>
       {flash && (
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>
           {flash}

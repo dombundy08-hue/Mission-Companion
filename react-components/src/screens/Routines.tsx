@@ -314,20 +314,20 @@ export function Routines() {
     return (
       <div>
         <button type="button" onClick={() => setView(first ? 'list' : 'assemble')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
-        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>{first ? 'New Routine' : 'Add a part'}</h2>
+        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>{first ? 'New Routine' : 'Add a part'}</h2>
         <div className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>{first ? "What's the first part of this workout?" : 'What kind of part is this?'}</div>
         <div className="space-y-2.5">
           <button type="button" onClick={() => pickType('timed')} className="flex w-full items-center gap-3 rounded-[14px] border p-4 text-left" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             <span className="text-2xl">⏱️</span>
-            <span><span className="block font-bold" style={{ color: 'var(--navy)' }}>Timed</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Steps that each run for a set number of seconds and advance on their own, announced out loud.</span></span>
+            <span><span className="block font-bold" style={{ color: 'var(--foreground)' }}>Timed</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Steps that each run for a set number of seconds and advance on their own, announced out loud.</span></span>
           </button>
           <button type="button" onClick={() => pickType('rep')} className="flex w-full items-center gap-3 rounded-[14px] border p-4 text-left" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             <span className="text-2xl">🔁</span>
-            <span><span className="block font-bold" style={{ color: 'var(--navy)' }}>Rep</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Log your sets at your own pace with a rest timer between each. Any order.</span></span>
+            <span><span className="block font-bold" style={{ color: 'var(--foreground)' }}>Rep</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Log your sets at your own pace with a rest timer between each. Any order.</span></span>
           </button>
           <button type="button" onClick={() => pickType('circuit')} className="flex w-full items-center gap-3 rounded-[14px] border p-4 text-left" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             <span className="text-2xl">🔄</span>
-            <span><span className="block font-bold" style={{ color: 'var(--navy)' }}>Circuit</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>A set of moves repeated for several rounds — work, short rest, next move, on a timer.</span></span>
+            <span><span className="block font-bold" style={{ color: 'var(--foreground)' }}>Circuit</span><span className="text-sm" style={{ color: 'var(--muted-foreground)' }}>A set of moves repeated for several rounds — work, short rest, next move, on a timer.</span></span>
           </button>
         </div>
       </div>
@@ -340,7 +340,7 @@ export function Routines() {
       <div>
         <button type="button" onClick={backFromEditor} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--navy)' }}>⏱️ Timed part</div>
+          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--foreground)' }}>⏱️ Timed part</div>
           <div className="mb-1 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Steps <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>(name and seconds)</span></div>
           <div className="space-y-2">
             {draftTimed.map((s, i) => (
@@ -364,7 +364,7 @@ export function Routines() {
       <div>
         <button type="button" onClick={backFromEditor} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--navy)' }}>🔁 Rep part</div>
+          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--foreground)' }}>🔁 Rep part</div>
           <div className="mb-1 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Exercises <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>(name, sets, reps, rest)</span></div>
           <div className="space-y-3">
             {draftRep.map((s, i) => (
@@ -398,7 +398,7 @@ export function Routines() {
       <div>
         <button type="button" onClick={backFromEditor} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--navy)' }}>🔄 Circuit part</div>
+          <div className="mb-3 text-sm font-bold" style={{ color: 'var(--foreground)' }}>🔄 Circuit part</div>
           <div className="mb-3 grid grid-cols-2 gap-2">
             <label className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Rounds<input type="number" min={1} max={20} value={cc.rounds} onChange={(e) => setDraftCircuit((d) => ({ ...d, rounds: Math.max(1, parseInt(e.target.value, 10) || 1) }))} className={inputCls + ' mt-1'} style={inputStyle} /></label>
             <label className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Work (sec)<input type="number" min={5} max={600} value={cc.work} onChange={(e) => setDraftCircuit((d) => ({ ...d, work: Math.max(5, parseInt(e.target.value, 10) || 40) }))} className={inputCls + ' mt-1'} style={inputStyle} /></label>
@@ -435,7 +435,7 @@ export function Routines() {
             {build.parts.map((p, i) => (
               <div key={i} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm"><b style={{ color: 'var(--navy)' }}>Part {i + 1}</b> <span style={{ color: 'var(--muted-foreground)' }}>{partSummary(p)}</span></span>
+                  <span className="text-sm"><b style={{ color: 'var(--foreground)' }}>Part {i + 1}</b> <span style={{ color: 'var(--muted-foreground)' }}>{partSummary(p)}</span></span>
                 </div>
                 <div className="flex gap-2 text-sm">
                   <button type="button" disabled={i === 0} onClick={() => movePart(i, -1)} className="rounded px-2 disabled:opacity-30" style={{ color: 'var(--muted-foreground)' }}>▲</button>
@@ -460,7 +460,7 @@ export function Routines() {
     return (
       <div>
         <button type="button" onClick={() => setView('list')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
-        <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📆 Programs</h2>
+        <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📆 Programs</h2>
         {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
         <button type="button" onClick={startNewProgram} className="mb-2.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Program</button>
         <button type="button" onClick={() => setView('community')} className="mb-4 w-full rounded-xl py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Browse Community Programs</button>
@@ -475,7 +475,7 @@ export function Routines() {
               return (
                 <div key={p.id} className="rounded-[14px] border p-3.5" style={{ borderColor: isActive ? 'var(--primary)' : 'var(--border)', background: 'var(--card)' }}>
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="font-bold" style={{ color: 'var(--navy)' }}>{p.name}</span>
+                    <span className="font-bold" style={{ color: 'var(--foreground)' }}>{p.name}</span>
                     {isActive && <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: 'var(--primary)' }}>ACTIVE</span>}
                   </div>
                   <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>{p.routineIds.length} day{p.routineIds.length === 1 ? '' : 's'}</div>
@@ -502,7 +502,7 @@ export function Routines() {
     return (
       <div>
         <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
-        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🌐 Community</h2>
+        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🌐 Community</h2>
         <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Programs other missionaries have shared. No chat — just browse, like, and use.</p>
         {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
         {sharedLoading ? (
@@ -517,7 +517,7 @@ export function Routines() {
               const dayCount = Array.isArray(sp.workouts) ? sp.workouts.length : 0;
               return (
               <div key={sp.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-                <div className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>{sp.name}</div>
+                <div className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>{sp.name}</div>
                 <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>
                   {dayCount} day{dayCount === 1 ? '' : 's'}{sp.author ? ` · by ${sp.author}` : ''}
                 </div>
@@ -589,12 +589,12 @@ export function Routines() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>📋 Routines</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📋 Routines</h2>
       <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>📆 Programs {activeProgram && '· 1 active'}</button>
       {todaySlot && !todaySlot.complete && todaySlot.routine && (
         <div className="mb-3 rounded-[14px] border p-3.5" style={{ borderColor: 'var(--primary)', background: 'var(--card)' }}>
           <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--gold-dark)' }}>{todaySlot.program.name} · Day {todaySlot.dayIndex + 1}</div>
-          <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Today: {todaySlot.routine.name}</div>
+          <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Today: {todaySlot.routine.name}</div>
           <button type="button" onClick={() => navigate(`/exercise/workout?start=${todaySlot.routine!.id}`)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>▶ Start Today's Workout</button>
         </div>
       )}
@@ -607,12 +607,12 @@ export function Routines() {
       <button type="button" onClick={startNew} className="mb-4 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Routine</button>
 
       <div className="mb-4">
-        <h3 className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Built-in Workouts</h3>
+        <h3 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Built-in Workouts</h3>
         <p className="mb-2.5 text-xs" style={{ color: 'var(--muted-foreground)' }}>Use one as a starting point — it's copied into your routines so you can edit it freely.</p>
         <div className="space-y-2">
           {BUILT_IN_WORKOUTS.map((t) => (
             <div key={t.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="mb-0.5 text-sm font-bold" style={{ color: 'var(--navy)' }}>{t.name}</div>
+              <div className="mb-0.5 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{t.name}</div>
               <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>{t.description}</div>
               <button type="button" onClick={() => useTemplate(t)} className="rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Use as Template</button>
             </div>
@@ -623,7 +623,7 @@ export function Routines() {
       {!routines.length ? (
         <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-2 text-3xl">📋</div>
-          <h3 className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>No routines yet</h3>
+          <h3 className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>No routines yet</h3>
           <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Build one, or start from a sample you can edit however you like.</p>
           <button type="button" onClick={addSample} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Add a sample routine</button>
         </div>
@@ -635,7 +635,7 @@ export function Routines() {
             return (
               <div key={r.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="font-bold" style={{ color: 'var(--navy)' }}>{r.name}</span>
+                  <span className="font-bold" style={{ color: 'var(--foreground)' }}>{r.name}</span>
                   <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: badgeColor[cls] }}>{bd}</span>
                 </div>
                 <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>{routineMeta(r)}</div>

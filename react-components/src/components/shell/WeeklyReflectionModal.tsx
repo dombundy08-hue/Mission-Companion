@@ -77,12 +77,12 @@ export function WeeklyReflectionModal({ onClose }: { onClose: () => void }) {
         style={{ background: 'var(--card)', boxShadow: 'var(--shadow-lg)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-heading text-lg font-semibold" style={{ color: 'var(--navy)' }}>Weekly Reflection</h3>
+        <h3 className="mb-1 font-heading text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Weekly Reflection</h3>
         <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>A quick look at how this week went.</p>
 
         {lowest ? (
           <div className="rounded-xl p-3.5" style={{ background: 'var(--secondary)' }}>
-            <div className="mb-1 text-sm font-bold" style={{ color: 'var(--navy)' }}>{lowest.emoji} {lowest.label}</div>
+            <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{lowest.emoji} {lowest.label}</div>
             <p className="text-sm" style={{ color: 'var(--secondary-foreground)' }}>{lowest.message}</p>
           </div>
         ) : (

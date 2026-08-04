@@ -36,9 +36,18 @@ export function BottomNav({ activeSectionId, activeTabId }: BottomNavProps) {
             className="flex min-h-[52px] flex-1 flex-col items-center gap-0.5 rounded-[10px] px-0.5 py-1.5 text-[10.5px] whitespace-nowrap"
             style={{ color: active ? 'var(--gold)' : '#9aa4bd' }}
           >
-            <span className={few ? 'text-[22px] leading-none' : 'text-xl leading-none'} style={active ? { transform: 'translateY(-1px)' } : undefined}>
-              {tab.icon}
-            </span>
+            {section.id === 'health' && tab.id === 'health' ? (
+              <img
+                src={section.iconImage}
+                alt=""
+                className={few ? 'h-[22px] w-[22px] object-contain' : 'h-5 w-5 object-contain'}
+                style={active ? { transform: 'translateY(-1px)' } : undefined}
+              />
+            ) : (
+              <span className={few ? 'text-[22px] leading-none' : 'text-xl leading-none'} style={active ? { transform: 'translateY(-1px)' } : undefined}>
+                {tab.icon}
+              </span>
+            )}
             <span className={few ? 'text-[11px]' : undefined}>{tab.label}</span>
           </motion.button>
         );

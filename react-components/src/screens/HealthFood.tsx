@@ -262,10 +262,10 @@ export function HealthFood() {
 
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>🍽️ Food</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🍽️ Food</h2>
       <div className="mb-4 flex gap-2">
-        <button type="button" onClick={() => setMode('search')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: mode === 'search' ? 'var(--navy)' : 'var(--card)', color: mode === 'search' ? 'white' : 'var(--navy)' }}>🔍 Search Food</button>
-        <button type="button" onClick={() => setMode('estimate')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: mode === 'estimate' ? 'var(--navy)' : 'var(--card)', color: mode === 'estimate' ? 'white' : 'var(--navy)' }}>✏️ Rough Estimate</button>
+        <button type="button" onClick={() => setMode('search')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: mode === 'search' ? 'var(--navy)' : 'var(--card)', color: mode === 'search' ? 'white' : 'var(--foreground)' }}>🔍 Search Food</button>
+        <button type="button" onClick={() => setMode('estimate')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: mode === 'estimate' ? 'var(--navy)' : 'var(--card)', color: mode === 'estimate' ? 'white' : 'var(--foreground)' }}>✏️ Rough Estimate</button>
       </div>
 
       {showSaveThis && lastLogged && (
@@ -284,7 +284,7 @@ export function HealthFood() {
         ) : pick ? (
           <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             <button type="button" onClick={() => setPick(null)} className="mb-2 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back to results</button>
-            <div className="mb-1 text-base font-bold" style={{ color: 'var(--navy)' }}>{pick.name}</div>
+            <div className="mb-1 text-base font-bold" style={{ color: 'var(--foreground)' }}>{pick.name}</div>
             <div className="mb-3 text-sm" style={{ color: 'var(--muted-foreground)' }}>{Math.round(pick.kcal100 || 0)} cal · {Math.round(pick.prot100 || 0)}g protein per 100g</div>
             {pick.servingSize && (
               <button type="button" onClick={() => onGramsChange(String(pick.servingSize))} className="mb-3 rounded-lg px-3 py-1.5 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
@@ -354,12 +354,12 @@ export function HealthFood() {
       )}
 
       <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Today · {total} cal · {Math.round(totalProt)}g protein</div>
+        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Today · {total} cal · {Math.round(totalProt)}g protein</div>
         <button
           type="button"
           onClick={() => { toggleFastSunday(today); setIsFast(isFastSunday(today)); }}
           className="mb-3 text-sm"
-          style={{ color: isFast ? 'var(--navy)' : 'var(--muted-foreground)' }}
+          style={{ color: isFast ? 'var(--foreground)' : 'var(--muted-foreground)' }}
         >
           ⊙ Fasting today {isFast && <span className="text-xs">— excluded from avg</span>}
         </button>
@@ -383,7 +383,7 @@ export function HealthFood() {
       </div>
 
       <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>☆ Saved Foods</div>
+        <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>☆ Saved Foods</div>
         {saved.length === 0 && !savedAdding && <div className="mb-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>No saved foods yet. Save the ones you eat often for one-tap logging.</div>}
         <div className="space-y-1.5">
           {saved.map((sf) => (

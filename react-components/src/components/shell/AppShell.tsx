@@ -6,6 +6,8 @@ import { SettingsModal } from './SettingsModal';
 import { ScriptureLockOverlay } from './ScriptureLockOverlay';
 import { WeeklyReflectionModal, shouldShowWeeklyReflection } from './WeeklyReflectionModal';
 import { UpdateBanner } from './UpdateBanner';
+import { DemoModeBanner } from './DemoModeBanner';
+import { isDemoMode } from '@/lib/demo';
 
 export function AppShell() {
   const { sectionId = 'spiritual', tabId = 'journal' } = useParams();
@@ -27,6 +29,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--background)' }}>
+      {isDemoMode() && <DemoModeBanner />}
       <UpdateBanner />
       <TopBar activeSectionId={sectionId} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="mx-auto max-w-[680px] px-4 pt-4" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>

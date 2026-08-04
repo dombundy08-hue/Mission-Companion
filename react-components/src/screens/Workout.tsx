@@ -321,10 +321,10 @@ export function Workout() {
     const mins = Math.max(1, Math.round((lastLog?.durationSec || 0) / 60) || 1);
     return (
       <div>
-        <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>▶️ Workout</h2>
+        <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>▶️ Workout</h2>
         <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-2 text-3xl">✅</div>
-          <h3 className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>Workout complete</h3>
+          <h3 className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>Workout complete</h3>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{session?.completed || 0} completed · about {mins} minute{mins === 1 ? '' : 's'}. Logged.</p>
         </div>
         <button type="button" onClick={() => { setW({ kind: 'timed', view: 'pick', steps: [], stepIdx: 0, remaining: 0, running: false, countdown: 3 }); setSession(null); }} className="w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)' }}>Do Another</button>
@@ -335,7 +335,7 @@ export function Workout() {
   if (session?.active && w.kind === 'rep') {
     return (
       <div>
-        <h2 className="mb-2 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>▶️ {session.routineName}</h2>
+        <h2 className="mb-2 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>▶️ {session.routineName}</h2>
         <div className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>{partPrefix(session)}Tap "Log Set" on any exercise, in any order. Rest is announced out loud.</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {rep.steps.map((s, i) => {
@@ -345,7 +345,7 @@ export function Workout() {
             const resting = (rep.restLeft[i] || 0) > 0;
             return (
               <div key={i} className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: complete ? 'var(--secondary)' : 'var(--card)' }}>
-                <div className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>{s.name}{s.reps != null ? <span className="ml-1 text-xs font-normal" style={{ color: 'var(--muted-foreground)' }}>× {s.reps} reps</span> : null}</div>
+                <div className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>{s.name}{s.reps != null ? <span className="ml-1 text-xs font-normal" style={{ color: 'var(--muted-foreground)' }}>× {s.reps} reps</span> : null}</div>
                 {s.note && <div className="mb-1 text-xs italic" style={{ color: 'var(--muted-foreground)' }}>{s.note}</div>}
                 <div className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Set {done} of {target}</div>
                 {complete ? (
@@ -369,7 +369,7 @@ export function Workout() {
     return (
       <div className="text-center">
         <div className="mb-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>{partPrefix(session)}Get ready</div>
-        <div className="mb-6 text-xl font-bold" style={{ color: 'var(--navy)' }}>First up: {first.name}</div>
+        <div className="mb-6 text-xl font-bold" style={{ color: 'var(--foreground)' }}>First up: {first.name}</div>
         <div className="mb-6 text-6xl font-bold" style={{ color: 'var(--primary)' }}>{w.countdown > 0 ? w.countdown : 'GO'}</div>
         <div className="mb-6 text-sm" style={{ color: 'var(--muted-foreground)' }}>{session.routineName}</div>
         <button type="button" onClick={cancelSession} className="rounded-xl px-6 py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Cancel</button>
@@ -385,7 +385,7 @@ export function Workout() {
     return (
       <div className="text-center">
         <div className="mb-2 text-sm" style={{ color: 'var(--muted-foreground)' }}>{partPrefix(session)}Step {w.stepIdx + 1} of {w.steps.length}</div>
-        <div className="mb-4 text-xl font-bold" style={{ color: 'var(--navy)' }}>{s.name}</div>
+        <div className="mb-4 text-xl font-bold" style={{ color: 'var(--foreground)' }}>{s.name}</div>
         <div className="mb-3 text-6xl font-bold" style={{ color: isRest(s.name) ? 'var(--gold-dark)' : 'var(--primary)' }}>{fmtClock(w.remaining)}</div>
         <div className="mx-auto mb-4 h-2 max-w-sm overflow-hidden rounded-full" style={{ background: 'var(--secondary)' }}>
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--primary)' }} />
@@ -403,11 +403,11 @@ export function Workout() {
   // pick view
   return (
     <div>
-      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--navy)' }}>▶️ Workout</h2>
+      <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>▶️ Workout</h2>
       {!routines.length ? (
         <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-2 text-3xl">💪</div>
-          <h3 className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>No routines yet</h3>
+          <h3 className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>No routines yet</h3>
           <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Build one in the Routines tab, then start it here. Steps are announced out loud as you go.</p>
           <button type="button" onClick={goRoutines} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Go to Routines</button>
         </div>
@@ -420,7 +420,7 @@ export function Workout() {
               return (
                 <div key={r.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="font-bold" style={{ color: 'var(--navy)' }}>{r.name}</span>
+                    <span className="font-bold" style={{ color: 'var(--foreground)' }}>{r.name}</span>
                     <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: badgeClass(bd) }}>{bd}</span>
                   </div>
                   <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>{routineMeta(r)}</div>

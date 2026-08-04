@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext';
 import { isDemoMode, wipeLocalData, DEMO_AI_MESSAGE } from '@/lib/demo';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
 import { getBuildHistory } from '@/lib/update-check';
+import { notifySettingsChanged } from '@/lib/settings-bus';
 import { fetchContactLeads, type ContactLead } from '@/lib/supabase-sync';
 
 type Page = 'appearance' | 'popups' | 'healthMetrics' | 'apiKeys' | 'voice' | 'account' | 'contacts' | null;
@@ -90,7 +91,7 @@ function MainView({ onNavigate }: { onNavigate: (p: Page) => void }) {
 
   return (
     <div>
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Settings</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Settings</h3>
       <div className="space-y-1.5">
         {cards.map((c) => (
           <button key={c.title} type="button" onClick={() => onNavigate(c.page)} className={cardRowClass}>
@@ -133,7 +134,7 @@ function AppearancePage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Appearance</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Appearance</h3>
       <label className="flex cursor-pointer items-center gap-2.5">
         <input
           type="checkbox"
@@ -159,8 +160,8 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Pop-ups</h3>
-      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--navy)' }}>Weekly Reflection Day</label>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Pop-ups</h3>
+      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Weekly Reflection Day</label>
       <select
         value={day}
         onChange={(e) => {
@@ -168,6 +169,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
           setDay(v);
           setLS('health_reflectionReminderDay', v);
           cloudSaveSetting('health_reflectionReminderDay', String(v));
+          notifySettingsChanged();
         }}
         className={fieldClass}
         style={fieldStyle}
@@ -180,7 +182,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
         <option value={5}>Friday</option>
         <option value={6}>Saturday</option>
       </select>
-      <label className="mb-1.5 mt-3 block text-sm font-semibold" style={{ color: 'var(--navy)' }}>Time</label>
+      <label className="mb-1.5 mt-3 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Time</label>
       <input
         type="time"
         value={time}
@@ -188,6 +190,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
           setTime(e.target.value);
           setLS('health_reflectionReminderTime', e.target.value);
           cloudSaveSetting('health_reflectionReminderTime', e.target.value);
+          notifySettingsChanged();
         }}
         className={fieldClass}
         style={fieldStyle}
@@ -207,12 +210,13 @@ function HealthMetricsPage({ onBack }: { onBack: () => void }) {
     setSelected(next);
     setLS('health_visibleMetrics', next);
     cloudSaveSetting('health_visibleMetrics', JSON.stringify(next));
+    notifySettingsChanged();
   }
 
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Health Metrics</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Health Metrics</h3>
       <div className="mb-3 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>Choose which metrics to display on your health card:</div>
       <div className="space-y-2.5">
         {METRIC_OPTIONS.map((m) => (
@@ -267,7 +271,7 @@ function ApiKeysPage({ onBack }: { onBack: () => void }) {
     return (
       <div>
         <BackBtn onBack={onBack} />
-        <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>API Keys & Security</h3>
+        <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>API Keys & Security</h3>
         <div className="rounded-xl p-3 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
           {DEMO_AI_MESSAGE} API keys aren't accessible in Demo Mode.
         </div>
@@ -278,7 +282,7 @@ function ApiKeysPage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>API Keys & Security</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>API Keys & Security</h3>
 
       {!unlocked && !showPwPrompt && (
         <button type="button" onClick={() => setShowPwPrompt(true)} className={cardRowClass} style={{ background: 'var(--secondary)' }}>
@@ -329,7 +333,7 @@ function ApiKeysPage({ onBack }: { onBack: () => void }) {
             className={fieldClass + ' mb-3'}
             style={fieldStyle}
           />
-          <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--navy)' }}>
+          <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
             USDA FoodData Central key <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>(for food search)</span>
           </label>
           <input
@@ -370,14 +374,15 @@ function VoicePage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Preferences</h3>
-      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--navy)' }}>Workout Voice</label>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Preferences</h3>
+      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Workout Voice</label>
       <div className="mb-2 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>Used to announce steps out loud.</div>
       <select
         value={selected}
         onChange={(e) => {
           setSelected(e.target.value);
           setPreferredVoiceName(e.target.value);
+          notifySettingsChanged();
         }}
         className={fieldClass}
         style={fieldStyle}
@@ -406,7 +411,7 @@ function AccountPage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>Account</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Account</h3>
       <label className="mb-4 flex cursor-pointer items-center gap-2.5">
         <input
           type="checkbox"
@@ -415,6 +420,7 @@ function AccountPage({ onBack }: { onBack: () => void }) {
             setScriptureLock(e.target.checked);
             setLS('scriptureLockMode', e.target.checked);
             cloudSaveSetting('scriptureLockMode', e.target.checked);
+            notifySettingsChanged();
           }}
           className="h-5 w-5 flex-none"
         />
@@ -452,7 +458,7 @@ function AccountPage({ onBack }: { onBack: () => void }) {
       </div>
 
       <hr className="my-4" style={{ borderColor: 'var(--border)' }} />
-      <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>App Version</h4>
+      <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>App Version</h4>
       {(() => {
         const history = getBuildHistory();
         if (!history.length) {
@@ -494,7 +500,7 @@ function ContactsPage({ onBack }: { onBack: () => void }) {
   return (
     <div>
       <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--navy)' }}>My QR Code</h3>
+      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>My QR Code</h3>
       <div className="mb-4 rounded-xl border p-4 text-center" style={{ borderColor: 'var(--border)', background: 'var(--background)' }}>
         <img src={qrImageUrl(url)} alt="QR code linking to your contact-share page" className="mx-auto mb-3 h-[180px] w-[180px]" />
         <div className="break-all text-xs" style={{ color: 'var(--muted-foreground)' }}>{url}</div>
@@ -503,7 +509,7 @@ function ContactsPage({ onBack }: { onBack: () => void }) {
         Anyone can scan this with their phone's camera — no app needed. It opens a page where they can leave their name and contact info for you.
       </p>
 
-      <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--navy)' }}>Collected so far</h4>
+      <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Collected so far</h4>
       {loading ? (
         <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading…</div>
       ) : !leads.length ? (
@@ -512,7 +518,7 @@ function ContactsPage({ onBack }: { onBack: () => void }) {
         <div className="space-y-2">
           {leads.map((l) => (
             <div key={l.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="text-sm font-bold" style={{ color: 'var(--navy)' }}>{l.name}</div>
+              <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>{l.name}</div>
               {(l.phone || l.email) && (
                 <div className="text-sm" style={{ color: 'var(--foreground)' }}>{[l.phone, l.email].filter(Boolean).join(' · ')}</div>
               )}

@@ -14,7 +14,7 @@ export function ReadModal({ date, body, onClose, onDelete }: ReadModalProps) {
         style={{ background: 'var(--card)', boxShadow: 'var(--shadow-lg)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-2 font-heading text-lg font-semibold" style={{ color: 'var(--navy)' }}>
+        <h3 className="mb-2 font-heading text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
           {date}
         </h3>
         <div className="max-h-[50vh] overflow-auto whitespace-pre-wrap text-sm" style={{ color: 'var(--foreground)' }}>

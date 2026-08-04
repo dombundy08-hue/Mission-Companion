@@ -27,12 +27,15 @@ function pickCard() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Ported from index.html's Scripture Lock Mode (showScriptureLock()/tryScriptureUnlock()) —
-// a gamified idle re-entry gate, never a hard security gate: "Use password instead"
-// always falls back to the real AuthContext lock, so it can never actually lock
-// Elder Bundy out of his own data.
+// Ported from index.html's Scripture Lock Mode (showScriptureLock()/tryScriptureUnlock()).
+// By explicit request (2026-08-04) this is now a real gate, not a gamified
+// one: once it triggers, typing a practiced scripture correctly is the only
+// way back in on this device — no password fallback. The Hint button is not
+// a bypass; it only reveals the first few words of the same scripture being
+// asked for. The cold-boot LockScreen (real password entry) is separate and
+// unaffected — this only removes the escape hatch from this idle overlay.
 export function ScriptureLockOverlay() {
-  const { authenticated, lock } = useAuth();
+  const { authenticated } = useAuth();
   const [shown, setShown] = useState(false);
   const [card, setCard] = useState<ReturnType<typeof pickCard>>(null);
   const [input, setInput] = useState('');
@@ -123,18 +126,8 @@ export function ScriptureLockOverlay() {
         >
           Unlock
         </button>
-        <div className="mt-3 flex justify-center gap-4 text-sm">
+        <div className="mt-3 flex justify-center text-sm">
           <button type="button" onClick={showHint} className="text-white/70 underline">Hint</button>
-          <button
-            type="button"
-            onClick={() => {
-              hide();
-              lock();
-            }}
-            className="text-white/70 underline"
-          >
-            Use password instead
-          </button>
         </div>
       </div>
     </div>
