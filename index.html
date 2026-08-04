@@ -2108,33 +2108,25 @@ function closeSettings(){ document.getElementById('settingsModal').classList.rem
 function setupAPIKeysHandlers(){
   /* Collapse the API-keys section back to its locked state. Called every time
      the modal opens so the keys are never left unlocked between visits. */
-  document.getElementById('apiKeysToggle').addEventListener('click', ()=>{
-    document.getElementById('apiKeysToggle').style.display='none';
-    document.getElementById('apiKeysUnlock').style.display='';
-    document.getElementById('apiKeysPwErr').style.display='none';
-    const pw=document.getElementById('apiKeysPw'); pw.value=''; setTimeout(()=>pw.focus(),50);
-  });
-  function tryRevealKeys(){
+  const toggle = document.getElementById('apiKeysToggle');
+  if(toggle) toggle.addEventListener('click', ()=>{
+    const toggle = document.getElementById('apiKeysToggle');
+    const unlock = document.getElementById('apiKeysUnlock');
+    const err = document.getElementById('apiKeysPwErr');
+    if(toggle) toggle.style.display='none';
+    if(unlock) unlock.style.display='';
+    if(err) err.style.display='none';
     const pw=document.getElementById('apiKeysPw');
-    if(pw.value === APP_PASSWORD){
-      document.getElementById('apiKeysUnlock').style.display='none';
-      document.getElementById('apiKeysPwErr').style.display='none';
-      document.getElementById('settingsKey').value = localStorage.getItem('apiKey')||'';
-      document.getElementById('settingsUsda').value = localStorage.getItem('usdaApiKey')||'';
-      document.getElementById('apiKeysPanel').style.display='';
-    } else {
-      document.getElementById('apiKeysPwErr').style.display='';
-    }
-  }
-  document.getElementById('apiKeysPwGo').addEventListener('click', tryRevealKeys);
-  document.getElementById('apiKeysPw').addEventListener('keydown', e=>{ if(e.key==='Enter') tryRevealKeys(); });
-  document.getElementById('apiKeysPwCancel').addEventListener('click', ()=>{
-    document.getElementById('apiKeysToggle').style.display='';
-    document.getElementById('apiKeysUnlock').style.display='none';
-    document.getElementById('apiKeysPw').value='';
-    document.getElementById('apiKeysPwErr').style.display='none';
+    if(pw) { pw.value=''; setTimeout(()=>pw.focus(),50); }
   });
-  document.getElementById('settingsSave').addEventListener('click', ()=>{
+  const pwGo = document.getElementById('apiKeysPwGo');
+  if(pwGo) pwGo.addEventListener('click', tryRevealKeys);
+  const pwInput = document.getElementById('apiKeysPw');
+  if(pwInput) pwInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
+  const pwCancel = document.getElementById('apiKeysPwCancel');
+  if(pwCancel) pwCancel.addEventListener('click', resetApiKeysLock);
+  const save = document.getElementById('settingsSave');
+  if(save) save.addEventListener('click', ()=>{
     const key = document.getElementById('settingsKey').value.trim();
     const usda = document.getElementById('settingsUsda').value.trim();
     if(!key){ alert("Enter your Anthropic API key."); return; }
@@ -2147,22 +2139,27 @@ function setupAPIKeysHandlers(){
 }
 
 function setupVoiceHandlers(){
-  document.getElementById('voiceTestBtn').addEventListener('click', ()=>{
+  const testBtn = document.getElementById('voiceTestBtn');
+  if(testBtn) testBtn.addEventListener('click', ()=>{
     const sel=document.getElementById('voiceSelect');
-    const idx=Array.from(sel.options).findIndex(o=>o.selected);
-    if(idx>=0 && speechSynthesis.getVoices()[idx]){
-      const u = new SpeechSynthesisUtterance("Testing voice.");
-      u.voice=speechSynthesis.getVoices()[idx];
-      speechSynthesis.speak(u);
+    if(sel) {
+      const idx=Array.from(sel.options).findIndex(o=>o.selected);
+      if(idx>=0 && speechSynthesis.getVoices()[idx]){
+        const u = new SpeechSynthesisUtterance("Testing voice.");
+        u.voice=speechSynthesis.getVoices()[idx];
+        speechSynthesis.speak(u);
+      }
     }
   });
-  document.getElementById('voiceSelect').addEventListener('change', e=>{
+  const select = document.getElementById('voiceSelect');
+  if(select) select.addEventListener('change', e=>{
     localStorage.setItem('voiceIdx', e.target.selectedIndex);
   });
 }
 
 function setupAccountHandlers(){
-  document.getElementById('lockAppBtn').addEventListener('click', ()=>{
+  const lockBtn = document.getElementById('lockAppBtn');
+  if(lockBtn) lockBtn.addEventListener('click', ()=>{
     if(confirm('Lock the app? You\'ll need the password to unlock it.')){
       localStorage.setItem('authenticated', 'false');
       showLock();
@@ -2181,10 +2178,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(settingsModal) settingsModal.addEventListener('click', e=>{
     if(e.target === document.getElementById('settingsModal')) closeSettings();
   });
+
+  // Settings card navigation
+  const cards = [
+    { id: 'settingsAppearanceCard', page: 'appearance' },
+    { id: 'settingsPopupsCard', page: 'popups' },
+    { id: 'settingsHealthMetricsCard', page: 'healthMetrics' },
+    { id: 'settingsAPICard', page: 'apiKeys' },
+    { id: 'settingsVoiceCard', page: 'voice' },
+    { id: 'settingsAccountCard', page: 'account' }
+  ];
+  cards.forEach(({id, page})=>{
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('click', ()=>{ state.settings.currentPage=page; renderSettingsView(); });
+  });
+
+  const darkToggle = document.getElementById('darkModeToggle');
+  if(darkToggle) darkToggle.addEventListener('change', e=>{ setTheme(e.target.checked); });
+
+  // Setup specialized handlers
+  setupAPIKeysHandlers();
+  setupVoiceHandlers();
+  setupAccountHandlers();
 });
 
 // Listen for exercise logs from React iframe
 window.addEventListener('message', (event)=>{
+  if(event.origin !== window.location.origin) return;
   if(event.data.type==='exerciseSaved'){
     const exercise=event.data.exercise;
     if(!exercise || !exercise.exerciseName) return;
@@ -2207,47 +2227,6 @@ window.addEventListener('message', (event)=>{
     cloudSaveHealth('workoutLog', entry);
     flash('Exercise logged: '+exercise.exerciseName);
   }
-});
-
-// Settings card navigation
-// Deferred settings card listeners until DOM is ready
-document.addEventListener('DOMContentLoaded', ()=>{
-  const cards = [
-    { id: 'settingsAppearanceCard', page: 'appearance' },
-    { id: 'settingsPopupsCard', page: 'popups' },
-    { id: 'settingsHealthMetricsCard', page: 'healthMetrics' },
-    { id: 'settingsAPICard', page: 'apiKeys' },
-    { id: 'settingsVoiceCard', page: 'voice' },
-    { id: 'settingsAccountCard', page: 'account' }
-  ];
-  cards.forEach(({id, page})=>{
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('click', ()=>{ state.settings.currentPage=page; renderSettingsView(); });
-  });
-
-  const darkToggle = document.getElementById('darkModeToggle');
-  if(darkToggle) darkToggle.addEventListener('change', e=>{ setTheme(e.target.checked); });
-
-  const apiToggle = document.getElementById('apiKeysToggle');
-  if(apiToggle) apiToggle.addEventListener('click', ()=>{
-    const toggle = document.getElementById('apiKeysToggle');
-    const unlock = document.getElementById('apiKeysUnlock');
-    const err = document.getElementById('apiKeysPwErr');
-    if(toggle) toggle.style.display='none';
-    if(unlock) unlock.style.display='';
-    if(err) err.style.display='none';
-    const pw = document.getElementById('apiKeysPw');
-    if(pw) { pw.value=''; setTimeout(()=>pw.focus(),50); }
-  });
-
-  const pwGo = document.getElementById('apiKeysPwGo');
-  if(pwGo) pwGo.addEventListener('click', tryRevealKeys);
-
-  const pwInput = document.getElementById('apiKeysPw');
-  if(pwInput) pwInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryRevealKeys(); } });
-
-  const pwCancel = document.getElementById('apiKeysPwCancel');
-  if(pwCancel) pwCancel.addEventListener('click', resetApiKeysLock);
 });
 
 function tryRevealKeys(){
@@ -2485,6 +2464,7 @@ function renderBottomNav(){
 /* top switcher */
 function openSectionModal(){
   const list=document.getElementById('sectionList');
+  if(!list) return;
   list.innerHTML = SECTION_KEYS.map(k=>{
     const s=SECTIONS[k];
     return `<button class="section-card ${k===activeSection?'current':''}" data-sec="${k}">
@@ -2493,10 +2473,12 @@ function openSectionModal(){
     </button>`;
   }).join('');
   list.querySelectorAll('[data-sec]').forEach(b=> b.onclick=()=>{
-    document.getElementById('sectionModal').classList.remove('show');
+    const sectionModal = document.getElementById('sectionModal');
+    if(sectionModal) sectionModal.classList.remove('show');
     goToSection(b.dataset.sec);
   });
-  document.getElementById('sectionModal').classList.add('show');
+  const sectionModal = document.getElementById('sectionModal');
+  if(sectionModal) sectionModal.classList.add('show');
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   const sectionBtn = document.getElementById('sectionBtn');
@@ -2538,6 +2520,7 @@ function render(){
   renderBottomNav();
 
   const c = document.getElementById('tab-content');
+  if(!c) return;
   switch(activeTab){
     case 'journal':   renderJournal(c); break;
     case 'miracles':  renderMiracles(c); break;
@@ -3822,7 +3805,7 @@ function sendHealthMetricsUpdate(){
     type:'updateMetrics',
     metrics:metricsData,
     visible:visibleMetrics
-  },'*');
+  },window.location.origin);
 }
 
 function renderHealthFood(c){
@@ -4208,15 +4191,13 @@ function renderHealthStats(c){
   </div>`;
 
   // React Health Metrics Card (iframe)
+  const healthFrameUrl = new URL('react-build/index.html?app=health', window.location.href).href;
   html+=`<div class="card" style="margin-top:20px;padding:0;border:none;">
-    <iframe id="healthActivityFrame" src="/Mission-Companion/react-build/index.html?app=health" style="width:100%;height:600px;border:none;border-radius:12px;background:var(--card);"></iframe>
+    <iframe id="healthActivityFrame" src="${healthFrameUrl}" style="width:100%;height:600px;border:none;border-radius:12px;background:var(--card);" onload="sendHealthMetricsUpdate();"></iframe>
   </div>`;
 
   c.innerHTML=html;
   c.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{ state.health.snapRange=b.dataset.range; render(); });
-
-  // Send health metrics data to iframe after it loads
-  setTimeout(()=>{ sendHealthMetricsUpdate(); }, 500);
 }
 
 function renderHealthBody(c){

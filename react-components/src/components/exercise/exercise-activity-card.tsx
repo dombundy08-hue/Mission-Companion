@@ -55,15 +55,17 @@ export function ExerciseActivityCard() {
       notes: formData.notes?.trim() || undefined,
     };
 
-    // Send to parent vanilla JS
-    parent.postMessage(
-      {
-        type: "exerciseSaved",
-        exercise: sessionData,
-        timestamp: Date.now(),
-      },
-      "*"
-    );
+    // Send to parent vanilla JS (only if in iframe)
+    if (window !== window.parent) {
+      parent.postMessage(
+        {
+          type: "exerciseSaved",
+          exercise: sessionData,
+          timestamp: Date.now(),
+        },
+        "*"
+      );
+    }
 
     // Update last session display
     setLastSession(sessionData);

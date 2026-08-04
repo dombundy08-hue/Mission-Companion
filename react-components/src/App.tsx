@@ -7,7 +7,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const appType = params.get('app');
     return appType === 'exercise' ? 'exercise' : 'health';
-  }, []);
+  }, [window.location.search]);
 
   return app === 'health' ? <HealthApp /> : <ExerciseApp />;
 }
