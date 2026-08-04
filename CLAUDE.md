@@ -28,6 +28,8 @@ This project uses the **`mission-companion-deploy` skill** which runs **automati
 
 **Result**: Every push is automatically audited, fixed, and documented. Skill continuously improves itself.
 
+**Latest learnings (2026-08-03):** Audit checklist now also covers postMessage/iframe security patterns — `'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, and hardcoded vs dynamic paths. See SKILL.md for full details.
+
 See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
 
 ---
