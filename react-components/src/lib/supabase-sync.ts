@@ -231,4 +231,156 @@ export async function cloudSaveSetting(key: string, value: unknown) {
   }
 }
 
+/* ---------- Health logs: one dispatcher table, ported 1:1 from vanilla's
+   HEALTH_LOGS + cloudSaveHealth. Optional-column flags (foodProteinOk etc.)
+   let the app survive a Supabase table missing a column it expects — a
+   failed insert mentioning the column name drops that field and retries,
+   rather than breaking health sync entirely. A missing TABLE (not just a
+   column) disables health sync for the session instead of retrying forever. */
+interface HealthRow {
+  id: string;
+  cloudId?: string;
+  entryDate: string;
+  timestamp: number;
+  [key: string]: unknown;
+}
+
+let healthTablesOk = true;
+let foodProteinOk = true;
+let foodGramsOk = true;
+let foodSourceOk = true;
+let moodEnergyOk = true;
+let hydroElectrolytesOk = true;
+
+interface HealthLogConfig {
+  table: string;
+  day: boolean;
+  toCloud: (r: HealthRow) => Record<string, unknown>;
+}
+
+const HEALTH_LOGS: Record<string, HealthLogConfig> = {
+  healthFood: {
+    table: 'health_food_log',
+    day: false,
+    toCloud: (r) => {
+      const o: Record<string, unknown> = {
+        entry_date: r.entryDate,
+        description: r.description || '',
+        calories: parseInt(String(r.calories), 10) || 0,
+      };
+      if (foodProteinOk && r.protein != null && r.protein !== '') o.protein = parseFloat(String(r.protein)) || 0;
+      if (foodGramsOk && r.grams != null && r.grams !== '') o.grams = parseFloat(String(r.grams)) || 0;
+      if (foodSourceOk && r.source) o.source = r.source;
+      return o;
+    },
+  },
+  healthWeight: {
+    table: 'health_weight_log',
+    day: true,
+    toCloud: (r) => ({ entry_date: r.entryDate, weight: r.weight }),
+  },
+  healthSleep: {
+    table: 'health_sleep_log',
+    day: true,
+    toCloud: (r) => ({ entry_date: r.entryDate, hours: r.hours }),
+  },
+  // append-only per-tap rows (day:false -> each tap inserts its own row)
+  healthWater: {
+    table: 'health_hydration_log',
+    day: false,
+    toCloud: (r) => {
+      const o: Record<string, unknown> = { entry_date: r.entryDate, cups: parseInt(String(r.oz), 10) || 0 };
+      if (hydroElectrolytesOk && r.electrolytes != null) o.electrolytes = parseInt(String(r.electrolytes), 10) || 0;
+      return o;
+    },
+  },
+  healthMood: {
+    table: 'health_mood_log',
+    day: true,
+    toCloud: (r) => {
+      const o: Record<string, unknown> = { entry_date: r.entryDate, score: r.score != null ? parseInt(String(r.score), 10) : null };
+      if (moodEnergyOk) o.energy = r.energy != null ? parseInt(String(r.energy), 10) : null;
+      return o;
+    },
+  },
+};
+
+export async function cloudSaveHealth(localKey: string, row: HealthRow, _retry?: number): Promise<void> {
+  const cfg = HEALTH_LOGS[localKey];
+  if (!cfg || !sbOnline() || !healthTablesOk) return;
+  try {
+    if (row.cloudId) {
+      const up = await sb.from(cfg.table).update(cfg.toCloud(row)).eq('id', row.cloudId);
+      if (up.error) throw up.error;
+    } else if (cfg.day) {
+      const ex = await sb.from(cfg.table).select('id').eq('entry_date', row.entryDate).limit(1);
+      if (ex.error) throw ex.error;
+      const exist = (ex.data || [])[0];
+      if (exist) {
+        const up = await sb.from(cfg.table).update(cfg.toCloud(row)).eq('id', exist.id);
+        if (up.error) throw up.error;
+        stamp<HealthRow>(localKey, (x) => x.id === row.id && !x.cloudId, exist.id);
+      } else {
+        const ins = await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single();
+        if (ins.error) throw ins.error;
+        if (!ins.data) throw new Error('No data returned from insert');
+        stamp<HealthRow>(localKey, (x) => x.id === row.id && !x.cloudId, ins.data.id);
+      }
+    } else {
+      const ins = await sb.from(cfg.table).insert(cfg.toCloud(row)).select('id').single();
+      if (ins.error) throw ins.error;
+      if (!ins.data) throw new Error('No data returned from insert');
+      stamp<HealthRow>(localKey, (x) => x.id === row.id && !x.cloudId, ins.data.id);
+    }
+  } catch (e) {
+    const msg = String(e instanceof Error ? e.message : e).toLowerCase();
+    const n = _retry || 0;
+    let flipped = false;
+    if (msg.includes('protein') && foodProteinOk) { foodProteinOk = false; flipped = true; }
+    if (msg.includes('grams') && foodGramsOk) { foodGramsOk = false; flipped = true; }
+    if (msg.includes('source') && foodSourceOk) { foodSourceOk = false; flipped = true; }
+    if (msg.includes('energy') && moodEnergyOk) { moodEnergyOk = false; flipped = true; }
+    if (msg.includes('electrolytes') && hydroElectrolytesOk) { hydroElectrolytesOk = false; flipped = true; }
+    if (flipped && n < 3) return cloudSaveHealth(localKey, row, n + 1);
+    if (msg.includes('could not find the table')) healthTablesOk = false;
+    markPending();
+  }
+}
+
+interface SavedFoodRow {
+  id: string;
+  cloudId?: string;
+  name: string;
+  calories: number | null;
+  protein: number | null;
+}
+
+function savedFoodToCloud(r: SavedFoodRow) {
+  const o: Record<string, unknown> = { name: r.name || '' };
+  if (r.calories != null) o.calories = r.calories;
+  if (r.protein != null) o.protein = r.protein;
+  return o;
+}
+
+let savedFoodsOk = true;
+
+export async function cloudSaveSavedFood(r: SavedFoodRow): Promise<void> {
+  if (!sbOnline() || !savedFoodsOk) return;
+  try {
+    if (r.cloudId) {
+      const up = await sb.from('saved_foods').update(savedFoodToCloud(r)).eq('id', r.cloudId);
+      if (up.error) throw up.error;
+    } else {
+      const ins = await sb.from('saved_foods').insert(savedFoodToCloud(r)).select('id').single();
+      if (ins.error) throw ins.error;
+      if (!ins.data) throw new Error('No data returned from insert');
+      stamp<SavedFoodRow>('savedFoods', (x) => x.id === r.id && !x.cloudId, ins.data.id);
+    }
+  } catch (e) {
+    const msg = String(e instanceof Error ? e.message : e).toLowerCase();
+    if (msg.includes('could not find the table')) savedFoodsOk = false;
+    markPending();
+  }
+}
+
 export { uid };

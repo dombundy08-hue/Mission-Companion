@@ -10,6 +10,11 @@ import { Spanish } from '@/screens/Spanish';
 import { Objections } from '@/screens/Objections';
 import { Email } from '@/screens/Email';
 import { Mastery } from '@/screens/Mastery';
+import { HealthToday } from '@/screens/HealthToday';
+import { HealthFood } from '@/screens/HealthFood';
+import { HealthBody } from '@/screens/HealthBody';
+import { HealthStats } from '@/screens/HealthStats';
+import { HealthSetup } from '@/screens/HealthSetup';
 import { findTab } from '@/lib/sections';
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
@@ -28,6 +33,16 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <Email />;
     case 'spiritual/mastery':
       return <Mastery />;
+    case 'health/health':
+      return <HealthToday />;
+    case 'health/hfood':
+      return <HealthFood />;
+    case 'health/hbody':
+      return <HealthBody />;
+    case 'health/hstats':
+      return <HealthStats />;
+    case 'health/hsetup':
+      return <HealthSetup />;
     default: {
       const tab = findTab(sectionId, tabId);
       return <Placeholder label={tab?.label ?? tabId} icon={tab?.icon ?? '•'} />;
