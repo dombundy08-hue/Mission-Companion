@@ -2160,11 +2160,17 @@ function setupAccountHandlers(){
   });
 }
 
-document.getElementById('gearBtn').addEventListener('click', openSettings);
-document.getElementById('settingsX').addEventListener('click', closeSettings);
-// tapping the dark overlay (outside the modal card) also closes it
-document.getElementById('settingsModal').addEventListener('click', e=>{
-  if(e.target === document.getElementById('settingsModal')) closeSettings();
+// Defer main UI event listeners until DOM is ready
+document.addEventListener('DOMContentLoaded', ()=>{
+  const gearBtn = document.getElementById('gearBtn');
+  const settingsX = document.getElementById('settingsX');
+  const settingsModal = document.getElementById('settingsModal');
+
+  if(gearBtn) gearBtn.addEventListener('click', openSettings);
+  if(settingsX) settingsX.addEventListener('click', closeSettings);
+  if(settingsModal) settingsModal.addEventListener('click', e=>{
+    if(e.target === document.getElementById('settingsModal')) closeSettings();
+  });
 });
 
 // Listen for exercise logs from React iframe
@@ -5594,13 +5600,21 @@ function tryUnlock(){
     document.getElementById('lockInput').focus();
   }
 }
-document.getElementById('lockBtn').addEventListener('click', tryUnlock);
-document.getElementById('lockInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryUnlock(); } });
-document.getElementById('lockAppBtn').addEventListener('click', ()=>{
-  document.getElementById('settingsModal').classList.remove('show');
-  localStorage.removeItem('authenticated');
-  cloudReady=false;
-  showLock();
+
+// Defer event listener attachment until DOM is ready
+document.addEventListener('DOMContentLoaded', ()=>{
+  const lockBtn = document.getElementById('lockBtn');
+  const lockInput = document.getElementById('lockInput');
+  const lockAppBtn = document.getElementById('lockAppBtn');
+
+  if(lockBtn) lockBtn.addEventListener('click', tryUnlock);
+  if(lockInput) lockInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); tryUnlock(); } });
+  if(lockAppBtn) lockAppBtn.addEventListener('click', ()=>{
+    document.getElementById('settingsModal').classList.remove('show');
+    localStorage.removeItem('authenticated');
+    cloudReady=false;
+    showLock();
+  });
 });
 
 async function startApp(){
@@ -5627,7 +5641,7 @@ async function startApp(){
 /* ===================================================================
    BOOT
 =================================================================== */
-(function init(){
+function initApp(){
   console.log('[BOOT] Initializing app...');
   try {
     localStorage.removeItem('glossaryTerms');
@@ -5643,9 +5657,16 @@ async function startApp(){
     }
   } catch(e) {
     console.error('[BOOT] Initialization error:', e);
-    showLock();
+    try { showLock(); } catch(e2) { console.error('[BOOT] Failed to show lock:', e2); }
   }
-})();
+}
+
+// Run init when DOM is ready, or immediately if already loaded
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 /* PWA: register the service worker for offline use + installability.
    Guarded so unsupported browsers just skip it. Registered after load so
