@@ -6,6 +6,7 @@ import { AppIntro } from '@/components/shell/AppIntro';
 import { AuthProvider, useAuth } from '@/components/shell/AuthContext';
 import { LockScreen } from '@/components/shell/LockScreen';
 import { ContactShare } from '@/screens/ContactShare';
+import { ContactsCollection } from '@/screens/ContactsCollection';
 import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
@@ -106,6 +107,7 @@ function GatedApp() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/spiritual/journal" replace />} />
+      <Route path="/contacts" element={<ContactsCollection />} />
       <Route element={<AppShell />}>
         <Route path="/:sectionId/:tabId" element={<TabPage />} />
       </Route>

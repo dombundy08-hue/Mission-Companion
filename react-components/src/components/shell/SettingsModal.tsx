@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getLS, setLS } from '@/lib/storage';
 import { cloudSaveSetting } from '@/lib/supabase-sync';
 import { applyTheme, isDarkModeOn } from '@/lib/theme';
@@ -9,7 +10,6 @@ import { isDemoMode, wipeLocalData, DEMO_AI_MESSAGE } from '@/lib/demo';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
 import { getBuildHistory } from '@/lib/update-check';
 import { notifySettingsChanged } from '@/lib/settings-bus';
-import { fetchContactLeads, type ContactLead } from '@/lib/supabase-sync';
 
 type Page = 'appearance' | 'popups' | 'healthMetrics' | 'apiKeys' | 'voice' | 'account' | 'contacts' | null;
 
@@ -71,7 +71,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         ) : page === 'account' ? (
           <AccountPage onBack={() => setPage(null)} />
         ) : (
-          <ContactsPage onBack={() => setPage(null)} />
+          <ContactsPage onBack={() => setPage(null)} onClose={onClose} />
         )}
       </div>
     </div>
@@ -484,18 +484,15 @@ function AccountPage({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ContactsPage({ onBack }: { onBack: () => void }) {
+function ContactsPage({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
+  const navigate = useNavigate();
   const [code] = useState(() => getQrCode());
-  const [leads, setLeads] = useState<ContactLead[]>([]);
-  const [loading, setLoading] = useState(true);
   const url = contactShareUrl(code);
 
-  useEffect(() => {
-    fetchContactLeads().then((rows) => {
-      setLeads(rows);
-      setLoading(false);
-    });
-  }, []);
+  function viewCollection() {
+    onClose();
+    navigate('/contacts');
+  }
 
   return (
     <div>
@@ -509,37 +506,14 @@ function ContactsPage({ onBack }: { onBack: () => void }) {
         Anyone can scan this with their phone's camera — no app needed. It opens a page where they can leave their name and contact info for you.
       </p>
 
-      <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Collected so far</h4>
-      {loading ? (
-        <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading…</div>
-      ) : !leads.length ? (
-        <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>No one has sent their info yet.</div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
-          <table className="w-full min-w-[600px] border-collapse text-sm">
-            <thead>
-              <tr style={{ background: 'var(--secondary)' }}>
-                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Name</th>
-                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Phone</th>
-                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Address</th>
-                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Note</th>
-                <th className="px-3 py-2 text-left font-bold" style={{ color: 'var(--secondary-foreground)' }}>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((l, i) => (
-                <tr key={l.id} style={{ background: i % 2 ? 'var(--card)' : 'var(--background)', borderTop: '1px solid var(--border)' }}>
-                  <td className="px-3 py-2 font-medium" style={{ color: 'var(--foreground)' }}>{l.name}</td>
-                  <td className="px-3 py-2" style={{ color: 'var(--foreground)' }}>{l.phone || '—'}</td>
-                  <td className="px-3 py-2" style={{ color: 'var(--foreground)' }}>{l.address || '—'}</td>
-                  <td className="px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>{l.note || '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap" style={{ color: 'var(--muted-foreground)' }}>{new Date(l.createdAt).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <button
+        type="button"
+        onClick={viewCollection}
+        className="w-full rounded-xl py-3 text-[15px] font-bold text-white"
+        style={{ background: 'var(--primary)', boxShadow: '0 2px 0 var(--gold-dark)' }}
+      >
+        View Collection →
+      </button>
     </div>
   );
 }

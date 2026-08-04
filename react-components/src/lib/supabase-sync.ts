@@ -581,4 +581,16 @@ export async function fetchContactLeads(): Promise<ContactLead[]> {
   }
 }
 
+// contact_leads has no local mirror (fetched live each time), so deleting
+// just needs a straight cloud delete by row id — no cloudId indirection.
+export async function deleteContactLead(id: string): Promise<boolean> {
+  if (!sb) return false;
+  try {
+    const d = await sb.from('contact_leads').delete().eq('id', id);
+    return !d.error;
+  } catch {
+    return false;
+  }
+}
+
 export { uid };
