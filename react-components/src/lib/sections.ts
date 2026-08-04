@@ -33,15 +33,21 @@ export const SECTIONS: SectionDef[] = [
     id: 'exercise',
     name: 'Exercise',
     icon: '💪',
-    tabs: [{ id: 'routine', label: 'Routines', icon: '🏋️' }],
+    tabs: [
+      { id: 'workout', label: 'Workout', icon: '▶️' },
+      { id: 'routines', label: 'Routines', icon: '📋' },
+      { id: 'wlog', label: 'Log', icon: '📈' },
+    ],
   },
   {
     id: 'health',
     name: 'Health',
     icon: '🍎',
     tabs: [
-      { id: 'food', label: 'Food', icon: '🍽️' },
-      { id: 'stats', label: 'Stats', icon: '📊' },
+      { id: 'health', label: 'Today', icon: '🍎' },
+      { id: 'hfood', label: 'Food', icon: '🍽️' },
+      { id: 'hbody', label: 'Body', icon: '⚖️' },
+      { id: 'hstats', label: 'Stats', icon: '📊' },
     ],
   },
 ];
