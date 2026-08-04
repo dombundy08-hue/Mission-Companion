@@ -66,25 +66,6 @@ function TabPage() {
   return <TabRoute sectionId={sectionId} tabId={tabId} />;
 }
 
-// Boot splash stays up until fonts are genuinely ready AND at least one
-// kinetic-loader word cycle has played (so a warm cache doesn't just flash it).
-function useBootReady() {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const minDuration = new Promise((resolve) => setTimeout(resolve, 1300));
-    Promise.all([document.fonts.ready, minDuration]).then(() => {
-      if (!cancelled) setReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return ready;
-}
-
 // Pulls existing cloud data down into localStorage once per authenticated
 // session — this was documented as the intended design but never actually
 // built, so a device with empty/cleared local storage would show nothing
@@ -109,12 +90,16 @@ function useCloudSynced(authenticated: boolean) {
 
 function GatedApp() {
   const [introDone, setIntroDone] = useState(false);
-  const ready = useBootReady();
   const { authenticated } = useAuth();
   const synced = useCloudSynced(authenticated);
 
+  // AppIntro's own duration (several seconds) already comfortably covers
+  // font loading — no separate "ready" gate needed before it, which used
+  // to show its own KineticLoader and made the boot sequence feel like the
+  // brand animation was playing multiple times in a row. Now there's at
+  // most two distinct screens: the intro once, and KineticLoader once
+  // (only if actually syncing) after the password is entered.
   if (!introDone) return <AppIntro onDone={() => setIntroDone(true)} />;
-  if (!ready) return <KineticLoader />;
   if (!authenticated) return <LockScreen />;
   if (!synced) return <KineticLoader />;
 

@@ -196,6 +196,12 @@ export async function pullAndMergeAll(): Promise<void> {
     pullHealthLog('health_sleep_log', 'healthSleep', (r) => ({ hours: r.hours })),
     pullHealthLog('health_hydration_log', 'healthWater', (r) => ({ oz: r.cups, electrolytes: r.electrolytes })),
     pullHealthLog('health_mood_log', 'healthMood', (r) => ({ score: r.score, energy: r.energy })),
+    pullSimple(
+      'saved_foods',
+      'savedFoods',
+      (r) => ({ name: String(r.name || ''), calories: (r.calories as number) ?? null, protein: (r.protein as number) ?? null, createdAt: new Date(String(r.created_at)).getTime() }),
+      (x) => x.name
+    ),
     pullScriptureProgress(),
     pullSettings(),
   ]);

@@ -7,8 +7,8 @@ import { useEffect, useRef } from 'react';
 // just plays and hands off.
 const LINE_1 = 'MISSIONARY';
 const LINE_2 = 'COMPANION';
-const HOLD_MS = 2000;
-const TOTAL_MS = 2700;
+const HOLD_MS = 4000;
+const TOTAL_MS = 4700;
 
 function flyInWord(el: HTMLDivElement, word: string, baseDelay: number): HTMLSpanElement[] {
   el.innerHTML = '';
