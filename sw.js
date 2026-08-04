@@ -2,7 +2,7 @@
    Bump CACHE to ship a new version — the old cache is cleared on activate,
    and updated files flow in via stale-while-revalidate on the next load.
    Supabase data traffic is never cached, so cloud sync stays live/fresh. */
-const CACHE = 'mission-companion-v2';
+const CACHE = 'mission-companion-v3';
 
 const CORE = [
   './',
@@ -10,6 +10,8 @@ const CORE = [
   './manifest.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './assets/fonts/lexend-variable.woff2',
+  './assets/fonts/newsreader-variable.woff2',
 ];
 const CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 

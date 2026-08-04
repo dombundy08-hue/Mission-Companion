@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1a2744">
+<meta name="theme-color" content="#163C64">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
@@ -18,16 +18,31 @@
      For now: cloud sync optional; app works offline with localStorage fallback -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+  /* Self-hosted (offline-safe, no CDN) — Lexend for body/UI (built for reading
+     proficiency), Newsreader for headings (screen-optimized serif, distinct
+     from the system-font look). Both are variable fonts: one file covers the
+     whole weight range used here. */
+  @font-face{
+    font-family:'Lexend';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url('assets/fonts/lexend-variable.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Newsreader';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url('assets/fonts/newsreader-variable.woff2') format('woff2');
+  }
   :root{
-    --navy:#1a2744;
-    --navy-soft:#26365c;
-    --bg:#fafaf8;
+    --font-body:'Lexend',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-heading:'Newsreader',Georgia,'Times New Roman',serif;
+    --navy:#163C64;
+    --navy-soft:#1F5389;
+    --bg:#F5F8FC;
     --card:#ffffff;
-    --gold:#b8973a;
-    --gold-dark:#9c7e2c;
-    --text:#1f2430;
-    --muted:#6b7280;
-    --line:#e7e5df;
+    --gold:#1C6FB0;
+    --gold-dark:#145084;
+    --accent-btn:#1C6FB0;
+    --text:#1B2430;
+    --muted:#5B6B82;
+    --line:#E1E8F0;
     --danger:#9a3b2f;
     --danger-bg:#fbeae6;
     --safe-bottom:env(safe-area-inset-bottom, 0px);
@@ -35,42 +50,45 @@
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --navy:#0f1c2e;
-      --navy-soft:#1a2e47;
-      --bg:#0d1117;
-      --card:#161b22;
-      --gold:#d4a84a;
-      --gold-dark:#c7991a;
-      --text:#e0e0e0;
-      --muted:#8b949e;
-      --line:#30363d;
+      --navy:#0B1D33;
+      --navy-soft:#12314F;
+      --bg:#0A0F17;
+      --card:#121826;
+      --gold:#6BB4EA;
+      --gold-dark:#3D7FB5;
+      --accent-btn:#1C6FB0;
+      --text:#E4E9F1;
+      --muted:#93A2B8;
+      --line:#263447;
       --danger:#da3633;
       --danger-bg:#3d1f1a;
     }
   }
   :root[data-theme="light"]{
-    --navy:#1a2744;
-    --navy-soft:#26365c;
-    --bg:#fafaf8;
+    --navy:#163C64;
+    --navy-soft:#1F5389;
+    --bg:#F5F8FC;
     --card:#ffffff;
-    --gold:#b8973a;
-    --gold-dark:#9c7e2c;
-    --text:#1f2430;
-    --muted:#6b7280;
-    --line:#e7e5df;
+    --gold:#1C6FB0;
+    --gold-dark:#145084;
+    --accent-btn:#1C6FB0;
+    --text:#1B2430;
+    --muted:#5B6B82;
+    --line:#E1E8F0;
     --danger:#9a3b2f;
     --danger-bg:#fbeae6;
   }
   :root[data-theme="dark"]{
-    --navy:#0f1c2e;
-    --navy-soft:#1a2e47;
-    --bg:#0d1117;
-    --card:#161b22;
-    --gold:#d4a84a;
-    --gold-dark:#c7991a;
-    --text:#e0e0e0;
-    --muted:#8b949e;
-    --line:#30363d;
+    --navy:#0B1D33;
+    --navy-soft:#12314F;
+    --bg:#0A0F17;
+    --card:#121826;
+    --gold:#6BB4EA;
+    --gold-dark:#3D7FB5;
+    --accent-btn:#1C6FB0;
+    --text:#E4E9F1;
+    --muted:#93A2B8;
+    --line:#263447;
     --danger:#da3633;
     --danger-bg:#3d1f1a;
   }
@@ -148,13 +166,14 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    font-family:var(--font-body);
     background:var(--bg);
     color:var(--text);
     font-size:17px;
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
+  h1,h2,h3,.tabtitle{font-family:var(--font-heading);}
   button{font-family:inherit;cursor:pointer;}
   input,textarea{font-family:inherit;font-size:16px;}
   textarea{resize:vertical;}
@@ -164,7 +183,7 @@
     display:none;
     min-height:100vh;
     padding:calc(var(--safe-top) + 40px) 26px 40px;
-    background:linear-gradient(160deg,#1a2744 0%,#26365c 100%);
+    background:linear-gradient(160deg,#163C64 0%,#1F5389 100%);
     color:#fafaf8;
   }
   #setup.show{display:block;}
@@ -179,7 +198,7 @@
   #setup .help{font-size:14px;color:#aab3c9;margin-top:18px;text-align:center;line-height:1.6;}
   .btn-gold{
     width:100%;min-height:52px;border:none;border-radius:12px;
-    background:var(--gold);color:#1a2744;font-size:18px;font-weight:700;
+    background:var(--accent-btn);color:#fff;font-size:18px;font-weight:700;
     box-shadow:0 2px 0 var(--gold-dark);
   }
   .btn-gold:active{transform:translateY(1px);box-shadow:0 1px 0 var(--gold-dark);}
@@ -235,7 +254,7 @@
   }
   .btn{
     width:100%;min-height:50px;border:none;border-radius:12px;
-    background:var(--gold);color:#1a2744;font-size:17px;font-weight:700;
+    background:var(--accent-btn);color:#fff;font-size:17px;font-weight:700;
     box-shadow:0 2px 0 var(--gold-dark);
   }
   .btn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--gold-dark);}
@@ -279,7 +298,7 @@
 
   /* backup bar */
   .backup-bar{
-    background:linear-gradient(150deg,#1a2744,#2c3e68);color:#fff;border-radius:14px;
+    background:linear-gradient(150deg,#163C64,#1F5389);color:#fff;border-radius:14px;
     padding:15px 16px;margin-bottom:16px;
   }
   .backup-bar .bx{font-size:16px;margin-bottom:10px;}
@@ -411,7 +430,7 @@
   #lock{
     display:none;min-height:100vh;
     padding:calc(var(--safe-top) + 60px) 26px 40px;
-    background:linear-gradient(160deg,#1a2744 0%,#26365c 100%);color:#fafaf8;
+    background:linear-gradient(160deg,#163C64 0%,#1F5389 100%);color:#fafaf8;
   }
   #lock .crest{font-size:46px;text-align:center;margin-bottom:14px;}
   #lock h1{font-size:24px;font-weight:600;margin:0 0 26px;text-align:center;line-height:1.35;}
@@ -428,7 +447,7 @@
   #scriptureLockOverlay{
     display:none;position:fixed;inset:0;z-index:200;overflow-y:auto;min-height:100vh;
     padding:calc(var(--safe-top) + 60px) 26px 40px;
-    background:linear-gradient(160deg,#1a2744 0%,#26365c 100%);color:#fafaf8;
+    background:linear-gradient(160deg,#163C64 0%,#1F5389 100%);color:#fafaf8;
   }
   #scriptureLockOverlay.show{display:block;}
   #scriptureLockOverlay .crest{font-size:40px;text-align:center;margin-bottom:10px;}
@@ -500,7 +519,7 @@
 
   /* ---------- Workout coach ---------- */
   .wo-stage{
-    background:linear-gradient(160deg,#1a2744,#2c3e68);color:#fff;border-radius:18px;
+    background:linear-gradient(160deg,#163C64,#1F5389);color:#fff;border-radius:18px;
     padding:26px 18px;text-align:center;margin-bottom:14px;
   }
   .wo-step{font-size:12px;letter-spacing:.7px;text-transform:uppercase;color:#9fb0d4;font-weight:700;margin-bottom:10px;}
@@ -576,7 +595,7 @@
   .rep-card .rep-target{display:inline-block;font-size:12px;font-weight:700;color:var(--gold-dark);margin-left:6px;white-space:nowrap;}
   .rep-card .rep-note{font-size:12px;color:var(--muted);line-height:1.3;}
   .rep-card .rep-count{font-size:13px;color:var(--gold-dark);font-weight:700;margin-top:auto;}
-  .rep-btn{width:100%;min-height:46px;border:none;border-radius:11px;background:var(--gold);color:#1a2744;font-size:15px;font-weight:700;box-shadow:0 2px 0 var(--gold-dark);}
+  .rep-btn{width:100%;min-height:46px;border:none;border-radius:11px;background:var(--accent-btn);color:#fff;font-size:15px;font-weight:700;box-shadow:0 2px 0 var(--gold-dark);}
   .rep-btn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--gold-dark);}
   .rep-btn.resting{background:#dfe3ea;color:#5a6472;box-shadow:none;font-variant-numeric:tabular-nums;}
   .rep-btn.done{background:#cfe0c8;color:#3f6a4a;box-shadow:none;}
@@ -649,7 +668,7 @@
   .counter-wrap{display:flex;align-items:center;gap:14px;justify-content:center;margin:6px 0 4px;}
   .counter-num{font-size:44px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;min-width:70px;text-align:center;}
   .counter-num .cu{font-size:15px;color:var(--muted);font-weight:600;}
-  .counter-btn{width:60px;height:60px;border-radius:50%;border:none;font-size:26px;font-weight:800;background:var(--gold);color:#1a2744;box-shadow:0 2px 0 var(--gold-dark);}
+  .counter-btn{width:60px;height:60px;border-radius:50%;border:none;font-size:26px;font-weight:800;background:var(--accent-btn);color:#fff;box-shadow:0 2px 0 var(--gold-dark);}
   .counter-btn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--gold-dark);}
   .counter-btn.minus{background:#eef0f4;color:var(--navy);box-shadow:0 2px 0 #d9dde6;font-size:30px;}
 
@@ -4150,8 +4169,8 @@ function sparkline(pts){
   const d=pts.map((p,i)=>(i?'L':'M')+sx(p.timestamp).toFixed(1)+' '+sy(p.weight).toFixed(1)).join(' ');
   const last=pts[pts.length-1];
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
-    <path d="${d}" fill="none" stroke="#b8973a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="${sx(last.timestamp).toFixed(1)}" cy="${sy(last.weight).toFixed(1)}" r="3.5" fill="#1a2744"/>
+    <path d="${d}" fill="none" stroke="#1C6FB0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${sx(last.timestamp).toFixed(1)}" cy="${sy(last.weight).toFixed(1)}" r="3.5" fill="#163C64"/>
   </svg>`;
 }
 function fmtEntryDate(s){
@@ -5147,7 +5166,7 @@ function renderMasteryPractice(c, deck, coll){
   html+=`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">`;
   MODES.forEach(m=>{
     const a=st.mode===m.k;
-    html+=`<button data-mmode="${m.k}" style="min-height:48px;border-radius:11px;font-size:14px;font-weight:700;border:1px solid ${a?'#1a2744':'#e7e5df'};background:${a?'#1a2744':'#fff'};color:${a?'#fff':'#1a2744'};">${m.label}</button>`;
+    html+=`<button data-mmode="${m.k}" style="min-height:48px;border-radius:11px;font-size:14px;font-weight:700;border:1px solid ${a?'#163C64':'#E1E8F0'};background:${a?'#163C64':'#fff'};color:${a?'#fff':'#163C64'};">${m.label}</button>`;
   });
   html+=`</div>`;
   html+=`<div class="card-counter">Card ${pos} of ${total}</div>`;
