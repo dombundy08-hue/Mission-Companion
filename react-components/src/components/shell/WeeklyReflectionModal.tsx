@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getGoals,
   healthAverages,
@@ -37,6 +37,14 @@ export function WeeklyReflectionModal({ onClose }: { onClose: () => void }) {
   const excused = getExcusedAreas();
   const g = getGoals();
   const weekStart = daysThisWeekTs();
+
+  // Mark shown the moment the pop-up is actually displayed, not only when
+  // dismissed — a reload/relaunch that happens before the user taps "Got
+  // it" (app backgrounded, tab closed) used to leave it un-marked, so it
+  // kept reappearing on every subsequent open for the rest of the week.
+  useEffect(() => {
+    markReflectionShown();
+  }, []);
 
   const areas = useMemo<Area[]>(() => {
     const avgs = healthAverages(7);

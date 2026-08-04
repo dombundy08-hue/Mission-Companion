@@ -5,14 +5,17 @@ import { BottomNav } from './BottomNav';
 import { SettingsModal } from './SettingsModal';
 import { ScriptureLockOverlay } from './ScriptureLockOverlay';
 import { WeeklyReflectionModal, shouldShowWeeklyReflection } from './WeeklyReflectionModal';
+import { FastReminderModal } from './FastReminderModal';
 import { UpdateBanner } from './UpdateBanner';
 import { DemoModeBanner } from './DemoModeBanner';
 import { isDemoMode } from '@/lib/demo';
+import { shouldShowFastReminder, getFastSundayIntention } from '@/lib/health-data';
 
 export function AppShell() {
   const { sectionId = 'spiritual', tabId = 'journal' } = useParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showReflection, setShowReflection] = useState(() => shouldShowWeeklyReflection());
+  const [showFastReminder, setShowFastReminder] = useState(() => shouldShowFastReminder());
 
   // Per-section color scheme — applied to <html> (same element theme.ts
   // toggles `.dark` on) so `.dark.section-exercise` etc. in index.css can
@@ -38,7 +41,11 @@ export function AppShell() {
       <BottomNav activeSectionId={sectionId} activeTabId={tabId} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ScriptureLockOverlay />
-      {showReflection && <WeeklyReflectionModal onClose={() => setShowReflection(false)} />}
+      {showFastReminder ? (
+        <FastReminderModal intention={getFastSundayIntention()} onClose={() => setShowFastReminder(false)} />
+      ) : (
+        showReflection && <WeeklyReflectionModal onClose={() => setShowReflection(false)} />
+      )}
     </div>
   );
 }

@@ -66,6 +66,22 @@ export function setFastSundayIntention(text: string) {
   cloudSaveSetting('healthFastSundayIntention', text);
 }
 
+// First-open-of-the-day reminder of what you fasted for — separate from the
+// Weekly Reflection pop-up, keyed by calendar day (not week) since it only
+// applies on an active Fast Sunday with a saved intention.
+export function fastReminderShownToday(): boolean {
+  return getLS<string | null>('fastReminderShown', null) === isoDate();
+}
+export function markFastReminderShown() {
+  setLS('fastReminderShown', isoDate());
+}
+export function shouldShowFastReminder(): boolean {
+  const today = isoDate();
+  if (!isFastSunday(today)) return false;
+  if (!getFastSundayIntention().trim()) return false;
+  return !fastReminderShownToday();
+}
+
 export interface HealthGoals {
   profile?: {
     units?: string;

@@ -52,6 +52,7 @@ export function HealthToday() {
   const today = isoDate();
   const [fastToday, setFastToday] = useState(() => isFastSunday(today));
   const [fastIntention, setFastIntentionState] = useState(() => getFastSundayIntention());
+  const [editingIntention, setEditingIntention] = useState(() => !getFastSundayIntention().trim());
   const [visible, setVisible] = useState<string[]>(() => getLS('health_visibleMetrics', DEFAULT_VISIBLE));
   useSettingsChanged(() => setVisible(getLS('health_visibleMetrics', DEFAULT_VISIBLE)));
 
@@ -102,10 +103,14 @@ export function HealthToday() {
     toggleFastSunday(today);
     setFastToday(isFastSunday(today));
     setFastIntentionState(getFastSundayIntention());
+    setEditingIntention(!getFastSundayIntention().trim());
   }
   function saveFastIntention(text: string) {
     setFastIntentionState(text);
     setFastSundayIntention(text);
+  }
+  function confirmFastIntention() {
+    if (fastIntention.trim()) setEditingIntention(false);
   }
 
   return (
@@ -150,17 +155,39 @@ export function HealthToday() {
         </label>
         {fastToday && (
           <div className="mt-3">
-            <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--foreground)' }}>What are you fasting for?</label>
-            <textarea
-              value={fastIntention}
-              onChange={(e) => saveFastIntention(e.target.value)}
-              placeholder="e.g. a companion who's struggling, an investigator's family…"
-              className="min-h-[60px] w-full rounded-xl border p-2.5 text-sm"
-              style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
-            />
-            {fastIntention.trim() && (
-              <div className="mt-2 rounded-lg p-2.5 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
-                🙏 Fasting today for: <b>{fastIntention}</b>
+            {editingIntention ? (
+              <>
+                <label className="mb-1.5 block text-xs font-semibold" style={{ color: 'var(--foreground)' }}>What are you fasting for?</label>
+                <textarea
+                  value={fastIntention}
+                  onChange={(e) => saveFastIntention(e.target.value)}
+                  onBlur={confirmFastIntention}
+                  placeholder="e.g. a companion who's struggling, an investigator's family…"
+                  className="min-h-[60px] w-full rounded-xl border p-2.5 text-sm"
+                  style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
+                />
+                {fastIntention.trim() && (
+                  <button
+                    type="button"
+                    onClick={confirmFastIntention}
+                    className="mt-2 rounded-lg px-3 py-1.5 text-xs font-bold text-white"
+                    style={{ background: 'var(--primary)' }}
+                  >
+                    Save
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-lg p-2.5 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
+                <span>🙏 Fasting today for: <b>{fastIntention}</b></span>
+                <button
+                  type="button"
+                  onClick={() => setEditingIntention(true)}
+                  className="flex-none text-xs font-bold underline"
+                  style={{ color: 'var(--secondary-foreground)' }}
+                >
+                  Edit
+                </button>
               </div>
             )}
           </div>
