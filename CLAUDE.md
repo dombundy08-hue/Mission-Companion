@@ -28,7 +28,7 @@ This project uses the **`mission-companion-deploy` skill** which runs **automati
 
 **Result**: Every push is automatically audited and fixed on both the frontend and Supabase backend, then documented. Skill continuously improves itself.
 
-**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). See SKILL.md for full details.
+**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). Also now covers two regression classes found during the Phase 2 (Scripture/Objections) deploy: (1) a new setting saved via `cloudSaveSetting()` but never added to its `map.has()` pull-down branch in `syncSettings()` — silently write-only across devices; (2) sentinel strings meaning "not applicable" (e.g. a `fallacy` field of `"none"`) checked with exact equality instead of a prefix-safe regex — breaks the moment the authored value has an explanatory suffix. See SKILL.md for full details.
 
 See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
 
@@ -41,12 +41,12 @@ Render functions read from localStorage. Keys are synced to Supabase on every sa
 
 ```
 Keys:
-- authenticated, apiKey, theme (app state)
+- authenticated, apiKey, theme, scriptureLockMode (app state)
 - journalEntries, miracleEntries, glossaryTerms (JSON arrays)
 - scriptureDeck, usedPromptIndices (JSON)
 - healthFood, savedFoods, workoutLog (arrays)
 - activeTab, activeSection (string)
-- scriptureStreak, scriptureCollection (JSON)
+- scriptureStreak, scriptureCollection (JSON) — `effectiveStreak()` grants one grace day (missed exactly one day keeps it alive); two consecutive misses breaks it
 ```
 
 Helpers: `getLS(key)`, `setLS(key, val)` — use these directly, JSON.stringify is automatic.
