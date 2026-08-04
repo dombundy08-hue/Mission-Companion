@@ -8,15 +8,14 @@ const SUPABASE_KEY = 'sb_publishable_8HpSPjIDolxclSxlp4OQxw_GDC6XoOL';
 
 export const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Module-level sync state, same shape as the vanilla app's globals.
-// cloudReady gates pushes until the initial pull+merge has happened;
 // pendingPush marks unsynced local changes waiting for a connection.
-export let cloudReady = false;
+// Matches the vanilla app's gating exactly: sbOnline() only. (An earlier
+// version of this file added a cloudReady gate meant to unlock after an
+// initial boot-time pull+merge, but that pull was never built, so the gate
+// never opened and every cloud write silently no-op'd. Since there's no pull
+// sync yet, gating on it is strictly worse than vanilla's simpler check —
+// removed rather than half-finished.)
 let pendingPush = false;
-
-export function setCloudReady(v: boolean) {
-  cloudReady = v;
-}
 
 function sbOnline(): boolean {
   return !!sb && navigator.onLine;
@@ -92,7 +91,6 @@ function stamp<T extends { cloudId?: string }>(
 }
 
 export async function cloudSaveMiracle(entry: MiracleEntry) {
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
@@ -112,7 +110,6 @@ export async function cloudSaveMiracle(entry: MiracleEntry) {
 }
 
 export async function cloudSaveGlossary(term: GlossaryTerm) {
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
@@ -133,7 +130,6 @@ export async function cloudSaveGlossary(term: GlossaryTerm) {
 }
 
 export async function cloudSaveJournal(entry: JournalEntry) {
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
@@ -154,7 +150,6 @@ export async function cloudSaveJournal(entry: JournalEntry) {
 
 export async function cloudDeleteRow(table: string, item: { cloudId?: string }) {
   if (!item?.cloudId) return;
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
@@ -185,7 +180,6 @@ function stampScripture(scripId: number, cloudId: string) {
 }
 
 export async function cloudSaveScripture(card: ScriptureProgressCard) {
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
@@ -223,7 +217,6 @@ export async function cloudSaveScripture(card: ScriptureProgressCard) {
 }
 
 export async function cloudSaveSetting(key: string, value: unknown) {
-  if (!cloudReady) return;
   if (!sbOnline()) {
     markPending();
     return;
