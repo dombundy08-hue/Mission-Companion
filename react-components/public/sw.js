@@ -2,7 +2,7 @@
    Bump CACHE to ship a new version — the old cache is cleared on activate,
    and updated files flow in via stale-while-revalidate on the next load.
    Supabase data traffic is never cached, so cloud sync stays live/fresh. */
-const CACHE = 'mission-companion-v4';
+const CACHE = 'mission-companion-v5';
 
 /* v4: the React app is now the primary site (was previously the vanilla
    index.html + an embedded react-build/ iframe). Bumping CACHE purges
@@ -11,7 +11,11 @@ const CACHE = 'mission-companion-v4';
    every build, so they're intentionally NOT precached here — they flow
    in via the fetch handler's stale-while-revalidate on first request,
    keyed by their real (hashed) URL like everything else. Only truly
-   stable, unhashed public/ assets are safe to precache by name. */
+   stable, unhashed public/ assets are safe to precache by name.
+   v5: section icon PNGs changed content under the same unhashed filename
+   (background removed, etc.) — stale-while-revalidate alone left old
+   cached bytes visible until a background revalidation happened to land.
+   Bumping CACHE forces every device to refetch them fresh on next load. */
 const CORE = [
   './',
   './index.html',

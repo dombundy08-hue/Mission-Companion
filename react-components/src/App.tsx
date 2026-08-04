@@ -22,6 +22,7 @@ import { Routines } from '@/screens/Routines';
 import { Workout } from '@/screens/Workout';
 import { WorkoutLog } from '@/screens/WorkoutLog';
 import { findTab } from '@/lib/sections';
+import { pullAndMergeAll } from '@/lib/cloud-pull';
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
   switch (`${sectionId}/${tabId}`) {
@@ -84,14 +85,38 @@ function useBootReady() {
   return ready;
 }
 
+// Pulls existing cloud data down into localStorage once per authenticated
+// session — this was documented as the intended design but never actually
+// built, so a device with empty/cleared local storage would show nothing
+// even though real data was safely sitting in Supabase the whole time.
+// KineticLoader (real "something is loading" indicator) covers this wait.
+function useCloudSynced(authenticated: boolean) {
+  const [synced, setSynced] = useState(false);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let cancelled = false;
+    pullAndMergeAll().finally(() => {
+      if (!cancelled) setSynced(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticated]);
+
+  return synced;
+}
+
 function GatedApp() {
   const [introDone, setIntroDone] = useState(false);
   const ready = useBootReady();
   const { authenticated } = useAuth();
+  const synced = useCloudSynced(authenticated);
 
   if (!introDone) return <AppIntro onDone={() => setIntroDone(true)} />;
   if (!ready) return <KineticLoader />;
   if (!authenticated) return <LockScreen />;
+  if (!synced) return <KineticLoader />;
 
   return (
     <Routes>

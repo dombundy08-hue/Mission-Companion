@@ -2,12 +2,13 @@ import { useEffect, useRef } from 'react';
 
 // Netflix-style brand intro — plays once every time the app is opened,
 // distinct from KineticLoader (which is the functional "something is
-// loading" indicator used elsewhere). Purely decorative: doesn't wait on
-// fonts/data, just plays and hands off.
+// loading" indicator, now also used for the real cloud-sync wait — see
+// App.tsx's useCloudSynced). Purely decorative: doesn't wait on fonts/data,
+// just plays and hands off.
 const LINE_1 = 'MISSIONARY';
 const LINE_2 = 'COMPANION';
-const HOLD_MS = 1400;
-const TOTAL_MS = 2100;
+const HOLD_MS = 2000;
+const TOTAL_MS = 2700;
 
 function flyInWord(el: HTMLDivElement, word: string, baseDelay: number): HTMLSpanElement[] {
   el.innerHTML = '';

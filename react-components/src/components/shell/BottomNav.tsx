@@ -40,7 +40,7 @@ export function BottomNav({ activeSectionId, activeTabId }: BottomNavProps) {
               <img
                 src={section.iconImage}
                 alt=""
-                className={few ? 'h-[22px] w-[22px] object-contain' : 'h-5 w-5 object-contain'}
+                className={few ? 'h-8 w-8 object-contain' : 'h-7 w-7 object-contain'}
                 style={active ? { transform: 'translateY(-1px)' } : undefined}
               />
             ) : (

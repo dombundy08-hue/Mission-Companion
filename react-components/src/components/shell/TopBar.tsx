@@ -34,7 +34,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
           transition={{ duration: 0.25, ease: 'backInOut' }}
           className="flex items-center gap-2 text-base font-semibold"
         >
-          {section?.iconImage && <img src={section.iconImage} alt="" className="h-6 w-6 object-contain" />}
+          {section?.iconImage && <img src={section.iconImage} alt="" className="h-9 w-9 object-contain" />}
           <span>{section?.name}</span>
           <span className="text-xs opacity-70">▾</span>
         </motion.button>
@@ -84,7 +84,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
                       : undefined
                   }
                 >
-                  <img src={s.iconImage} alt="" className="h-8 w-8 object-contain" />
+                  <img src={s.iconImage} alt="" className="h-12 w-12 object-contain" />
                   <span className="font-medium">{s.name}</span>
                 </motion.button>
               ))}
