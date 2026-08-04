@@ -18,14 +18,17 @@ Design system: `design-system/mission-companion/MASTER.md`.
 | 6 | Spiritual → Objections | ✅ Done | Real 43-entry `OBJECTIONS` array (verbatim from vanilla — the earlier "50" note was an inaccurate estimate, not a real target) + fallacy/comeback reveal panel + `callClaude()`, matches vanilla 1:1 |
 | 7 | Spiritual → Mastery | ✅ Done | Real 109-card `SCRIPTURE_DEFAULTS` deck, weighted spaced-repetition selection, 3 practice modes (ref→text/blank/text→ref), grace-day streak logic, cloud sync via `cloudSaveScripture`, "Add My Own" custom cards, matches vanilla 1:1 |
 | 8 | Spiritual → Email | ✅ Done | Voice-example collection (first-run + "Update My Voice"), highlights composer, `callClaude()` write, copy-to-clipboard, backup-reminder banner (routes to Journal via React Router instead of the vanilla DOM-scroll approach), matches vanilla 1:1 |
-| 9 | Exercise → Routines | ⏳ Placeholder | Largest/most complex screen family: Routines list (~52) + part-type picker (~39) + Timed/Rep/Circuit editors (~32/32/41) + Assemble (~231, multi-part state machine) + Workout player (~109) + Rep player (~62) + Workout log (~166) |
-| 10 | Health → Food | ⏳ Placeholder | ~320 lines vanilla — food search (USDA API), rough-estimate mode (AI), Saved Foods (frequency-gated), Fast Sunday toggle |
-| 11 | Health → Stats | ⏳ Placeholder | Existing `HealthActivityCard`/`ActivityCard` component already built (earlier session) — needs re-wiring from postMessage/iframe to native props now that it's in the same app, no iframe boundary |
-| 12 | Health → Body | ⏳ Placeholder | ~62 lines vanilla — body metrics form |
-| 13 | Health → Setup (goals) | ⏳ Placeholder | ~313 lines vanilla — large goals-editor form |
-| 14 | Settings | ⏳ Not started | ~537 lines vanilla — biggest single screen: dark mode, API keys (password-gated), voice picker, Scripture Lock toggle, backup/export, Church link. Highest risk/complexity in the whole app |
-| 15 | Scripture Lock overlay | ⏳ Not started | Full-screen gate requiring typing a practiced scripture on idle/cold-unlock, added this session — cuts across app-shell level, not a single screen |
-| 16 | Kinetic loading screen | ⏳ Not started | LOADING/MISSIONARY+COMPANION word-cycle animation, added this session — self-contained, should be a quick, low-risk port once picked up |
+| 9 | Exercise → Workout | ⏳ Placeholder | Spoken workout coach/player (~109 lines) |
+| 9b | Exercise → Routines | ⏳ Placeholder | Largest/most complex family: Routines list (~52) + part-type picker (~39) + Timed/Rep/Circuit editors (~32/32/41) + Assemble (~231, multi-part state machine) + Rep player (~62) |
+| 9c | Exercise → Log | ⏳ Placeholder | Workout history (~166 lines vanilla). **Design decision (2026-08-03): uses the `ActivityCard` ring-style component as a full replacement for the plain vanilla list, per explicit user request** — same real data (routine name/duration/steps), richer visual |
+| 10 | Health → Today | ⏳ Placeholder | **Real vanilla tab, missed in the original manifest** — snapshot summary, water/electrolyte counter, mood+energy 1-5 taps, symptom check-in, edit-goals link. Redirects to Setup if no goals set yet (matches vanilla) |
+| 11 | Health → Food | ⏳ Placeholder | ~320 lines vanilla — food search (USDA + Open Food Facts APIs), rough-estimate mode (AI), Saved Foods (frequency-gated ≥10 identical logs/90 days), Fast Sunday toggle |
+| 12 | Health → Body | ⏳ Placeholder | ~62 lines vanilla — weight/sleep logging, weight sparkline trend |
+| 13 | Health → Setup (goals) | ⏳ Placeholder | ~110 lines vanilla — profile form, calorie-goal suggestion formula, daily goals editor |
+| 14 | Health → Stats | ⏳ Placeholder | **Design decision (2026-08-03): uses the `ActivityCard` ring-style component (already built, `components/ui/activity-card.tsx`) as a full replacement for the plain vanilla status-dot list, per explicit user request** — same real averages/goals data (calories/protein/sleep/water/mood/energy), richer visual. No longer postMessage/iframe-driven — native props now that there's no iframe boundary |
+| 15 | Settings | ⏳ Not started | ~537 lines vanilla — biggest single screen: dark mode, API keys (password-gated), voice picker, Scripture Lock toggle, backup/export, Church link. Highest risk/complexity in the whole app |
+| 16 | Scripture Lock overlay | ⏳ Not started | Full-screen gate requiring typing a practiced scripture on idle/cold-unlock, added this session — cuts across app-shell level, not a single screen |
+| 17 | Kinetic loading screen | ✅ Done | `components/shell/KineticLoader.tsx` — real 3D fly-in/fly-out char animation, real brand words (LOADING/MISSIONARY/COMPANION), wired as the app boot splash gated on `document.fonts.ready` |
 
 ## Supporting infrastructure
 
