@@ -22,13 +22,13 @@ This file provides guidance to Claude Code when working with code in this reposi
 This project uses the **`mission-companion-deploy` skill** which runs **automatically on every `git push origin main`**:
 
 1. **Deploy Agent** — Builds React components, copies to react-build/, commits, and pushes
-2. **Code Audit Agent** — Scans entire codebase for bugs, DOM errors, path issues, and deprecated patterns
-3. **Auto-Fix Loop Agent** — Takes audit findings, fixes each issue, rebuilds, and verifies (up to 3 retries per bug)
+2. **Code Audit Agent** — Scans the codebase (DOM errors, path issues, deprecated patterns) AND the Supabase backend (`mxlfwmwjkanvsjimralh`: missing tables/columns, RLS misconfig, schema/code drift) via Supabase MCP tools
+3. **Auto-Fix Loop Agent** — Takes audit findings, fixes each issue on either end (code fix or Supabase migration), rebuilds, and verifies (up to 3 retries per bug)
 4. **Learning Agent** — Updates SKILL.md and CLAUDE.md based on lessons learned, making both more advanced and efficient
 
-**Result**: Every push is automatically audited, fixed, and documented. Skill continuously improves itself.
+**Result**: Every push is automatically audited and fixed on both the frontend and Supabase backend, then documented. Skill continuously improves itself.
 
-**Latest learnings (2026-08-03):** Audit checklist now also covers postMessage/iframe security patterns — `'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, and hardcoded vs dynamic paths. See SKILL.md for full details.
+**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). See SKILL.md for full details.
 
 See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
 
