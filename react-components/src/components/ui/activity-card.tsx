@@ -8,7 +8,7 @@ export interface Metric {
   label: string;
   value: string;
   trend: number;
-  unit?: "cal" | "min" | "hrs" | "g" | "cups" | "lbs";
+  unit?: string;
 }
 
 export interface Goal {
