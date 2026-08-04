@@ -24,8 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }
 
-  // No password check — Demo Mode is meant to be handed to anyone.
+  // No password check — Demo Mode is meant to be handed to anyone. Wipes
+  // first: this device may already hold Dom's real journal/health/scripture
+  // data, and demo mode must never expose it to whoever it's shown to.
+  // Safe to clear synchronously here — nothing past LockScreen has read
+  // localStorage yet, since the gated screens only mount once authenticated
+  // flips true below.
   function unlockDemo() {
+    localStorage.clear();
     setDemoMode(true);
     writeAuthenticated(true);
     setAuthenticatedState(true);

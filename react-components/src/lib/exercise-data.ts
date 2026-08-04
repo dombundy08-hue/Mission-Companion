@@ -250,12 +250,19 @@ export function programSnapshot(p: WorkoutProgram): { name: string; parts: Routi
 
 // Clones a Community program snapshot into the user's own routines + a new
 // local program, so "Use This Program" works without touching the poster's data.
-export function importSharedProgram(name: string, workouts: { name: string; parts: RoutinePart[] }[]): void {
-  const routineIds = workouts.map((w) => {
-    const r: Routine = { id: uid(), name: w.name, steps: w.parts.map(clonePart), createdAt: Date.now() };
-    saveRoutine(r);
-    return r.id;
-  });
+// `workouts` comes from the shared_programs table, which has fully open RLS
+// (anyone can POST arbitrary JSON directly, not just through this app) — so
+// its shape is untrusted and malformed entries are skipped, not thrown on.
+export function importSharedProgram(name: string, workouts: unknown): void {
+  if (!Array.isArray(workouts)) return;
+  const routineIds = workouts
+    .filter((w): w is { name: string; parts: RoutinePart[] } => !!w && typeof w.name === 'string' && Array.isArray(w.parts))
+    .map((w) => {
+      const r: Routine = { id: uid(), name: w.name, steps: w.parts.map(clonePart), createdAt: Date.now() };
+      saveRoutine(r);
+      return r.id;
+    });
+  if (!routineIds.length) return;
   saveProgram({ id: uid(), name, routineIds, createdAt: Date.now() });
 }
 

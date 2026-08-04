@@ -173,7 +173,7 @@ export function Routines() {
     }
   }
   function useSharedProgram(sp: SharedProgram) {
-    importSharedProgram(sp.name, sp.workouts as { name: string; parts: RoutinePart[] }[]);
+    importSharedProgram(sp.name, sp.workouts);
     refresh();
     refreshPrograms();
     say(`"${sp.name}" added to your routines and programs.`);
@@ -513,11 +513,13 @@ export function Routines() {
           </div>
         ) : (
           <div className="space-y-2.5">
-            {shared.map((sp) => (
+            {shared.map((sp) => {
+              const dayCount = Array.isArray(sp.workouts) ? sp.workouts.length : 0;
+              return (
               <div key={sp.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
                 <div className="mb-1 font-bold" style={{ color: 'var(--navy)' }}>{sp.name}</div>
                 <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  {sp.workouts.length} day{sp.workouts.length === 1 ? '' : 's'}{sp.author ? ` · by ${sp.author}` : ''}
+                  {dayCount} day{dayCount === 1 ? '' : 's'}{sp.author ? ` · by ${sp.author}` : ''}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -532,7 +534,8 @@ export function Routines() {
                   <button type="button" onClick={() => useSharedProgram(sp)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>Use This Program</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
