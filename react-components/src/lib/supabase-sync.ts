@@ -37,15 +37,6 @@ export interface MiracleEntry {
   body: string;
 }
 
-export interface GlossaryTerm {
-  id: string;
-  cloudId?: string;
-  term: string;
-  child: string;
-  skeptic: string;
-  adult: string;
-}
-
 export interface JournalEntry {
   id: string;
   cloudId?: string;
@@ -59,14 +50,6 @@ export interface JournalEntry {
 // ---- field mapping (local shape <-> table columns), ported 1:1 from index.html ----
 function miracleToCloud(e: MiracleEntry) {
   return { entry_date: e.date || '', body: e.body || '' };
-}
-function glossaryToCloud(t: GlossaryTerm) {
-  return {
-    term: t.term || '',
-    child_explanation: t.child || '',
-    skeptic_explanation: t.skeptic || '',
-    adult_explanation: t.adult || '',
-  };
 }
 function journalToCloud(e: JournalEntry) {
   return {
@@ -108,26 +91,6 @@ export async function cloudSaveMiracle(entry: MiracleEntry) {
       (x) => x.date === entry.date && x.body === entry.body && !x.cloudId,
       ins.data.id
     );
-  } catch {
-    markPending();
-  }
-}
-
-export async function cloudSaveGlossary(term: GlossaryTerm) {
-  if (!sbOnline()) {
-    markPending();
-    return;
-  }
-  try {
-    if (term.cloudId) {
-      const up = await sb.from('glossary_terms').update(glossaryToCloud(term)).eq('id', term.cloudId);
-      if (up.error) throw up.error;
-    } else {
-      const ins = await sb.from('glossary_terms').insert(glossaryToCloud(term)).select('id').single();
-      if (ins.error) throw ins.error;
-      if (!ins.data) throw new Error('No data returned from insert');
-      stamp<GlossaryTerm>('glossaryTerms', (x) => x.id === term.id && !x.cloudId, ins.data.id);
-    }
   } catch {
     markPending();
   }

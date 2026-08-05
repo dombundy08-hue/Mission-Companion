@@ -46,7 +46,7 @@ async function pullSimple<M extends Record<string, unknown>>(
 }
 
 async function pullSettings(): Promise<void> {
-  const RAW_KEYS = new Set(['apiKey', 'usdaApiKey', 'theme', 'lastBackupTimestamp', 'qrCode']);
+  const RAW_KEYS = new Set(['apiKey', 'usdaApiKey', 'theme', 'lastBackupTimestamp']);
   try {
     const res = await sb.from('app_settings').select('key,value');
     if (res.error || !res.data) return;

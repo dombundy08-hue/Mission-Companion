@@ -110,7 +110,12 @@ export function HomeScreen() {
 
       <header
         className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
-        style={{ background: 'var(--navy)', boxShadow: '0 1px 6px rgba(0,0,0,.12)' }}
+        style={{
+          background: 'var(--navy)',
+          backdropFilter: 'blur(14px) saturate(160%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+          boxShadow: '0 1px 6px rgba(0,0,0,.12)',
+        }}
       >
         <div />
         <span className="justify-self-center whitespace-nowrap text-sm font-bold tracking-wide" style={{ color: 'var(--gold)' }}>
