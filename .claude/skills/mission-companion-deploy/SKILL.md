@@ -99,11 +99,11 @@ Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP t
     `cloudSave*`/`sb.from(...)` calls must actually exist; use `list_tables` to compare
 13. Recent API errors — check `get_logs` (service: api) for 4xx/5xx responses tied to app traffic, not infra health checks
 14. Column mismatch — a save function referencing a column that doesn't exist in the table
-15. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes. Note: as of 2026-08-04 every table's RLS policy is `USING (true)`/`WITH CHECK (true)` (fully open to anyone with the anon key) — this is the app's known, accepted security posture for a single-user personal tool (confirmed with the user), not a bug to silently "fix" by tightening policies without asking first.
+15. RLS (row-level security) misconfiguration — a table with `rls_enabled: true` but no policy, silently blocking all reads/writes. **⚠️ UPDATED 2026-08-05: RLS is no longer open.** As of the real multi-user accounts migration, every table (13 owner-scoped tables + `app_settings`) has `USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)`; `shared_programs` has open SELECT + owner-only write; `contact_leads` has open INSERT + owner-only SELECT/DELETE keyed on `code = auth.uid()::text`; `profiles` has open SELECT + self UPDATE. If you ever see a bare `USING (true)` on any table again going forward, that's a regression back to the old single-user model, not the accepted baseline — flag it as a real bug.
 16. Orphaned/dead tables — tables that exist in Supabase but nothing in the code writes to or reads from them (candidates for cleanup, not auto-fix)
 17. Natural-key dedup violations — duplicate rows for what should be a unique natural key (date+name, etc.), meaning the dedup logic isn't working
-18. Known pre-existing gap: `saved_foods` table is referenced by code but returns 404 — doesn't exist in `list_tables`. Flag but don't auto-fix without confirming with the user first, since creating the table is a schema decision, not a pure bug fix.
-19. Known gap found 2026-08-04: `glossary_terms` table also doesn't exist, so the React port's Glossary screen has been failing to sync to the backend since it was built (caught by its own try/catch, so no crash — just silent). Combined with Glossary never having been part of the vanilla app's live nav (`SECTIONS` object never included it), this confirms Glossary was genuinely abandoned/incomplete functionality upstream, not something this migration broke. Currently kept in the React nav (flagged to the user, not yet resolved either way) — don't auto-create the table without asking, same reasoning as `saved_foods`.
+18. ~~Known pre-existing gap: `saved_foods` table...~~ **RESOLVED 2026-08-04** — table created, pull path wired up. No longer a known gap.
+19. ~~Known gap: `glossary_terms` table doesn't exist...~~ **RESOLVED 2026-08-05** — the dead `cloudSaveGlossary`/`GlossaryTerm`/`glossaryToCloud` code was removed entirely from `supabase-sync.ts` (the Glossary screen itself was already removed earlier). No table, no code referencing it — fully closed, not just flagged.
 20. **A "wipe on exit" without a matching "wipe on entry."** Found 2026-08-04: Demo Mode's
     `unlockDemo()` set `demoMode=true` but never cleared `localStorage` first — only `lock()`
     (exit) wiped it. Any device that already held real user data would show all of it to
@@ -148,6 +148,46 @@ Supabase backend scan — project `mxlfwmwjkanvsjimralh` (use the Supabase MCP t
     matching what's actually live. **Check on every deploy**: does the deploy step ever
     run `rm`/delete anything under `assets/` before copying the new build in? If so,
     that's this bug — remove the deletion, just copy over.
+24. **A schema change to a table with an existing unique/composite constraint needs its
+    matching client `onConflict` target checked, not just the RLS policy.** Found
+    2026-08-05: `app_settings` went from unique-on-`key` to unique-on-`(user_id, key)`
+    during the multi-user migration; `cloudSaveSetting()`'s `.upsert(..., {onConflict:
+    'key'})` had to change to `'user_id,key'` in the *same deploy* as the migration —
+    shipping the schema change alone (even briefly) breaks every settings save app-wide
+    until the client catches up, silently (caught by the try/catch, just never
+    persists). **Check on every migration that alters a unique constraint**: grep the
+    client for every `.upsert(...)` call against that table and confirm its `onConflict`
+    string matches the new constraint exactly.
+25. **When migrating a single-owner table to per-user RLS, `user_id` column defaults +
+    RLS policies do essentially all the work — don't hand-add `.eq('user_id', ...)`
+    filters to existing call sites.** Verified 2026-08-05 across all ~25 call sites in
+    `supabase-sync.ts`/`cloud-pull.ts`: unmodified `insert()` (column default fills
+    `user_id`), `select('*')` (RLS filters transparently), `update()`/`delete()` (RLS
+    scopes which rows are touched) all needed zero code changes. The only real client
+    edits were (a) the `onConflict` fix above, and (b) tables with a genuinely different
+    access model (see #26, #27) — don't over-fix by adding redundant manual filters
+    "to be safe," they're dead weight once RLS already enforces the same thing.
+26. **A table meant to be open-read-but-owner-write (e.g. a public feed/gallery) breaks
+    any "let another user modify a shared counter" feature under plain owner-only RLS.**
+    Found 2026-08-05: `shared_programs`' "like" feature did a direct client-side
+    `UPDATE ... SET likes = likes + 1` — fine under old open RLS, silently rejected for
+    everyone except the post's author once RLS became owner-only. Fixed with a narrow
+    `security definer` Postgres RPC (`increment_program_likes(program_id)`) that only
+    ever touches the one counter column, checked `auth.uid() is null` inside the
+    function itself rather than relying on the RPC's own grants. **Check**: any table
+    with open-SELECT-owner-write RLS — does any UI action let a non-owner modify one of
+    its rows (voting, liking, reacting)? That action needs its own narrow RPC, not a
+    direct table UPDATE.
+27. **A public/anonymous-submission table (no login at all) can still be per-account-
+    scoped for reads, by keying its RLS off a value the client controls at write time.**
+    `contact_leads` is written by anonymous strangers (INSERT stays `WITH CHECK (true)`,
+    correctly — there's no session to check) but SELECT/DELETE are owner-scoped via
+    `auth.uid()::text = code`, where `code` is literally the owning account's own
+    `auth.uid()`, generated client-side (`lib/qr.ts`'s `getQrCode()`) and embedded in
+    the public share URL. **Pattern**: for a table with a legitimately-anonymous write
+    path, look for an existing "which account does this belong to" identifier the
+    client already generates (here, the QR code itself) before reaching for a full
+    owner-lookup table — sometimes the identifier already IS the account id.
 
 For each bug found (frontend or backend):
 - Exact file/line number, OR exact table/column/project_id for Supabase issues
@@ -251,6 +291,7 @@ Complete: Skill self-improved, code fixed, docs updated
 - **2026-08-03 run (commits 38884f7, 497bdbf, Health ActivityCard integration):** found live in production, not by static audit — ground-truthed by directly navigating the deployed site. A never-configured Vite `base`, and a service worker caching every navigation under one hardcoded key. Lesson: when a fix touches deploy-path or service-worker code, ground-truth against the actual live URL before trusting docs/checklist.
 - **2026-08-04 run (commits 689d02b, 86fba67, 335570a — React-app cutover):** the whole site architecture changed (vanilla index.html retired, react-components/ promoted to site root) in the same session as the audit, so most of the old checklist (iframe/postMessage items) went obsolete in one shot — rewritten above rather than incrementally patched. Two critical bugs found and fixed same-session: (1) GH Pages 404 on any direct-navigated client-side route (no 404.html fallback existed yet — this is a **structural gap for any React-Router-on-GH-Pages deploy**, not a regression, so it should be checked on the *first* deploy of any new SPA-on-static-host setup, not just as a regression check); (2) the dead `cloudReady` gate (checklist item #8) — **found only by actually tracing the write path with fresh eyes, not by pattern-matching against a known bug list**, since this bug class (a half-built safety mechanism, not a "regression") wasn't on the checklist at all before this run. Verified fixed by a real live round-trip: wrote a labeled test row via the actual production UI, confirmed it in `journal_entries` via `execute_sql`, deleted it via the UI's own delete flow. Lesson: **"no errors in the console" and "the UI looks right" are not proof data is actually persisting anywhere** — when a fix specifically touches the write path, verify with a real write+read, not just a UI smoke test.
 - **2026-08-04 run (commits d85c613/105b78e then a580454/4afc498 — Accounts & Security + a huge feature batch: Fast Sunday, averages rewrite, built-in workout templates, multi-week Programs, Community, QR contact exchange, per-section color schemes, and more):** the largest single-session diff yet (21 features, 2 new Supabase tables). Audit found 1 critical (checklist item #20, demo mode not wiping on entry — a real, currently-live privacy hole on the developer's own device), 1 high (#22, HTTPS not enforced — infra setting, not a code fix, correctly identified as un-auto-fixable and flagged to the user instead of attempted), 1 medium (#21, Community import trusting unvalidated open-RLS data). Both code-fixable bugs fixed in one pass, zero retries, verified live (localStorage before/after check for the demo-mode fix, reproduced via the actual "Try Demo Mode" button — not just read the code and assumed it worked). Lesson: **when a session builds many independent features back-to-back, the interactions between them are where bugs actually hide** — demo mode and the lock screen were each individually correct in isolation; the bug was specifically in how demo-mode *entry* interacted with pre-existing localStorage state that the lock-screen work didn't create but also didn't need to worry about. A feature-by-feature audit would likely have missed this; auditing the full session's diff as one unit caught it.
+- **2026-08-05 run (commits ca053ab → fbdc2e8 — real multi-user accounts: Supabase Auth, per-user RLS on 13 tables + app_settings + shared_programs + contact_leads, soft 5-account cap, Home dashboard, per-section color palettes, PWA install banner, PWA double-intro fix):** the single largest architectural change to date — replaced the entire single-hardcoded-password model with real accounts, mid-session, with one real account's live data migrated in place while the app stayed live throughout. Audit found **zero bugs in the migration itself** (verified call-site-by-call-site: RLS + column defaults correctly did almost all the enforcement work with no client filter code needed — see checklist #25) — only 2 small pieces of dead code (#18/#19, now resolved) and 2 non-urgent Supabase performance advisories (auth_rls_initplan, unindexed FKs — both fixed same-session anyway since they were cheap and mechanical, see #24/#26/#27 for the schema-migration-specific patterns that came out of this). Verified with a genuine outside-the-app test, not just reading the code: a raw `curl` against the REST API using only the public anon key (no session at all) returned `[]` for `journal_entries`/`health_food_log`/`app_settings` post-lockdown — proof a brand-new signup (or a random stranger with the public key) really does start from nothing, not just that the UI *looks* empty. Lesson: **for an RLS migration specifically, "the app works when I'm logged in as the owner" proves almost nothing** — the property that actually matters (does everyone ELSE correctly see nothing) needs its own explicit adversarial check, ideally from outside the app's own client code entirely.
 
 ## Error Handling
 - Build fails: Code Audit still runs to find root cause
