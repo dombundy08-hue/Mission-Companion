@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { signIn, signUp, accountCount, MAX_ACCOUNTS } from '@/lib/auth';
 import { useAuth } from './AuthContext';
+import { InstallPwaCard } from './InstallPwaCard';
 
 type Mode = 'signIn' | 'signUp';
 
@@ -191,6 +192,8 @@ export function LockScreen() {
           Try Demo Mode
         </button>
         <div className="mt-5 text-xs text-white/60">Need help? Contact 720-745-0911 or 720-745-3166.</div>
+
+        <InstallPwaCard />
       </div>
     </div>
   );
