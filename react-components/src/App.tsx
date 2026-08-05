@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/shell/AppShell';
 import { KineticLoader } from '@/components/shell/KineticLoader';
@@ -95,13 +95,22 @@ function GatedApp() {
   const { authenticated } = useAuth();
   const synced = useCloudSynced(authenticated);
 
+  // Stable reference — AppIntro's effect depends on this callback, so a new
+  // inline function on every GatedApp re-render (e.g. when `synced` flips
+  // true mid-intro on a slow cold-boot cloud pull) would cancel and restart
+  // the animation from scratch, which read as "it plays twice." Most
+  // reproducible on a cold PWA launch, where the network round-trip is
+  // more likely to land inside the intro's ~5s window than on a warm
+  // browser-tab reload.
+  const handleIntroDone = useCallback(() => setIntroDone(true), []);
+
   // AppIntro's own duration (several seconds) already comfortably covers
   // font loading — no separate "ready" gate needed before it, which used
   // to show its own KineticLoader and made the boot sequence feel like the
   // brand animation was playing multiple times in a row. Now there's at
   // most two distinct screens: the intro once, and KineticLoader once
   // (only if actually syncing) after the password is entered.
-  if (!introDone) return <AppIntro onDone={() => setIntroDone(true)} />;
+  if (!introDone) return <AppIntro onDone={handleIntroDone} />;
   if (!authenticated) return <LockScreen />;
   if (!synced) return <KineticLoader />;
 
