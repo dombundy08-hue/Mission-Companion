@@ -18,15 +18,19 @@ export function AppShell() {
   const [showFastReminder, setShowFastReminder] = useState(() => shouldShowFastReminder());
 
   // Per-section color scheme — applied to <html> (same element theme.ts
-  // toggles `.dark` on) so `.dark.section-exercise` etc. in index.css can
-  // combine correctly regardless of where in the tree this runs.
+  // toggles `.dark` on) so `.dark.section-spiritual` etc. in index.css can
+  // combine correctly regardless of where in the tree this runs. Home
+  // (a separate top-level route, see HomeScreen.tsx) never mounts AppShell,
+  // so it never gets one of these classes and always shows the untouched
+  // base palette.
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('section-exercise', 'section-health');
-    if (sectionId === 'exercise') root.classList.add('section-exercise');
+    root.classList.remove('section-spiritual', 'section-exercise', 'section-health');
+    if (sectionId === 'spiritual') root.classList.add('section-spiritual');
+    else if (sectionId === 'exercise') root.classList.add('section-exercise');
     else if (sectionId === 'health') root.classList.add('section-health');
     return () => {
-      root.classList.remove('section-exercise', 'section-health');
+      root.classList.remove('section-spiritual', 'section-exercise', 'section-health');
     };
   }, [sectionId]);
 

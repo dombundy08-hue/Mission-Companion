@@ -97,11 +97,62 @@
 }
 
 /* ---------- Per-section color schemes ----------
-   Spiritual intentionally uses the base palette above, unchanged, per
-   explicit request. Exercise (energetic/warm) and Health (calm/green) get
-   their own palettes, applied via a `.section-exercise`/`.section-health`
-   class on the app shell root — see AppShell.tsx. Each needs both a light
-   and a `.dark` variant so dark mode still works per section. */
+   Every section gets its own distinct palette so no two look alike:
+   Spiritual (reverent purple), Exercise (energetic/warm), Health (calm/
+   green). Home uses the base `:root`/`.dark` palette above, untouched, as
+   the app's "main site color" — it's the one screen that intentionally
+   never gets a `.section-*` class. Applied via a `.section-spiritual`/
+   `.section-exercise`/`.section-health` class on the app shell root — see
+   AppShell.tsx. Each needs both a light and a `.dark` variant so dark mode
+   still works per section. */
+.section-spiritual {
+  --background: #F8F6FC;
+  --foreground: #2C1B3D;
+  --card: #FFFFFF;
+  --card-foreground: #2C1B3D;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C1B3D;
+  --primary: #7A3FC4;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EDE3F7;
+  --secondary-foreground: #4A2678;
+  --muted: #EDE3F7;
+  --muted-foreground: #7B6690;
+  --accent: #7A3FC4;
+  --accent-foreground: #FFFFFF;
+  --border: #E1D3F0;
+  --input: #E1D3F0;
+  --ring: #7A3FC4;
+
+  --navy: #3D2159;
+  --navy-soft: #4A2678;
+  --gold: #7A3FC4;
+  --gold-dark: #5C2E99;
+}
+.dark.section-spiritual {
+  --background: #130B1C;
+  --foreground: #EBE0F5;
+  --card: #1E1329;
+  --card-foreground: #EBE0F5;
+  --popover: #1E1329;
+  --popover-foreground: #EBE0F5;
+  --primary: #A96FE0;
+  --primary-foreground: #130B1C;
+  --secondary: #2E1D42;
+  --secondary-foreground: #EBE0F5;
+  --muted: #2E1D42;
+  --muted-foreground: #B7A3CC;
+  --accent: #A96FE0;
+  --accent-foreground: #130B1C;
+  --border: #3C2653;
+  --input: #3C2653;
+  --ring: #A96FE0;
+
+  --navy: #211432;
+  --navy-soft: #2E1D42;
+  --gold: #A96FE0;
+  --gold-dark: #8C54C4;
+}
 .section-exercise {
   --background: #FBF6F2;
   --foreground: #3A241A;
