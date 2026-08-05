@@ -228,7 +228,7 @@ export async function cloudSaveSetting(key: string, value: unknown) {
   try {
     const up = await sb
       .from('app_settings')
-      .upsert({ key, value: JSON.stringify(value) }, { onConflict: 'key' });
+      .upsert({ key, value: JSON.stringify(value) }, { onConflict: 'user_id,key' });
     if (up.error) throw up.error;
   } catch {
     markPending();
@@ -521,10 +521,14 @@ export async function postSharedProgram(
   }
 }
 
-export async function likeSharedProgram(id: string, currentLikes: number): Promise<boolean> {
+// Goes through a security-definer RPC rather than a direct UPDATE — RLS
+// restricts shared_programs UPDATE to the program's own author, so any
+// other signed-in user liking someone else's program needs a narrow,
+// server-side-checked path that only ever touches the likes counter.
+export async function likeSharedProgram(id: string): Promise<boolean> {
   if (!sbOnline()) return false;
   try {
-    const up = await sb.from('shared_programs').update({ likes: currentLikes + 1 }).eq('id', id);
+    const up = await sb.rpc('increment_program_likes', { program_id: id });
     return !up.error;
   } catch {
     return false;

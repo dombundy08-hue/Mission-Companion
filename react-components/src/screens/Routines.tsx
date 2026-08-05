@@ -164,7 +164,7 @@ export function Routines() {
   }
   async function likeProgram(sp: SharedProgram) {
     if (likedIds.includes(sp.id)) return;
-    const ok = await likeSharedProgram(sp.id, sp.likes);
+    const ok = await likeSharedProgram(sp.id);
     if (ok) {
       const nextLiked = [...likedIds, sp.id];
       setLikedIds(nextLiked);
