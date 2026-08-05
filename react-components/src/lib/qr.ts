@@ -1,16 +1,12 @@
-import { uid } from './storage';
-import { cloudSaveSetting } from './supabase-sync';
+import { sb } from './supabase-sync';
 
-// A stable per-device code identifying this missionary's QR share link.
-// Generated once and cloud-synced so it survives a fresh install.
-export function getQrCode(): string {
-  let code = localStorage.getItem('qrCode');
-  if (!code) {
-    code = uid();
-    localStorage.setItem('qrCode', code);
-    cloudSaveSetting('qrCode', code);
-  }
-  return code;
+// Each account's own auth.uid() doubles as its QR code — unique per person
+// automatically, nothing to generate or persist locally, and it's what
+// contact_leads' RLS checks against (auth.uid()::text = code) so only the
+// owning account can see/manage leads submitted through their own code.
+export async function getQrCode(): Promise<string> {
+  const { data } = await sb.auth.getSession();
+  return data.session?.user.id ?? '';
 }
 
 // Plain path, not a hash route — this app uses BrowserRouter with the

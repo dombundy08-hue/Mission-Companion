@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SECTIONS, SECTION_ACCENT_COLORS, findSection } from '@/lib/sections';
 import { getLS } from '@/lib/storage';
@@ -7,6 +7,7 @@ import { todaysProgramSlot, type WorkoutLogEntry } from '@/lib/exercise-data';
 import { todaysFoodTotals, waterTotal } from '@/lib/health-data';
 import { isDarkModeOn } from '@/lib/theme';
 import { isDemoMode } from '@/lib/demo';
+import { sb } from '@/lib/supabase-sync';
 import { DemoModeBanner } from '@/components/shell/DemoModeBanner';
 import { UpdateBanner } from '@/components/shell/UpdateBanner';
 import { SettingsModal } from '@/components/shell/SettingsModal';
@@ -74,6 +75,14 @@ function Tile({
 export function HomeScreen() {
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [firstName, setFirstName] = useState('');
+
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => {
+      const full = (data.session?.user.user_metadata?.display_name as string | undefined) || '';
+      setFirstName(full.trim().split(/\s+/)[0] || '');
+    });
+  }, []);
 
   const weekStart = startOfWeekTs();
   const journalCount = getLS<{ timestamp: number }[]>('journalEntries', []).filter((e) => e.timestamp >= weekStart).length;
@@ -120,7 +129,9 @@ export function HomeScreen() {
       </header>
 
       <main className="mx-auto max-w-[680px] px-4 pt-4 pb-8">
-        <h1 className="mb-4 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>Welcome back</h1>
+        <h1 className="mb-4 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>
+          Welcome back{firstName ? `, ${firstName}` : ''}
+        </h1>
 
         <div className="space-y-3">
           <Tile

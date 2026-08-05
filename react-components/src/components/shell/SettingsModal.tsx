@@ -4,7 +4,6 @@ import { getLS, setLS } from '@/lib/storage';
 import { cloudSaveSetting } from '@/lib/supabase-sync';
 import { applyTheme, isDarkModeOn } from '@/lib/theme';
 import { listEnglishVoiceNames, getPreferredVoiceName, setPreferredVoiceName, speak } from '@/lib/audio';
-import { APP_PASSWORD } from '@/lib/auth';
 import { useAuth } from './AuthContext';
 import { isDemoMode, wipeLocalData, DEMO_AI_MESSAGE } from '@/lib/demo';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
@@ -231,26 +230,9 @@ function HealthMetricsPage({ onBack }: { onBack: () => void }) {
 }
 
 function ApiKeysPage({ onBack }: { onBack: () => void }) {
-  const [unlocked, setUnlocked] = useState(false);
-  const [showPwPrompt, setShowPwPrompt] = useState(false);
-  const [pw, setPw] = useState('');
-  const [pwErr, setPwErr] = useState(false);
-  const [key, setKey] = useState('');
-  const [usda, setUsda] = useState('');
+  const [key, setKey] = useState(() => localStorage.getItem('apiKey') || '');
+  const [usda, setUsda] = useState(() => localStorage.getItem('usdaApiKey') || '');
   const [saved, setSaved] = useState(false);
-
-  function tryUnlock() {
-    if (pw === APP_PASSWORD) {
-      setKey(localStorage.getItem('apiKey') || '');
-      setUsda(localStorage.getItem('usdaApiKey') || '');
-      setUnlocked(true);
-      setShowPwPrompt(false);
-      setPwErr(false);
-    } else {
-      setPwErr(true);
-      setPw('');
-    }
-  }
 
   function handleSave() {
     const trimmed = key.trim();
@@ -284,78 +266,39 @@ function ApiKeysPage({ onBack }: { onBack: () => void }) {
       <BackBtn onBack={onBack} />
       <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>API Keys & Security</h3>
 
-      {!unlocked && !showPwPrompt && (
-        <button type="button" onClick={() => setShowPwPrompt(true)} className={cardRowClass} style={{ background: 'var(--secondary)' }}>
-          <span>🔒</span>
-          <span className="flex-1 text-sm font-medium" style={{ color: 'var(--secondary-foreground)' }}>API Keys</span>
-          <span style={{ color: 'var(--muted-foreground)' }}>›</span>
-        </button>
-      )}
-
-      {showPwPrompt && (
-        <div>
-          <p className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Enter your app password to view or edit your API keys.</p>
-          <input
-            type="password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && tryUnlock()}
-            placeholder="App password"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            className={fieldClass}
-            style={fieldStyle}
-          />
-          {pwErr && <div className="mt-1 text-sm" style={{ color: 'var(--destructive)' }}>Incorrect password. Try again.</div>}
-          <div className="mt-3 flex gap-2.5">
-            <button type="button" onClick={() => { setShowPwPrompt(false); setPw(''); setPwErr(false); }} className="flex-1 rounded-xl py-3 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
-              Cancel
-            </button>
-            <button type="button" onClick={tryUnlock} className="flex-1 rounded-xl py-3 text-sm font-bold text-white" style={{ background: 'var(--primary)', boxShadow: '0 2px 0 var(--gold-dark)' }}>
-              Unlock
-            </button>
-          </div>
-        </div>
-      )}
-
-      {unlocked && (
-        <div>
-          <p className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Update your Anthropic API key. Stored only on this device.</p>
-          <input
-            type="password"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Anthropic API key"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            className={fieldClass + ' mb-3'}
-            style={fieldStyle}
-          />
-          <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-            USDA FoodData Central key <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>(for food search)</span>
-          </label>
-          <input
-            type="password"
-            value={usda}
-            onChange={(e) => setUsda(e.target.value)}
-            placeholder="USDA API key"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            className={fieldClass}
-            style={fieldStyle}
-          />
-          <div className="mt-1 text-[12.5px] leading-tight" style={{ color: 'var(--muted-foreground)' }}>
-            Free 2-minute signup — no cost:<br />fdc.nal.usda.gov/api-key-signup.html
-          </div>
-          <button type="button" onClick={handleSave} className="mt-3.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)', boxShadow: '0 2px 0 var(--gold-dark)' }}>
-            Save Keys
-          </button>
-          {saved && <div className="mt-2 text-sm font-medium" style={{ color: 'var(--primary)' }}>API keys saved.</div>}
-        </div>
-      )}
+      <p className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Update your Anthropic API key. Stored only on this device and your own account's cloud backup.</p>
+      <input
+        type="password"
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        placeholder="Anthropic API key"
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        className={fieldClass + ' mb-3'}
+        style={fieldStyle}
+      />
+      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+        USDA FoodData Central key <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>(for food search)</span>
+      </label>
+      <input
+        type="password"
+        value={usda}
+        onChange={(e) => setUsda(e.target.value)}
+        placeholder="USDA API key"
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        className={fieldClass}
+        style={fieldStyle}
+      />
+      <div className="mt-1 text-[12.5px] leading-tight" style={{ color: 'var(--muted-foreground)' }}>
+        Free 2-minute signup — no cost:<br />fdc.nal.usda.gov/api-key-signup.html
+      </div>
+      <button type="button" onClick={handleSave} className="mt-3.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)', boxShadow: '0 2px 0 var(--gold-dark)' }}>
+        Save Keys
+      </button>
+      {saved && <div className="mt-2 text-sm font-medium" style={{ color: 'var(--primary)' }}>API keys saved.</div>}
     </div>
   );
 }
@@ -486,7 +429,10 @@ function AccountPage({ onBack }: { onBack: () => void }) {
 
 function ContactsPage({ onBack, onClose }: { onBack: () => void; onClose: () => void }) {
   const navigate = useNavigate();
-  const [code] = useState(() => getQrCode());
+  const [code, setCode] = useState('');
+  useEffect(() => {
+    getQrCode().then(setCode);
+  }, []);
   const url = contactShareUrl(code);
 
   function viewCollection() {

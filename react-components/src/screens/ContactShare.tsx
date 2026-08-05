@@ -1,19 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { submitContactLead } from '@/lib/supabase-sync';
+import { submitContactLead, sb } from '@/lib/supabase-sync';
 
 const fieldClass = 'h-12 w-full rounded-xl border px-3 text-base';
 const fieldStyle = { borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' };
 
 // Public page reached by scanning a missionary's QR code — no app password
-// needed, reached outside the AuthProvider/LockScreen gate entirely.
+// needed, reached outside the AuthProvider/LockScreen gate entirely. `code`
+// is the owning missionary's own auth.uid() (see lib/qr.ts), so this looks
+// up their name from the open-readable profiles table rather than hard-
+// coding any one person's name — every account's QR code lands here with
+// its own owner's name shown.
 export function ContactShare() {
   const { code = '' } = useParams();
+  const [ownerName, setOwnerName] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  useEffect(() => {
+    if (!code) return;
+    sb.from('profiles').select('display_name').eq('id', code).maybeSingle().then(({ data }) => {
+      if (data?.display_name) setOwnerName(data.display_name);
+    });
+  }, [code]);
 
   async function handleSubmit() {
     const trimmed = name.trim();
@@ -31,7 +43,9 @@ export function ContactShare() {
       <div className="mx-auto max-w-[420px]">
         <div className="mb-6 text-center">
           <div className="mb-2 text-4xl">✝️</div>
-          <h1 className="mb-1 font-heading text-xl font-semibold" style={{ color: 'var(--foreground)' }}>Elder Bundy's Mission Companion</h1>
+          <h1 className="mb-1 font-heading text-xl font-semibold" style={{ color: 'var(--foreground)' }}>
+            {ownerName ? `${ownerName}'s Mission Companion` : 'Mission Companion'}
+          </h1>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Reach out anytime: 720-745-0911 or 720-745-3166</p>
         </div>
 

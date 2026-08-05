@@ -92,7 +92,7 @@ function useCloudSynced(authenticated: boolean) {
 
 function GatedApp() {
   const [introDone, setIntroDone] = useState(false);
-  const { authenticated } = useAuth();
+  const { authenticated, sessionLoading } = useAuth();
   const synced = useCloudSynced(authenticated);
 
   // Stable reference — AppIntro's effect depends on this callback, so a new
@@ -111,6 +111,7 @@ function GatedApp() {
   // most two distinct screens: the intro once, and KineticLoader once
   // (only if actually syncing) after the password is entered.
   if (!introDone) return <AppIntro onDone={handleIntroDone} />;
+  if (sessionLoading) return <KineticLoader />;
   if (!authenticated) return <LockScreen />;
   if (!synced) return <KineticLoader />;
 
