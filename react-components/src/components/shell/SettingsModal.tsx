@@ -5,7 +5,7 @@ import { cloudSaveSetting } from '@/lib/supabase-sync';
 import { applyTheme, isDarkModeOn } from '@/lib/theme';
 import { listEnglishVoiceNames, getPreferredVoiceName, setPreferredVoiceName, speak } from '@/lib/audio';
 import { useAuth } from './AuthContext';
-import { isDemoMode, wipeLocalData, DEMO_AI_MESSAGE } from '@/lib/demo';
+import { isDemoMode, DEMO_AI_MESSAGE } from '@/lib/demo';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
 import { getBuildHistory } from '@/lib/update-check';
 import { notifySettingsChanged } from '@/lib/settings-bus';
@@ -384,22 +384,6 @@ function AccountPage({ onBack }: { onBack: () => void }) {
       >
         🔒 Lock App
       </button>
-      <button
-        type="button"
-        onClick={() => {
-          if (confirm('Wipe all data on this device? This clears everything stored locally (journal, health logs, scripture progress, settings) and cannot be undone. Your Supabase cloud backup is not touched.')) {
-            wipeLocalData();
-          }
-        }}
-        className="mt-2.5 w-full rounded-xl border py-3 text-sm font-bold"
-        style={{ borderColor: 'var(--destructive)', color: 'var(--destructive)' }}
-      >
-        🗑️ Wipe Local Data
-      </button>
-      <div className="mt-1.5 text-[12.5px]" style={{ color: 'var(--muted-foreground)' }}>
-        Clears data on this device only — does not delete anything from the cloud backup.
-      </div>
-
       <hr className="my-4" style={{ borderColor: 'var(--border)' }} />
       <h4 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>App Version</h4>
       {(() => {
