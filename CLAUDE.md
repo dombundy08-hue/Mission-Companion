@@ -2,6 +2,11 @@
 
 This file provides guidance to Claude Code when working with code in this repository.
 
+**After any significant feature batch or architectural change** (not every
+tiny commit), run the `mission-companion-deploy` skill's audit cycle
+(Code Audit → Auto-Fix → Learning) — it's the mechanism that keeps this
+file and `SKILL.md` from drifting stale, but only if actually invoked.
+
 ---
 
 ## Architecture Overview
