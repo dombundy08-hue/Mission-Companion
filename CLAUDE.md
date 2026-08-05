@@ -6,358 +6,304 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Architecture Overview
 
-**⚠️ 2026-08-03 cutover: the React app is now the primary, deployed site.**
-The old single-file vanilla `index.html` (~6,000 lines by the end) has been
-retired from the site root — it's fully preserved in git history and at the
-`pre-build-website` tag if a rollback is ever needed, but it is no longer
-what's live. **Mission Companion** is now a React 19 + Vite + TypeScript +
-Tailwind v4 + shadcn PWA for LDS missionaries — personal journal, language
-practice, scripture mastery, health tracking, and exercise building.
+**Mission Companion** is a React 19 + Vite + TypeScript + Tailwind v4 PWA for LDS
+missionaries — personal journal, language practice, scripture mastery, health
+tracking, and exercise building. It supports a small number (soft-capped at 5)
+of real, independent accounts, each with fully private data.
 
-- **Single source of truth:** `C:\Users\shan_\mission-companion\react-components\src\` — this IS the site now, not a sub-widget.
-- **Build:** `cd react-components && npm run build` → outputs to `react-components/dist/`, which gets copied to the repo root (`index.html`, `assets/`, `icons/`, `fonts/`) — that root output is what GitHub Pages actually serves.
-- **Deployment:** build react-components, copy `dist/*` to repo root, `git add -A && git commit -m "message" && git push` → live in ~60 seconds. (The `mission-companion-deploy` skill below still auto-runs on push but its "Build React project" step description predates this cutover — see its own file for current accuracy before trusting it blindly.)
-- **Data:** localStorage (canonical, sync) + Supabase (cloud layer, pushed on save — same tables/natural-key dedup as the vanilla app had, ported 1:1 in `react-components/src/lib/supabase-sync.ts`). **No boot-time pull/merge sync exists yet** (vanilla's `cloudSyncAll()`/`syncArrayTable()` equivalent was never built) — a second device will never see data saved on another device until that's built. Tracked in `react-components/docs/build-plan.md`.
-- **Progress tracking:** `react-components/docs/build-plan.md` is the authoritative, honest checklist of what's been ported vs. still pending (Health/Exercise families and Settings were still in progress at cutover time — those tabs may show a "not yet ported" placeholder until finished).
-- **Design system:** `design-system/mission-companion/MASTER.md` — source of truth for colors/fonts/spacing/anti-pattern overrides (e.g. emoji icons kept everywhere except the 3 top-level section icons, which use real illustrated images).
-- **Hosting:** GitHub Pages at https://missionarycompanion.com (aliases to https://dombundy08-hue.github.io/Mission-Companion/), same as before — only what's served at the root changed, not the hosting setup itself.
+- **Single source of truth:** `react-components/src/` — this IS the site. There is
+  no vanilla `index.html` app anymore and no iframe embedding — both were retired
+  2026-08-04 (preserved at git tag `pre-build-website` if ever needed). Do not
+  trust any doc, comment, or memory describing a `render<Tab>()`/`state.<section>`/
+  postMessage/iframe architecture — that's gone.
+- **Build:** `cd react-components && npm run build` → outputs to `react-components/dist/`,
+  copied to the repo root (`index.html`, `assets/`, `icons/`, `fonts/`, `sw.js`,
+  `manifest.json`) — that root output is what GitHub Pages actually serves.
+- **Deployment:** build, copy `dist/*` to repo root, `git add -A && git commit && git push`
+  → live in ~60 seconds. **Never delete old-hash `assets/*.js`/`*.css` files before
+  copying the new build in** — see Common Gotchas #7, this caused a real blank-screen
+  PWA crash. Just let them accumulate; they're small and immutable.
+- **Auth:** real Supabase Auth (sign-up/sign-in/sign-out), not a shared password.
+  See "Accounts & Data Isolation" below — this replaced a single hardcoded
+  `APP_PASSWORD` model entirely as of 2026-08-05.
+- **Default landing page:** `/home` (`react-components/src/screens/HomeScreen.tsx`)
+  — a dashboard with one tile per section (Spiritual/Exercise/Health), each showing
+  a light data snapshot and linking into that section's normal tab interface.
+  `/` redirects here. Reached from anywhere via the "Missionary Companion" button
+  in the center of every section's header (`TopBar.tsx`).
+- **Hosting:** GitHub Pages at https://missionarycompanion.com (aliases to
+  https://dombundy08-hue.github.io/Mission-Companion/). **Repo is public, GitHub
+  account is on the free plan** — Pages only serves from public repos on free,
+  so the repo cannot be made private without a paid GitHub plan (would take the
+  site down otherwise). This is an accepted, known tradeoff — no secrets live in
+  the repo (see "What's actually public" below).
 
 ---
 
-## Auto-Deployment & Self-Improvement Skill
+## Accounts & Data Isolation
 
-This project uses the **`mission-companion-deploy` skill** which runs **automatically on every `git push origin main`**:
+Real multi-user accounts (Supabase Auth), soft-capped at 5 total via a `profiles`
+table + `auth.users` insert trigger (`react-components/src/lib/auth.ts`'s
+`accountCount()`/`MAX_ACCOUNTS`, checked client-side before signup — not a hard
+DB-level cap).
 
-1. **Deploy Agent** — Builds React components, copies to react-build/, commits, and pushes
-2. **Code Audit Agent** — Scans the codebase (DOM errors, path issues, deprecated patterns) AND the Supabase backend (`mxlfwmwjkanvsjimralh`: missing tables/columns, RLS misconfig, schema/code drift) via Supabase MCP tools
-3. **Auto-Fix Loop Agent** — Takes audit findings, fixes each issue on either end (code fix or Supabase migration), rebuilds, and verifies (up to 3 retries per bug)
-4. **Learning Agent** — Updates SKILL.md and CLAUDE.md based on lessons learned, making both more advanced and efficient
-
-**Result**: Every push is automatically audited and fixed on both the frontend and Supabase backend, then documented. Skill continuously improves itself.
-
-**Latest learnings (2026-08-03):** Audit checklist covers postMessage/iframe security patterns (`'*'` target origin, missing `event.origin` checks, `useMemo`/`useEffect` deps for `window.location`, setTimeout-based iframe readiness, hardcoded vs dynamic paths) plus Supabase schema drift (e.g. code querying a `saved_foods` table that doesn't exist in the project — 404s that fail silently). Also now covers two regression classes found during the Phase 2 (Scripture/Objections) deploy: (1) a new setting saved via `cloudSaveSetting()` but never added to its `map.has()` pull-down branch in `syncSettings()` — silently write-only across devices; (2) sentinel strings meaning "not applicable" (e.g. a `fallacy` field of `"none"`) checked with exact equality instead of a prefix-safe regex — breaks the moment the authored value has an explanatory suffix. And two foundational bugs found the same day while integrating a shared `ActivityCard` component for Health, both fixed: (3) `react-components/vite.config.ts` never set a `base`, so a prior session was hand-patching built asset paths to `/Mission-Companion/...` — **wrong**, the site is served at its custom domain root with no prefix, confirmed live; `base` is now `'/react-build/'`; (4) `sw.js`'s fetch handler cached every `navigate`-mode request under one hardcoded key, so the Health/Exercise `react-build` iframes (themselves navigations) got served the outer app shell instead of their own content — this is almost certainly what the earlier "iframe recursion" fix (removing the Exercise iframe) was actually band-aiding. See SKILL.md for full details.
-
-See `.claude/skills/mission-companion-deploy/SKILL.md` for full workflow details.
+- **Sign-up/sign-in UI:** `react-components/src/components/shell/LockScreen.tsx` —
+  a Log In / Create Account toggle, not a password gate. Collects a display name
+  at signup (passed via `signUp()`'s `options.data.display_name`, so it's on
+  `auth.users.raw_user_meta_data` immediately — before email confirmation
+  completes, since there's no session yet to run a follow-up `profiles` update).
+- **Session state:** `react-components/src/components/shell/AuthContext.tsx` —
+  `authenticated` is derived from a real Supabase session
+  (`sb.auth.getSession()` + `onAuthStateChange()`), not a localStorage flag.
+- **Every real data table has a `user_id uuid references auth.users(id)` column**,
+  defaulting to `auth.uid()`, with RLS `USING (auth.uid() = user_id) WITH CHECK
+  (auth.uid() = user_id)`. Existing `insert()`/`select()`/`update()`/`delete()`
+  call sites in `supabase-sync.ts`/`cloud-pull.ts` needed **no code changes** for
+  this — the column default fills `user_id` on insert, and RLS transparently
+  filters everything else at the database level. Three tables are special cases:
+  - **`app_settings`** — used to be one GLOBAL flat `{key, value}` store (e.g. a
+    single shared `'apiKey'` row for *everyone*). Now unique on `(user_id, key)`
+    instead of `key` alone. `cloudSaveSetting()`'s `.upsert(..., {onConflict:
+    'user_id,key'})` must match this exactly — if this ever drifts from the DB
+    constraint, every settings save breaks silently (caught, marked pending,
+    never surfaced as an error).
+  - **`shared_programs`** (Community) — SELECT stays open (`using (true)`, browsable
+    by every account) but INSERT/UPDATE/DELETE are owner-only. "Liking" someone
+    else's program goes through a `security definer` RPC,
+    `increment_program_likes(program_id)`, not a direct `UPDATE` — a plain
+    owner-only UPDATE policy would silently block anyone but the author from
+    liking. `likeSharedProgram(id)` in `supabase-sync.ts` calls the RPC.
+  - **`contact_leads`** (public QR contact-share) — INSERT stays open (submitted
+    by anonymous strangers with no session), SELECT/DELETE restricted to
+    `auth.uid()::text = code`. `code` is no longer a random string — it's the
+    owning account's own `auth.uid()`, returned by `lib/qr.ts`'s now-`async`
+    `getQrCode()`. The public share page (`screens/ContactShare.tsx`) looks up
+    and displays that account's `display_name` from `profiles` dynamically —
+    never hardcode a person's name there again, a new account's QR code must
+    show *their* name.
+- **Demo Mode is untouched and orthogonal** — fully local, never calls
+  `sb.auth.*` or writes to Supabase at all (`lib/demo.ts` has zero Supabase
+  imports; `sbOnline()` explicitly excludes it). Checked *before* real-session
+  state everywhere in `AuthContext.tsx`.
+- **Sign-out (`AuthContext.tsx`'s `lock()`) calls `sb.auth.signOut()` then
+  `wipeLocalData()`** (full `localStorage.clear()` + reload) — not optional
+  cleanup. This app is local-first (localStorage read before any cloud pull
+  runs), so without the wipe, a second person logging in on the same browser
+  would see the first account's cached data flash on screen. "Lock App" and
+  "Sign Out" are deliberately the same action for this reason.
+- **What's actually public, and why that's fine:** the Supabase URL + anon/
+  publishable key are hardcoded in `supabase-sync.ts` — this is *by design*,
+  Supabase's own "publishable key" concept (like a Stripe publishable key),
+  safe to ship client-side because RLS (above) is what actually enforces
+  access, not hiding this key. No real secret (a user's own Anthropic/USDA API
+  key, or anyone's account password) is ever in the repo or the built bundle —
+  those live only in the signed-in user's own `localStorage` and their own
+  `app_settings` rows.
 
 ---
 
 ## Data & Sync Model
 
 ### localStorage (canonical, synchronous)
-Render functions read from localStorage. Keys are synced to Supabase on every save (async, non-blocking).
+Render functions read from localStorage directly — synchronous, no loading
+state needed for most UI. `getLS(key, fallback)` / `setLS(key, val)` in
+`lib/storage.ts` — JSON parse/stringify is automatic.
 
-```
-Keys:
-- authenticated, apiKey, theme, scriptureLockMode (app state)
-- journalEntries, miracleEntries, glossaryTerms (JSON arrays)
-- scriptureDeck, usedPromptIndices (JSON)
-- healthFood, savedFoods, workoutLog (arrays)
-- activeTab, activeSection (string)
-- scriptureStreak, scriptureCollection (JSON) — `effectiveStreak()` grants one grace day (missed exactly one day keeps it alive); two consecutive misses breaks it
-```
-
-Helpers: `getLS(key)`, `setLS(key, val)` — use these directly, JSON.stringify is automatic.
-
-### Supabase (cloud sync, optional)
-Project: `mxlfwmwjkanvsjimralh.supabase.co`  
-Deduplication by **natural keys** (not UUIDs): `date + body` (journal/miracle), lowercased `term` (glossary), `scripture_id`, `timestamp` (health/workout).
-
-New records get a `cloudId` UUID after first push; updates/deletes use `cloudId`.
-
-**Important:** Isolated error handling — if a cloud table fails, other syncs continue.
-
-### Sync Flow
-1. Boot: `cloudSyncAll()` pulls all tables, merges by natural key, pushes conflicts back
-2. On save: `cloudSaveHealth()` / `cloudSaveJournal()` / etc. fire after user action (non-blocking)
-3. Offline: saves locally, shows banner, `flushPending()` pushes on reconnect
-4. All cloud calls guarded by `cloudReady + sbOnline()`; failures queue, never throw
+### Supabase (cloud layer)
+Project ref: `mxlfwmwjkanvsjimralh`. Two directions:
+- **Push** — every local write also fires a `cloudSave*()` call
+  (`lib/supabase-sync.ts`), non-blocking, isolated per-table error handling
+  (`sbOnline()` gate + `markPending()` on failure — never throws, never blocks
+  the local save).
+- **Pull** — `lib/cloud-pull.ts`'s `pullAndMergeAll()`, called once per
+  authenticated session from `App.tsx`'s `useCloudSynced()`. Additive-only,
+  never clobbers existing local data, deduped by natural keys where no
+  `cloudId` exists yet (e.g. `date + body` for journal/miracles). This was
+  the fix for a real "all my data is gone" incident (2026-08-04) — a device
+  with empty localStorage used to show nothing even though the account's
+  real data was safely in Supabase, because pull-down sync had never
+  actually been built despite being documented as intended.
 
 ---
 
 ## Navigation & Section Architecture
 
-**Data-driven structure:**
+Data-driven — no hand-written nav markup. `lib/sections.ts`'s `SECTIONS` array
+is the single source; `TopBar.tsx`'s section switcher and `BottomNav.tsx`'s
+tabs both build themselves from it.
 
-```javascript
-SECTIONS = {
-  spiritual: { name: "Spiritual", tabs: ["journal", "spanish", "mastery", "email", "objections", "glossary", "miracles"] },
-  exercise: { name: "Exercise", tabs: ["routine"] },
-  health: { name: "Health", tabs: ["food", "stats"] }
-}
+```ts
+SECTIONS = [
+  { id: 'spiritual', tabs: [journal, miracles, objections, spanish, mastery, email] },
+  { id: 'exercise',  tabs: [workout, routines, wlog] },
+  { id: 'health',    tabs: [health, hfood, hbody, hstats] },
+]
 ```
 
-No hand-written nav. Sections switcher and tabs build themselves via `renderBottomNav()`.
+Routing (`App.tsx`): `/:sectionId/:tabId` under `<AppShell>` (TopBar +
+BottomNav chrome). `/home`, `/contacts`, and the public `/contact/:code` are
+top-level routes outside that chrome — each is its own self-contained screen
+with its own minimal header, no BottomNav. `TabRoute` in `App.tsx` is a plain
+switch mapping `sectionId/tabId` to the real screen component.
 
-Key functions:
-- `goToTab(tab)` — switch tabs, trigger render
-- `goToSection(sec)` — switch sections, rebuild nav
-- `render()` — master switch calling `render<Tab>()` for active tab
-- Each tab has a `render<TabName>()` function (e.g., `renderHealthFood()`, `renderJournal()`)
+### Per-section color palettes
+Every section has its own distinct CSS-variable palette in `index.css`,
+applied via a `.section-<id>` class on `<html>` (same element `theme.ts`
+toggles `.dark` on, so `.dark.section-exercise` etc. combine correctly) —
+`AppShell.tsx`'s `useEffect` sets/clears the class based on the route's
+`sectionId`. **Home never gets one of these classes** — it always shows the
+untouched base `:root`/`.dark` palette, deliberately distinct from every
+section:
+- Home (base) — blue
+- Spiritual (`.section-spiritual`) — purple
+- Exercise (`.section-exercise`) — orange
+- Health (`.section-health`) — green
+
+`lib/sections.ts`'s `SECTION_ACCENT_COLORS` is a **hand-maintained** plain-JS
+mirror of each section's `--primary`/`--accent` hex (light + dark), used by
+`HomeScreen.tsx`'s tile swatches since Home isn't wrapped in any `.section-*`
+class and can't just read the CSS variable. If a palette's hex values ever
+change in `index.css`, update this map too — nothing keeps them in sync
+automatically.
 
 ---
 
 ## How to Make Changes
 
-### Adding a Feature (Small Change)
-1. Find relevant `render<Tab>()` function
-2. Modify HTML/CSS in template string
-3. Add event listeners in same function (search `addEventListener`)
-4. Update `state.<section>` if tracking UI state
-5. Test in browser → `git add -A && git commit -m "..." && git push`
+### Adding a screen/feature
+1. Add the screen component under `react-components/src/screens/`.
+2. If it belongs to a section's tab set, add it to `lib/sections.ts`'s
+   `SECTIONS` and to `App.tsx`'s `TabRoute` switch.
+3. If it's a standalone top-level page (like `/home`, `/contacts`), add a
+   sibling `<Route>` in `App.tsx`'s `GatedApp`, outside `<AppShell>`.
+4. Reuse existing data helpers before writing new ones — `lib/health-data.ts`,
+   `lib/exercise-data.ts`, `lib/mastery.ts` already cover most "today's
+   snapshot" / streak / averages needs.
 
-### Modifying Data Storage
-- **localStorage:** Use `setLS(key, value)` — JSON.stringify is automatic
-- **Supabase:** Add to cloud sync function (`cloudSaveHealth()`, etc.) with natural-key dedup
-- New tables: Run SQL in Supabase dashboard, update sync functions
+### Modifying data storage
+- **localStorage:** `setLS(key, value)` from `lib/storage.ts` — JSON handled automatically.
+- **Supabase:** add a `cloudSave*()`/`cloudDelete*()` function in
+  `supabase-sync.ts` following the existing pattern (RLS + `user_id` default
+  handles ownership automatically — don't hand-add `.eq('user_id', ...)`
+  filters). New tables need `apply_migration` with `user_id default
+  auth.uid()` + owner-scoped RLS from the start, and a matching pull function
+  in `cloud-pull.ts` if the data should round-trip across a re-login.
 
 ### Dark Mode & CSS
-- CSS variables in `:root` (light) and `@media (prefers-color-scheme: dark)` (system dark)
-- Manual override: `data-theme="dark"` attribute on `<html>`
-- Always use `var(--text)`, `var(--card)`, `var(--bg)` — never hardcoded colors
-
-### Settings Modal
-Settings modal uses `.settings-section` containers for extensibility:
-```html
-<div class="settings-section">
-  <h3>Section Name</h3>
-  <div><!-- controls here --></div>
-</div>
-```
+CSS custom properties in `index.css`, light values in `:root`, dark in `.dark`
+(plus each section's own `.dark.section-*` override). Always use
+`var(--foreground)`/`var(--card)`/`var(--background)` etc. — never hardcoded
+colors. `--navy`/`--navy-soft`/`--gold`/`--gold-dark` are this app's own
+extra tokens (not standard shadcn vars) — every palette defines all four.
 
 ---
 
 ## Testing & Verification
 
-Manual testing in browser:
-
-1. **Local dev:** Open `file:///C:/Users/shan_/missionary-companion/index.html`
-   - Hard-refresh (Ctrl+Shift+R) if CSS/JS don't update
-   - DevTools (F12) → Console for errors; Network tab for cloud sync calls
-
-2. **Verify feature:** Perform action → appears in UI → reload → persists in localStorage → check Supabase dashboard
-
-3. **Dark mode:** Test system dark mode + manual toggle in Settings; verify text readable
-
-4. **Deploy:** `git push` → verify live in ~60 seconds
-
----
-
-## Critical Functions & Concepts
-
-### Key Functions by Purpose
-
-**Navigation:**
-- `goToTab(tab)`, `goToSection(sec)`, `renderBottomNav()`, `render()`
-
-**Storage:**
-- `getLS(key)`, `setLS(key, val)` — localStorage
-- `cloudSyncAll()` — pull + merge + push all data (boot)
-- `cloudSaveJournal()`, `cloudSaveHealth()`, etc. — push specific data
-
-**UI/State:**
-- `openSettings()`, `closeSettings()` — settings modal
-- `state.<section>` — UI state per section
-- `showFlash(msg, type)` — banner notifications
-
-**Health:**
-- `healthAverages(days)` — calc weekly/monthly avg
-- `getSavedFoods()`, `addSavedFood()`, `deleteSavedFood()`
-- `logFood(name, cal, prot, source)` — add entry
-
-**Spiritual:**
-- `renderJournal()`, `renderSpanish()`, `renderMastery()`
-- `scriptures` array (109 cards)
-- `getRandomPrompt()`, `getUnusedPrompts()` — prompt rotation
-
-### State Object Structure
-```javascript
-state = {
-  health: { editingGoals: false, snapRange: 7, foodMode: 'search', ... },
-  workout: { sessionIdx: 0, ... },
-  journal: { editingEntry: null, ... },
-}
-```
-Tracks UI state; render functions read `state.<section>` to decide what to show.
-
-### Important Constants
-- `APP_PASSWORD = "steely08!"` (line ~60, marked `// CHANGE PASSWORD HERE`)
-- `SECTIONS` object — navigation config
-- `scriptures` array (109 cards)
-- Supabase project ref: `mxlfwmwjkanvsjimralh`
+1. **Local dev:** `mission-companion-react` launch config (real Vite dev
+   server) — **not** `mission-companion` (serves a stale prebuilt `dist/` via
+   static server, will never reflect source edits).
+2. **After any edit, restart the dev server** (`preview_stop` + `preview_start`),
+   don't just reload the tab — Vite HMR can silently serve stale closures,
+   especially for files exporting both a component and a hook (e.g.
+   `AuthContext.tsx` exporting `AuthProvider` + `useAuth`). A page reload alone
+   is not enough to trust a "did this fix work" check.
+3. **`npx tsc -b` clean** before considering any change done.
+4. **Verify data actually round-trips**, not just "no console errors" — a
+   real write + a real read (via `execute_sql` against Supabase, or logging
+   out and back in) is the only real proof a fix touching the write/RLS path
+   works. "The UI looks right" has been wrong before.
+5. **Dark mode** — check both light and dark for every palette touched.
+6. **Deploy:** `git push` → verify live via
+   `curl -sL https://missionarycompanion.com/index.html | grep -o 'index-[A-Za-z0-9_-]*\.\(js\|css\)'`
+   polled until the new hash appears (~30–60s for GH Pages).
 
 ---
 
-## React Components (Embedded via iframe)
+## Common Gotchas
 
-### Structure
-**Source:** `react-components/` (Vite + React + TypeScript + Tailwind)  
-**Output:** `react-build/` — the site is served at its custom domain root (missionarycompanion.com), **no `/Mission-Companion/` prefix**. `vite.config.ts` sets `base: '/react-build/'` so `npm run build` always emits correct root-relative asset paths — never hand-patch `react-build/index.html`'s asset paths after a build.
-
-### Integration
-Health Metrics iframe (`renderHealthStats()`, ~index.html:4258) — src is built dynamically, not hardcoded:
-```js
-const healthFrameUrl = new URL('react-build/index.html?app=health', window.location.href).href;
-// <iframe id="healthActivityFrame" src="${healthFrameUrl}" onload="sendHealthMetricsUpdate();">
-```
-`HealthActivityCard` (react-components/src/components/health/health-activity-card.tsx) renders the shared `components/ui/activity-card.tsx` `ActivityCard` component — the reusable ring/goals card style — mapping the postMessage'd metrics into its `Metric[]` shape.
-
-**Exercise Logger iframe is currently NOT embedded** — `exerciseActivityFrame` was removed from index.html (fixed an iframe-recursion-looking bug that was actually the service worker below). `ExerciseActivityCard`/`ExerciseApp` still exist in react-components and build fine, just unused until re-wired.
-
-### postMessage Protocol
-**Vanilla → React (health data):**
-- Function: `sendHealthMetricsUpdate()` (line 3766)
-- Data: `{type: 'updateMetrics', metrics: {...}, visible: [...]}`
-
-**React → Vanilla (exercise logging):**
-- Listener at line 2171
-- Data: `{type: 'exerciseSaved', exercise: {...}, timestamp: Date.now()}`
-
----
-
-## Building & Deploying React Components
-
-### Build
-```bash
-cd react-components
-npm run build
-cp -r dist/* ../react-build/
-```
-
-### Test Locally
-Development server (isolated):
-```bash
-cd react-components && npm run dev  # http://localhost:5173
-```
-
-Testing with iframes:
-1. `npm run build && cp -r dist/* ../react-build/`
-2. Open `file:///C:/Users/shan_/missionary-companion/index.html`
-3. Hard-refresh (Ctrl+Shift+R)
-4. Navigate to Health → Stats or Exercise → Routines
-
-### Deploy
-```bash
-git add index.html react-build/
-git commit -m "Update React components: [what changed]"
-git push  # Live in ~60 seconds
-```
-
----
-
-## Development Tips
-
-### Reusing Existing Patterns
-- **Modal:** search `openSettings()` or `showFlash()`
-- **Event binding:** look at `renderHealthFood()` listeners (lines ~3364)
-- **Cloud sync:** check `cloudSaveJournal()` pattern
-- **Data dedup:** look at `cloudSyncJournal()` natural-key merging
-
-### Common Gotchas
-1. **Service worker caching:** Hard-refresh if changes don't appear
-2. **Password hardcoded:** Search `APP_PASSWORD` in `react-components/src/lib/auth.ts` (single source of truth as of 2026-08-04; used to be duplicated)
-3. **localStorage keys:** Use `isoDate()` (ISO string, timezone-safe), not `Date.now()`
-4. **Cloud tables optional:** Missing table won't break other syncs (isolated error handling)
-5. **Natural-key dedup:** Collisions resolved by meaningful fields, not UUIDs
-6. **Async reads:** localStorage is sync; Supabase pulled once at boot (all reads hit localStorage)
-7. **`react-components` dev server vs static preview:** `.claude/launch.json` has two configs — `mission-companion` serves a stale prebuilt `dist/` via `python -m http.server` and will NOT reflect source edits; `mission-companion-react` runs the real Vite dev server. Use the latter when testing changes.
-8. **Vite HMR on files exporting both a component and a hook** (e.g. `AuthContext.tsx` exporting `AuthProvider` + `useAuth`) **can silently serve stale code** — logs "Could not Fast Refresh ... export is incompatible" and the browser keeps running old closures even after the file changes on disk. A `preview_stop` + `preview_start` (full server restart), not just a page reload, is sometimes required to actually pick up the fix. Always re-verify the actual behavior after a fix touching one of these files, don't trust that a reload was enough.
-9. **A "reset on exit" feature also needs a "reset on entry" check.** Demo Mode (`AuthContext.tsx`'s `unlockDemo()`) originally only wiped `localStorage` on lock/exit, not on entry — so a device with real data would leak it into the demo session the first time before the first lock. Fixed 2026-08-04. General lesson: any "starts clean" guarantee needs both ends checked.
-10. **Community/shared-data tables have fully open RLS + the client's anon key is public** — anyone can POST directly to `shared_programs` or `contact_leads` without going through the app UI at all. Code that reads these back must validate shape (`Array.isArray`, etc.) before using it, same as any other untrusted input.
-
-### Debugging Cloud Sync
-1. DevTools → Network tab
-2. Perform action triggering cloud save
-3. Look for POST to `api.supabase.co` → check response
-4. Console for `[CLOUD]` log messages
-5. Supabase MCP available via `.mcp.json` for SQL queries
+1. **`react-components` dev server vs. static preview** — `.claude/launch.json`
+   has two configs; only `mission-companion-react` reflects source edits (see
+   Testing & Verification above).
+2. **Vite HMR staleness on files exporting both a component and a hook** — full
+   server restart needed, not just a reload.
+3. **A "starts clean" guarantee needs both entry AND exit checked, not just
+   one.** Demo Mode's `unlockDemo()` originally only wiped `localStorage` on
+   exit — a device already holding real account data would leak it into the
+   demo session on the *first* entry, before the first lock. Fixed
+   2026-08-04. Applies to any future feature with the same premise.
+4. **Open-RLS tables need client-side shape validation on read**, same as any
+   other untrusted input — anyone with the public anon key can `POST`
+   arbitrary JSON directly to a table whose RLS allows it (e.g.
+   `shared_programs`), bypassing the app's own UI entirely.
+5. **Never delete old-hash `assets/*.js`/`*.css` files on deploy.** The
+   service worker's cached HTML shell can reference a deploy's hashed
+   filenames for a while after a newer deploy goes live (stale-while-
+   revalidate). Deleting old files turns that normal staleness into a hard
+   crash — React never mounts, blank white screen, no visible error.
+   Reproduced live 2026-08-04. Just let old files accumulate; they're small
+   and immutable. `sw.js`'s `CACHE` version should still be bumped whenever
+   an *unhashed* `public/` asset's content changes under the same filename
+   (icons, favicon, manifest) — that's a different, still-necessary case.
+6. **`sw.js` exists in two places** (`sw.js` at repo root, and
+   `react-components/public/sw.js`) and must be kept byte-identical by
+   hand — no build step enforces this. Always edit/copy both.
+7. **Migrations that add a `user_id` column run with no authenticated
+   session** — `auth.uid()` evaluates to `null` at migration time, which
+   violates a `not null` constraint immediately. The correct sequence for
+   backfilling an existing single-owner table: default to that owner's
+   *literal* uuid first (backfills existing rows in the same statement),
+   verify, **then** a separate migration flips the default to `auth.uid()`
+   for future inserts.
+8. **RLS is doing the real access-control work, not the client.** When
+   adding a new table or a new call site against an existing one, don't
+   hand-write `.eq('user_id', ...)` filters — the column default + RLS
+   policy already scope inserts/selects/updates/deletes correctly. Manually
+   adding filters is redundant at best and a false sense of security if RLS
+   itself is ever misconfigured.
+9. **A `security definer` RPC is the right tool when RLS is legitimately too
+   coarse** — e.g. letting any signed-in user bump a shared counter (Community
+   likes) without granting them full row-owner UPDATE rights. Keep these
+   narrow (touch exactly one column, one operation) — don't reach for
+   `security definer` as a general RLS-bypass habit.
+10. **Supabase's default email sending has a low rate limit** — expect
+    "email rate limit exceeded" during real signup testing, especially
+    back-to-back. Not a bug. For a small known-group app (this one, capped at
+    5 accounts), turning off "Confirm email" in Supabase Auth settings
+    (Authentication → Providers → Email) removes the email step from signup
+    entirely and sidesteps this — a reasonable tradeoff at this trust level,
+    not appropriate for a public-signup product.
 
 ---
 
 ## Deployment Checklist
 
-Before pushing:
-
-1. Test locally — hard-refresh, test end-to-end
-2. Console — no errors
-3. localStorage — feature persists after reload
-4. Dark mode — both light and dark readable
-5. No secrets — no API keys/passwords in code
-6. Commit message — describe what changed (e.g., "Add saved foods frequency-gating")
-7. `npm run build` in `react-components/` (as of 2026-08-04 this also auto-copies the fresh `dist/index.html` over `dist/404.html`, so its hashed asset refs never go stale — don't hand-copy 404.html separately anymore)
-8. `git push` → verify live in ~60 seconds
-9. Any feature with a "starts from a clean/safe state" guarantee (demo modes, guest sessions, etc.) — verify BOTH entry and exit reset the state, not just one
-10. Confirm HTTPS is actually enforced on the custom domain (`curl -sI http://missionarycompanion.com/` should redirect to `https://` — as of 2026-08-04 it does not; this is a GitHub repo Settings → Pages toggle, not something a deploy can fix)
-
----
-
-## DOM-Ready & Initialization Patterns
-
-### Critical: Module-Level DOM Access Breaks Features
-
-**Problem:** Script runs before DOM elements exist → event listeners fail silently → feature broken, no error shown.
-
-**Solution: Defer DOM access until after DOMContentLoaded:**
-
-```javascript
-// WRONG: Runs before element exists
-document.getElementById('voiceSelect').addEventListener('change', handler);
-
-// RIGHT: Deferred until DOM ready
-function attachListeners() {
-  const el = document.getElementById('voiceSelect');
-  if (el) {
-    el.addEventListener('change', handler);
-    console.log('[BOOT] Listener attached');
-  } else {
-    console.log('[BOOT] ERROR: Element not found');
-  }
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', attachListeners);
-} else {
-  attachListeners();
-}
-```
-
-### Boot-Stage Debugging
-- Add `console.log('[BOOT]')` at initialization checkpoints
-- Reload page, scan console for sequence
-- Missing steps indicate where errors occur
-- Use `console.trace()` for call stack
-
-### Example: Voice Selector Bug
-Found at line ~2847: event listener tried to attach before `voiceSelect` element existed in DOM.
-- Symptom: Voice buttons unresponsive, no console error
-- Root cause: Listener attachment failed silently
-- Fix: Wrap listener in DOM-ready check + add boot logging
-- Verification: Console shows `[BOOT] Listener attached` ✓
-
----
-
-## Parallel Diagnostic Workflow (for Production Issues)
-
-When a feature breaks in production but works locally, spawn TWO agents in parallel:
-
-**Code Audit Agent:** Searches for:
-- Module-level DOM access outside functions
-- Event listeners on non-existent elements
-- Silent error catches (try/catch → variable = null)
-- Stale function references
-
-**Production Test Agent:** Tests live site:
-- Console for errors
-- Manual feature testing (click, fill, render)
-- Network tab for failed API calls
-- DevTools console for function calls
-
-**Workflow:** Launch both simultaneously → compare findings → fix once → verify both scenarios
+1. `cd react-components && npx tsc -b` clean.
+2. Test locally against the real dev server — full restart after edits, not just reload.
+3. Console — no new errors (the Browser pane's console history can include
+   stale entries from before a restart; check timestamps/context before
+   treating an old error as current).
+4. Dark mode — check every palette touched.
+5. No secrets in code — Supabase anon/publishable key is fine (see "What's
+   actually public" above); a real password, a service-role key, or a
+   user's own API key never should be.
+6. `npm run build` in `react-components/` (auto-copies fresh `dist/index.html`
+   over `dist/404.html` — don't hand-copy separately).
+7. Copy `dist/*` to repo root **without deleting old-hash asset files** (Gotcha #5).
+8. `git push` → poll for the new hash live (~60s).
+9. Any change to a table's schema/RLS that a live client already talks to —
+   ship the matching client fix in the **same** deploy, not a follow-up one.
+10. Any feature with a "starts clean" guarantee — verify both entry and exit.
 
 ---
 
 ## References
 
 - **Supabase:** https://app.supabase.com/projects (ref: `mxlfwmwjkanvsjimralh`)
-- **Live app:** https://dombundy08-hue.github.io/Mission-Companion/
-- **GitHub:** https://github.com/dombundy08-hue/Mission-Companion
-- **Related docs:** CONTEXT.md (full architecture), TASKS.md (task order), PRD.md (requirements), BACKLOG.md (backlog)
+- **Live app:** https://missionarycompanion.com
+- **GitHub:** https://github.com/dombundy08-hue/Mission-Companion (public repo,
+  free-tier account — see "Hosting" above for why it can't be made private
+  without breaking Pages)
+- **Deploy/audit skill:** `.claude/skills/mission-companion-deploy/SKILL.md`
+  — runs a 4-agent Deploy/Code-Audit/Auto-Fix/Learning cycle; keep its
+  benchmark log current, it's the project's own memory of past incidents.
