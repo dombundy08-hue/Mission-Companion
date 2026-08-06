@@ -29,8 +29,9 @@ import {
 import { setLS, getLS, uid } from '@/lib/storage';
 import { cloudSaveRoutine, cloudDeleteRow, fetchSharedPrograms, postSharedProgram, likeSharedProgram, type SharedProgram } from '@/lib/supabase-sync';
 import { programSnapshot, importSharedProgram } from '@/lib/exercise-data';
+import { notifySaved } from '@/lib/save-toast';
 
-type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble' | 'programs' | 'program-edit' | 'community';
+type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble' | 'programs' | 'program-edit' | 'community' | 'built-in';
 type PartType = 'timed' | 'rep' | 'circuit';
 
 interface Build {
@@ -52,7 +53,6 @@ export function Routines() {
   const [routines, setRoutines] = useState<Routine[]>(() => getRoutines());
   const [editId, setEditId] = useState<string | null>(null);
   const [build, setBuild] = useState<Build>(newBuild());
-  const [flash, setFlash] = useState<string | null>(null);
   const [programs, setPrograms] = useState<WorkoutProgram[]>(() => getPrograms());
   const [activeProgram, setActiveProgramState] = useState(() => getActiveProgram());
   const [programEditId, setProgramEditId] = useState<string | null>(null);
@@ -76,8 +76,7 @@ export function Routines() {
   const [draftCircuit, setDraftCircuit] = useState<{ rounds: number; work: number; rest: number; restRounds: number; items: CircuitItem[] }>({ rounds: 3, work: 40, rest: 15, restRounds: 30, items: [{ name: '' }] });
 
   function say(msg: string) {
-    setFlash(msg);
-    setTimeout(() => setFlash(null), 1900);
+    notifySaved(msg);
   }
   function refresh() {
     setRoutines(getRoutines());
@@ -346,7 +345,20 @@ export function Routines() {
             {draftTimed.map((s, i) => (
               <div key={i} className="flex gap-2">
                 <input value={s.name} onChange={(e) => setDraftTimed((d) => d.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} placeholder="Exercise or Rest" className={inputCls} style={inputStyle} />
-                <input type="number" min={5} max={900} value={s.seconds} onChange={(e) => setDraftTimed((d) => d.map((x, idx) => idx === i ? { ...x, seconds: Math.max(5, parseInt(e.target.value, 10) || 45) } : x))} className="h-11 w-20 rounded-xl border px-2 text-sm" style={inputStyle} />
+                <input
+                  type="number"
+                  min={5}
+                  max={900}
+                  value={s.seconds || ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    const n = raw === '' ? 0 : parseInt(raw, 10);
+                    setDraftTimed((d) => d.map((x, idx) => idx === i ? { ...x, seconds: Number.isNaN(n) ? 0 : n } : x));
+                  }}
+                  onBlur={() => setDraftTimed((d) => d.map((x, idx) => idx === i ? { ...x, seconds: Math.max(5, Math.min(900, x.seconds || 45)) } : x))}
+                  className="h-11 w-20 rounded-xl border px-2 text-sm"
+                  style={inputStyle}
+                />
                 <button type="button" onClick={() => setDraftTimed((d) => (d.length > 1 ? d.filter((_, idx) => idx !== i) : d))} className="text-sm" style={{ color: 'var(--destructive)' }}>✕</button>
               </div>
             ))}
@@ -456,12 +468,30 @@ export function Routines() {
     );
   }
 
+  if (view === 'built-in') {
+    return (
+      <div>
+        <button type="button" onClick={() => setView('list')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
+        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🏋️ Built-in Workouts</h2>
+        <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Use one as a starting point — it's copied into your routines so you can edit it freely.</p>
+        <div className="space-y-2">
+          {BUILT_IN_WORKOUTS.map((t) => (
+            <div key={t.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+              <div className="mb-0.5 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{t.name}</div>
+              <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>{t.description}</div>
+              <button type="button" onClick={() => useTemplate(t)} className="rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Use as Template</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (view === 'programs') {
     return (
       <div>
         <button type="button" onClick={() => setView('list')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📆 Programs</h2>
-        {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
         <button type="button" onClick={startNewProgram} className="mb-2.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Program</button>
         <button type="button" onClick={() => setView('community')} className="mb-4 w-full rounded-xl py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Browse Community Programs</button>
         {!programs.length ? (
@@ -504,7 +534,6 @@ export function Routines() {
         <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🌐 Community</h2>
         <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Programs other missionaries have shared. No chat — just browse, like, and use.</p>
-        {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
         {sharedLoading ? (
           <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading…</div>
         ) : !shared.length ? (
@@ -592,7 +621,7 @@ export function Routines() {
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📋 Routines</h2>
       <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>📆 Programs {activeProgram && '· 1 active'}</button>
       {todaySlot && !todaySlot.complete && todaySlot.routine && (
-        <div className="mb-3 rounded-[14px] border p-3.5" style={{ borderColor: 'var(--primary)', background: 'var(--card)' }}>
+        <div className="mb-3 rounded-[14px] border p-3.5" style={{ borderColor: 'var(--primary)', background: 'var(--tint-1)' }}>
           <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--gold-dark)' }}>{todaySlot.program.name} · Day {todaySlot.dayIndex + 1}</div>
           <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Today: {todaySlot.routine.name}</div>
           <button type="button" onClick={() => navigate(`/exercise/workout?start=${todaySlot.routine!.id}`)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>▶ Start Today's Workout</button>
@@ -603,22 +632,9 @@ export function Routines() {
           🎉 You finished "{todaySlot.program.name}"! Apply it again or start a new program from the Programs page.
         </div>
       )}
-      {flash && <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>{flash}</div>}
       <button type="button" onClick={startNew} className="mb-4 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Routine</button>
 
-      <div className="mb-4">
-        <h3 className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Built-in Workouts</h3>
-        <p className="mb-2.5 text-xs" style={{ color: 'var(--muted-foreground)' }}>Use one as a starting point — it's copied into your routines so you can edit it freely.</p>
-        <div className="space-y-2">
-          {BUILT_IN_WORKOUTS.map((t) => (
-            <div key={t.id} className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="mb-0.5 text-sm font-bold" style={{ color: 'var(--foreground)' }}>{t.name}</div>
-              <div className="mb-2 text-xs" style={{ color: 'var(--muted-foreground)' }}>{t.description}</div>
-              <button type="button" onClick={() => useTemplate(t)} className="rounded-lg px-3 py-1.5 text-xs font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Use as Template</button>
-            </div>
-          ))}
-        </div>
-      </div>
+      <button type="button" onClick={() => setView('built-in')} className="mb-4 w-full rounded-xl py-3 text-sm font-bold" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🏋️ Built-in Workouts</button>
 
       {!routines.length ? (
         <div className="mb-4 rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>

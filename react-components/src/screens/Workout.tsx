@@ -17,6 +17,8 @@ import {
 import { fmtDateTime } from '@/lib/format';
 import { uid } from '@/lib/storage';
 import { speak, beep, primeAudio, cancelSpeech } from '@/lib/audio';
+import { setWorkoutActive } from '@/lib/workout-session';
+import { notifySaved } from '@/lib/save-toast';
 
 interface Session {
   routineId: string;
@@ -81,7 +83,14 @@ export function Workout() {
     cancelSpeech();
   }
 
-  useEffect(() => stopTimer, []);
+  useEffect(() => {
+    setWorkoutActive(!!session?.active);
+  }, [session?.active]);
+
+  useEffect(() => () => {
+    stopTimer();
+    setWorkoutActive(false);
+  }, []);
 
   function partPrefix(ss: Session) {
     return ss.parts.length > 1 ? `Part ${ss.idx + 1} of ${ss.parts.length} · ` : '';
@@ -91,6 +100,7 @@ export function Workout() {
     const durationSec = Math.round((Date.now() - ss.startedAt) / 1000);
     logWorkout({ id: uid(), routineName: ss.routineName, date: fmtDateTime(new Date()), timestamp: Date.now(), durationSec, stepsCompleted: ss.completed });
     setLastLog({ durationSec });
+    notifySaved('Workout logged.');
   }
   function finishSession() {
     const ss = sessionRef.current;
@@ -144,6 +154,7 @@ export function Workout() {
       if (remaining <= 0) {
         nextStep();
       } else {
+        if (remaining <= 3) beep(660, 150, 0.25);
         setW((prev) => ({ ...prev, remaining }));
       }
     }, 1000);
@@ -151,8 +162,7 @@ export function Workout() {
   function announceStep(steps: TimedItem[], idx: number) {
     const s = steps[idx];
     if (!s) return;
-    const secs = s.seconds || 0;
-    speak(isRest(s.name) ? `Rest for ${secs} seconds.` : `${s.name}. ${secs} seconds.`);
+    speak(isRest(s.name) ? 'Rest.' : s.name);
   }
   function nextStep() {
     const ss = sessionRef.current;
@@ -283,6 +293,7 @@ export function Workout() {
         speak('Rest over. ' + s.name + ', next set.');
         setRep((prev) => ({ ...prev, restLeft: prev.restLeft.map((v, idx) => (idx === i ? 0 : v)) }));
       } else {
+        if (left <= 3) beep(660, 150, 0.25);
         setRep((prev) => ({ ...prev, restLeft: prev.restLeft.map((v, idx) => (idx === i ? left : v)) }));
       }
     }, 1000);

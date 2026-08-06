@@ -117,6 +117,52 @@ export const BUILT_IN_WORKOUTS: BuiltInWorkout[] = [
       },
     ],
   },
+  {
+    id: 'builtin-yoga-flow',
+    name: 'Yoga Flow',
+    description: '13 poses, held one at a time — a full-body flexibility and balance session.',
+    parts: [
+      {
+        kind: 'part',
+        type: 'timed',
+        items: [
+          { name: 'Half Moon', seconds: 45 },
+          { name: 'Fold Over — hands to feet', seconds: 45 },
+          { name: 'Awkward Seat, relevé, to Squat', seconds: 45 },
+          { name: 'Eagle', seconds: 45 },
+          { name: 'Standing Head to Knee', seconds: 45 },
+          { name: 'Natarajasana — straight leg', seconds: 45 },
+          { name: 'Warrior 3', seconds: 45 },
+          { name: 'Wide Leg Forward Fold', seconds: 45 },
+          { name: 'Extended Side Angle Pose', seconds: 45 },
+          { name: 'Wide Pyramid', seconds: 45 },
+          { name: 'Tree Pose', seconds: 45 },
+          { name: 'Sukhasana — seated', seconds: 45 },
+          { name: 'Corpse', seconds: 45 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'builtin-back-extensions',
+    name: 'Back Extensions',
+    description: 'One move, 4 sets — targets the lower and upper back.',
+    parts: [
+      {
+        kind: 'part',
+        type: 'rep',
+        items: [
+          {
+            name: 'Superman Reach',
+            sets: 4,
+            reps: 20,
+            rest: 60,
+            note: 'Lying face-down, lift head/shoulders/upper chest off the floor. Reach one arm forward off the floor (other stays down), lift the opposite leg, then switch sides — that’s 1 rep.',
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export function getRoutines(): Routine[] {

@@ -5,12 +5,12 @@ import { cloudSaveSetting } from '@/lib/supabase-sync';
 import { applyTheme, isDarkModeOn } from '@/lib/theme';
 import { listEnglishVoiceNames, getPreferredVoiceName, setPreferredVoiceName, speak } from '@/lib/audio';
 import { useAuth } from './AuthContext';
-import { isDemoMode, DEMO_AI_MESSAGE } from '@/lib/demo';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
 import { getBuildHistory } from '@/lib/update-check';
 import { notifySettingsChanged } from '@/lib/settings-bus';
+import { notifySaved } from '@/lib/save-toast';
 
-type Page = 'appearance' | 'popups' | 'healthMetrics' | 'apiKeys' | 'voice' | 'account' | 'contacts' | null;
+type Page = 'appearance' | 'popups' | 'healthMetrics' | 'voice' | 'account' | 'contacts' | null;
 
 const METRIC_OPTIONS = [
   { id: 'calories', label: 'Calories', emoji: '🍽️' },
@@ -63,8 +63,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           <PopupsPage onBack={() => setPage(null)} />
         ) : page === 'healthMetrics' ? (
           <HealthMetricsPage onBack={() => setPage(null)} />
-        ) : page === 'apiKeys' ? (
-          <ApiKeysPage onBack={() => setPage(null)} />
         ) : page === 'voice' ? (
           <VoicePage onBack={() => setPage(null)} />
         ) : page === 'account' ? (
@@ -82,7 +80,6 @@ function MainView({ onNavigate }: { onNavigate: (p: Page) => void }) {
     { page: 'appearance', icon: '🌙', title: 'Appearance', subtitle: 'Dark mode' },
     { page: 'popups', icon: '🔔', title: 'Pop-ups', subtitle: 'Manage notification reminders' },
     { page: 'healthMetrics', icon: '📊', title: 'Health Metrics', subtitle: 'Customize visible metrics' },
-    { page: 'apiKeys', icon: '🔒', title: 'API Keys & Security', subtitle: 'Manage API credentials' },
     { page: 'voice', icon: '🔊', title: 'Preferences', subtitle: 'Workout voice & settings' },
     { page: 'account', icon: '👤', title: 'Account', subtitle: 'Lock app & security' },
     { page: 'contacts', icon: '📇', title: 'My QR Code', subtitle: 'Share your info, collect theirs' },
@@ -169,6 +166,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
           setLS('health_reflectionReminderDay', v);
           cloudSaveSetting('health_reflectionReminderDay', String(v));
           notifySettingsChanged();
+          notifySaved('Pop-up settings saved.');
         }}
         className={fieldClass}
         style={fieldStyle}
@@ -190,6 +188,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
           setLS('health_reflectionReminderTime', e.target.value);
           cloudSaveSetting('health_reflectionReminderTime', e.target.value);
           notifySettingsChanged();
+          notifySaved('Pop-up settings saved.');
         }}
         className={fieldClass}
         style={fieldStyle}
@@ -210,6 +209,7 @@ function HealthMetricsPage({ onBack }: { onBack: () => void }) {
     setLS('health_visibleMetrics', next);
     cloudSaveSetting('health_visibleMetrics', JSON.stringify(next));
     notifySettingsChanged();
+    notifySaved('Metrics updated.');
   }
 
   return (
@@ -225,80 +225,6 @@ function HealthMetricsPage({ onBack }: { onBack: () => void }) {
           </label>
         ))}
       </div>
-    </div>
-  );
-}
-
-function ApiKeysPage({ onBack }: { onBack: () => void }) {
-  const [key, setKey] = useState(() => localStorage.getItem('apiKey') || '');
-  const [usda, setUsda] = useState(() => localStorage.getItem('usdaApiKey') || '');
-  const [saved, setSaved] = useState(false);
-
-  function handleSave() {
-    const trimmed = key.trim();
-    const usdaTrimmed = usda.trim();
-    if (!trimmed) {
-      alert('Enter your Anthropic API key.');
-      return;
-    }
-    localStorage.setItem('apiKey', trimmed);
-    localStorage.setItem('usdaApiKey', usdaTrimmed);
-    cloudSaveSetting('apiKey', trimmed);
-    cloudSaveSetting('usdaApiKey', usdaTrimmed);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
-  }
-
-  if (isDemoMode()) {
-    return (
-      <div>
-        <BackBtn onBack={onBack} />
-        <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>API Keys & Security</h3>
-        <div className="rounded-xl p-3 text-sm" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
-          {DEMO_AI_MESSAGE} API keys aren't accessible in Demo Mode.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <BackBtn onBack={onBack} />
-      <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>API Keys & Security</h3>
-
-      <p className="mb-2 text-sm" style={{ color: 'var(--foreground)' }}>Update your Anthropic API key. Stored only on this device and your own account's cloud backup.</p>
-      <input
-        type="password"
-        value={key}
-        onChange={(e) => setKey(e.target.value)}
-        placeholder="Anthropic API key"
-        autoComplete="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        className={fieldClass + ' mb-3'}
-        style={fieldStyle}
-      />
-      <label className="mb-1.5 block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
-        USDA FoodData Central key <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>(for food search)</span>
-      </label>
-      <input
-        type="password"
-        value={usda}
-        onChange={(e) => setUsda(e.target.value)}
-        placeholder="USDA API key"
-        autoComplete="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        className={fieldClass}
-        style={fieldStyle}
-      />
-      <div className="mt-1 text-[12.5px] leading-tight" style={{ color: 'var(--muted-foreground)' }}>
-        Free 2-minute signup — no cost:<br />fdc.nal.usda.gov/api-key-signup.html
-      </div>
-      <button type="button" onClick={handleSave} className="mt-3.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)', boxShadow: '0 2px 0 var(--gold-dark)' }}>
-        Save Keys
-      </button>
-      {saved && <div className="mt-2 text-sm font-medium" style={{ color: 'var(--primary)' }}>API keys saved.</div>}
     </div>
   );
 }
@@ -364,6 +290,7 @@ function AccountPage({ onBack }: { onBack: () => void }) {
             setLS('scriptureLockMode', e.target.checked);
             cloudSaveSetting('scriptureLockMode', e.target.checked);
             notifySettingsChanged();
+            notifySaved('Account settings saved.');
           }}
           className="h-5 w-5 flex-none"
         />

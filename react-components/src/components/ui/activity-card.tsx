@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, ArrowUpRight, Plus, Target, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 export interface Metric {
@@ -26,6 +26,10 @@ interface ActivityCardProps {
   onToggleGoal?: (goalId: string) => void;
   onViewDetails?: () => void;
   className?: string;
+  /** Overrides the default bg-white/dark:bg-black-5 fill — e.g. one of the
+      section tint tokens (var(--tint-1) etc.) so cards within a section can
+      carry different shades instead of all looking identical. */
+  style?: CSSProperties;
 }
 
 const METRIC_COLORS = {
@@ -39,6 +43,9 @@ const METRIC_COLORS = {
   Mood: "#FFD60A",
   Energy: "#FF6B35",
   Weight: "#A355FF",
+  Workouts: "#FF6B35",
+  Minutes: "#00B4FF",
+  "All time": "#2CD758",
 } as const;
 
 export function ActivityCard({
@@ -49,7 +56,8 @@ export function ActivityCard({
   onAddGoal,
   onToggleGoal,
   onViewDetails,
-  className
+  className,
+  style
 }: ActivityCardProps) {
   const [isHovering, setIsHovering] = useState<string | null>(null);
 
@@ -67,6 +75,7 @@ export function ActivityCard({
         "transition-all duration-300",
         className
       )}
+      style={style}
     >
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">

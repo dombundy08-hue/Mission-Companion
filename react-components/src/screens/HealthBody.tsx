@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getGoals, todaysRow, saveDayRow, weightTrend, fmtEntryDate, type WeightPoint } from '@/lib/health-data';
 import { getLS, setLS } from '@/lib/storage';
 import { cloudDeleteRow } from '@/lib/supabase-sync';
+import { notifySaved } from '@/lib/save-toast';
 
 function Sparkline({ pts }: { pts: WeightPoint[] }) {
   if (pts.length < 2) return null;
@@ -40,13 +41,7 @@ export function HealthBody() {
   const [weights, setWeights] = useState<WeightEntry[]>(() =>
     getLS<WeightEntry[]>('healthWeight', []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
   );
-  const [flash, setFlash] = useState<string | null>(null);
   const wt = weightTrend();
-
-  function say(msg: string) {
-    setFlash(msg);
-    setTimeout(() => setFlash(null), 1900);
-  }
 
   function saveWeight() {
     const v = parseFloat(weightInput);
@@ -57,7 +52,7 @@ export function HealthBody() {
     saveDayRow('healthWeight', 'weight', v);
     setWRow(todaysRow('healthWeight'));
     setWeights(getLS<WeightEntry[]>('healthWeight', []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
-    say('Weight saved.');
+    notifySaved('Weight saved.');
   }
 
   function saveSleep() {
@@ -68,7 +63,7 @@ export function HealthBody() {
     }
     saveDayRow('healthSleep', 'hours', v);
     setSRow(todaysRow('healthSleep'));
-    say('Sleep saved.');
+    notifySaved('Sleep saved.');
   }
 
   function deleteWeight(id: string) {
@@ -84,11 +79,6 @@ export function HealthBody() {
   return (
     <div>
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>⚖️ Body</h2>
-      {flash && (
-        <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}>
-          {flash}
-        </div>
-      )}
 
       <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
         <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Weight today ({unit})</div>

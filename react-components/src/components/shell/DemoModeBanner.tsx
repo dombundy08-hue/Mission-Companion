@@ -8,7 +8,7 @@ export function DemoModeBanner() {
 
   return (
     <div
-      className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-white"
+      className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-white"
       style={{ background: 'var(--destructive)' }}
     >
       <span>🧪 Demo Mode — nothing here is saved to a real account.</span>

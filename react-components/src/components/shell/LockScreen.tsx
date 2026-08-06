@@ -11,7 +11,6 @@ const fieldStyle = { background: 'var(--card)', color: 'var(--foreground)' };
 export function LockScreen() {
   const { unlockDemo } = useAuth();
   const [mode, setMode] = useState<Mode>('signIn');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -25,7 +24,6 @@ export function LockScreen() {
     setNotice('');
     setPassword('');
     setConfirmPassword('');
-    setName('');
   }
 
   async function handleSignIn() {
@@ -40,11 +38,6 @@ export function LockScreen() {
 
   async function handleSignUp() {
     setError('');
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError('Enter your name.');
-      return;
-    }
     if (password !== confirmPassword) {
       setError("Passwords don't match.");
       return;
@@ -60,7 +53,9 @@ export function LockScreen() {
       setError('This app is currently full.');
       return;
     }
-    const { data, error: err } = await signUp(email.trim(), password, trimmedName);
+    // Name/title/language are collected right after this by Onboarding.tsx,
+    // not here — sign-up itself is just email + password.
+    const { data, error: err } = await signUp(email.trim(), password, '');
     setBusy(false);
     if (err) {
       setError(err.message);
@@ -73,7 +68,6 @@ export function LockScreen() {
       setMode('signIn');
       setPassword('');
       setConfirmPassword('');
-      setName('');
       setNotice('Account created — check your email to confirm it, then log in.');
     }
     // If a session came back immediately (confirmation disabled),
@@ -112,22 +106,6 @@ export function LockScreen() {
         </div>
 
         <div className="space-y-3 text-left">
-          {mode === 'signUp' && (
-            <div>
-              <label htmlFor="authName" className="mb-1.5 block text-sm font-medium text-white/80">Your Name</label>
-              <input
-                id="authName"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Elder or Sister ..."
-                autoComplete="name"
-                autoFocus
-                className={fieldClass}
-                style={fieldStyle}
-              />
-            </div>
-          )}
           <div>
             <label htmlFor="authEmail" className="mb-1.5 block text-sm font-medium text-white/80">Email</label>
             <input
@@ -139,7 +117,7 @@ export function LockScreen() {
               autoComplete="email"
               autoCapitalize="off"
               spellCheck={false}
-              autoFocus={mode === 'signIn'}
+              autoFocus
               className={fieldClass}
               style={fieldStyle}
             />

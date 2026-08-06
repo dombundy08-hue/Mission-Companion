@@ -16,6 +16,7 @@ import {
 import { getLS, setLS, uid } from '@/lib/storage';
 import { cloudSaveHealth, cloudDeleteRow } from '@/lib/supabase-sync';
 import { callClaude } from '@/lib/claude-api';
+import { notifySaved } from '@/lib/save-toast';
 
 interface FoodEntry {
   id: string;
@@ -38,7 +39,7 @@ export function HealthFood() {
   const [entries, setEntries] = useState<FoodEntry[]>(() =>
     getLS<FoodEntry[]>('healthFood', []).filter((e) => e.entryDate === today).sort((a, b) => b.timestamp - a.timestamp)
   );
-  const hasUsda = !!localStorage.getItem('usdaApiKey');
+  const hasUsda = !!import.meta.env.VITE_USDA_KEY;
   const [isFast, setIsFast] = useState(() => isFasting(today));
   const [lastLogged, setLastLogged] = useState<{ name: string; calories: number | null; protein: number | null } | null>(null);
 
@@ -81,6 +82,7 @@ export function HealthFood() {
     cloudSaveHealth('healthFood', row);
     refreshEntries();
     setLastLogged({ name: row.description, calories: row.calories, protein: row.protein });
+    notifySaved('Food logged.');
   }
 
   async function doSearch() {
@@ -228,6 +230,7 @@ export function HealthFood() {
   function logSaved(sf: SavedFood) {
     logSavedFood(sf);
     refreshEntries();
+    notifySaved('Food logged.');
   }
   function deleteSaved(id: string) {
     if (!confirm('Delete this saved food?')) return;

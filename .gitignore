@@ -1,5 +1,7 @@
 .env
 *.env
+.env.local
+.env.*.local
 leads.csv
 __pycache__/
 *.py

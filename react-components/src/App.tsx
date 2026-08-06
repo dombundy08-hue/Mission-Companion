@@ -5,6 +5,9 @@ import { KineticLoader } from '@/components/shell/KineticLoader';
 import { AppIntro } from '@/components/shell/AppIntro';
 import { AuthProvider, useAuth } from '@/components/shell/AuthContext';
 import { LockScreen } from '@/components/shell/LockScreen';
+import { Onboarding } from '@/screens/Onboarding';
+import { isDemoMode } from '@/lib/demo';
+import { getLS } from '@/lib/storage';
 import { ContactShare } from '@/screens/ContactShare';
 import { ContactsCollection } from '@/screens/ContactsCollection';
 import { HomeScreen } from '@/screens/HomeScreen';
@@ -94,6 +97,14 @@ function GatedApp() {
   const [introDone, setIntroDone] = useState(false);
   const { authenticated, sessionLoading } = useAuth();
   const synced = useCloudSynced(authenticated);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+
+  // Recompute only once the cloud pull has landed (not at mount) — the
+  // local flag may not exist yet on a fresh device until pullAndMergeAll()
+  // brings it down from the account's own app_settings row.
+  useEffect(() => {
+    if (synced) setOnboardingDone(isDemoMode() || getLS('onboarding_complete', false));
+  }, [synced]);
 
   // Stable reference — AppIntro's effect depends on this callback, so a new
   // inline function on every GatedApp re-render (e.g. when `synced` flips
@@ -114,6 +125,7 @@ function GatedApp() {
   if (sessionLoading) return <KineticLoader />;
   if (!authenticated) return <LockScreen />;
   if (!synced) return <KineticLoader />;
+  if (!onboardingDone) return <Onboarding onDone={() => setOnboardingDone(true)} />;
 
   return (
     <Routes>

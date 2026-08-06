@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { findSection } from '@/lib/sections';
+import { isWorkoutActive } from '@/lib/workout-session';
 
 interface BottomNavProps {
   activeSectionId: string;
@@ -29,7 +30,7 @@ export function BottomNav({ activeSectionId, activeTabId }: BottomNavProps) {
           <motion.button
             key={tab.id}
             type="button"
-            onClick={() => navigate(`/${section.id}/${tab.id}`)}
+            onClick={() => { if (!isWorkoutActive()) navigate(`/${section.id}/${tab.id}`); }}
             whileHover={{ scale: 1.12 }}
             whileTap={{ scale: 0.88 }}
             transition={{ duration: 0.3, ease: 'backInOut' }}

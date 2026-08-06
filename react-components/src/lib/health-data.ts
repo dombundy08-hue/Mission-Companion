@@ -271,6 +271,21 @@ export function weightTrend(days?: number): WeightTrend {
   return { label, dir, delta, pts, unit };
 }
 
+/* 0-100 "how close to goal weight" percentage, matching the shape every
+   other metric's ring trend already uses. No goal weight set, or no data
+   in the window, both read as 0 (empty ring) rather than a misleading 100. */
+export function weightGoalTrend(days?: number): number {
+  const g = getGoals();
+  const goalWeight = g?.profile?.goalWeight ? parseFloat(g.profile.goalWeight) : null;
+  const pts = getLS<DayRow[]>('healthWeight', [])
+    .filter((e) => e.timestamp >= daysAgoTs(days || 30) && e.weight != null)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  if (!pts.length || !goalWeight) return 0;
+  const latest = +(pts[pts.length - 1].weight as number);
+  const pct = 100 - Math.round((Math.abs(latest - goalWeight) / goalWeight) * 100);
+  return Math.max(0, Math.min(100, pct));
+}
+
 export function fmtEntryDate(s: string): string {
   const p = String(s || '').split('-');
   if (p.length !== 3) return s || '';
@@ -526,7 +541,7 @@ export interface FoodResult {
 /* USDA FoodData Central search. Values in search results are per 100g;
    pulls Energy (nutrientNumber 208, kcal) and Protein (203, g). */
 export async function usdaSearch(query: string): Promise<FoodResult[]> {
-  const key = localStorage.getItem('usdaApiKey');
+  const key = import.meta.env.VITE_USDA_KEY;
   if (!key) throw new Error('nokey');
   const url =
     'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +

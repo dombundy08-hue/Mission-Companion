@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getGoals, computeCalorieGoal, cloudSaveSetting, type HealthGoals } from '@/lib/health-data';
 import { setLS } from '@/lib/storage';
+import { notifySaved } from '@/lib/save-toast';
 
 function parseGoalWeight(s: string): number | null {
   s = String(s == null ? '' : s).trim();
@@ -84,11 +85,8 @@ export function HealthSetup() {
     };
     setLS('healthGoals', goals);
     cloudSaveSetting('healthGoals', goals);
-    setFlash('Goals saved.');
-    setTimeout(() => {
-      setFlash(null);
-      navigate('/health/health');
-    }, 600);
+    notifySaved('Goals saved.');
+    setTimeout(() => navigate('/health/health'), 600);
   }
 
   return (

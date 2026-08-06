@@ -3,6 +3,7 @@ import { getLS, setLS } from '@/lib/storage';
 import { fmtDateTime } from '@/lib/format';
 import { cloudSaveMiracle, cloudDeleteRow, uid, type MiracleEntry } from '@/lib/supabase-sync';
 import { ReadModal } from '@/components/shell/ReadModal';
+import { notifySaved } from '@/lib/save-toast';
 
 // Deterministic pick so the resurfaced miracle stays the same all day
 // instead of changing on every re-render.
@@ -58,6 +59,7 @@ export function Miracles() {
     setLS('miracleEntries', arr);
     setEntries(arr);
     cloudSaveMiracle(entry);
+    notifySaved('Miracle saved.');
     setBody('');
     setSearch('');
   }
@@ -69,6 +71,7 @@ export function Miracles() {
     setLS('miracleEntries', arr);
     setEntries(arr);
     setReading(null);
+    notifySaved('Miracle deleted.');
   }
 
   return (
@@ -96,10 +99,6 @@ export function Miracles() {
           Save Miracle
         </button>
       </div>
-      <p className="mb-4 -mt-1 text-sm" style={{ color: 'var(--muted-foreground)' }}>
-        Miracles are backed up together with your Journal. Export from the Journal tab.
-      </p>
-
       {resurfaced && (
         <div className="mb-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <div className="mb-1 text-xs font-bold uppercase" style={{ color: 'var(--gold-dark)' }}>✨ Remember this?</div>

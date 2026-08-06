@@ -46,7 +46,11 @@ async function pullSimple<M extends Record<string, unknown>>(
 }
 
 async function pullSettings(): Promise<void> {
-  const RAW_KEYS = new Set(['apiKey', 'usdaApiKey', 'theme', 'lastBackupTimestamp']);
+  // onboarding_complete/profile_title/profile_language are read via getLS()
+  // (JSON-parsed), not raw localStorage.getItem() like the RAW_KEYS below —
+  // the default (non-raw) pull path already stores them in exactly the
+  // JSON-string form getLS() expects, so they don't belong in this set.
+  const RAW_KEYS = new Set(['apiKey', 'usdaApiKey', 'theme']);
   try {
     const res = await sb.from('app_settings').select('key,value');
     if (res.error || !res.data) return;

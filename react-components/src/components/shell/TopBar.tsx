@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { SECTIONS, findSection } from '@/lib/sections';
 import { cn } from '@/lib/utils';
+import { isWorkoutActive } from '@/lib/workout-session';
 
 interface TopBarProps {
   activeSectionId: string;
@@ -17,7 +18,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
   return (
     <>
       <header
-        className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
+        className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
         style={{
           background: 'var(--navy)',
           backgroundImage: 'linear-gradient(var(--navy), var(--navy))',
@@ -29,7 +30,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
         <div className="flex justify-start">
           <motion.button
             type="button"
-            onClick={() => setSwitcherOpen(true)}
+            onClick={() => { if (!isWorkoutActive()) setSwitcherOpen(true); }}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.94 }}
             transition={{ duration: 0.25, ease: 'backInOut' }}
@@ -43,7 +44,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
 
         <button
           type="button"
-          onClick={() => navigate('/home')}
+          onClick={() => { if (!isWorkoutActive()) navigate('/home'); }}
           className="justify-self-center whitespace-nowrap text-sm font-bold tracking-wide"
           style={{ color: 'var(--gold)' }}
         >

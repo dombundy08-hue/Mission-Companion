@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ActivityCard, type Metric } from '@/components/ui/activity-card';
-import { getGoals, healthAverages, weightTrend, todaysFoodTotals, waterTotal, todaysRow } from '@/lib/health-data';
+import { getGoals, healthAverages, weightTrend, weightGoalTrend, todaysFoodTotals, waterTotal, todaysRow } from '@/lib/health-data';
 import { getLS } from '@/lib/storage';
 import { useSettingsChanged } from '@/lib/settings-bus';
 import { HealthSetup } from './HealthSetup';
 
 const DEFAULT_VISIBLE = ['calories', 'protein', 'sleep', 'water', 'mood', 'energy', 'weight'];
 
+type Range = 'day' | 'week' | 'month';
+
 export function HealthStats() {
   const navigate = useNavigate();
   const g = getGoals();
-  const [range, setRange] = useState<'week' | 'month'>('week');
+  const [range, setRange] = useState<Range>('day');
   const [visible, setVisible] = useState<string[]>(() => getLS('health_visibleMetrics', DEFAULT_VISIBLE));
   useSettingsChanged(() => setVisible(getLS('health_visibleMetrics', DEFAULT_VISIBLE)));
 
@@ -24,6 +26,7 @@ export function HealthStats() {
   const todayMood = todaysRow('healthMood');
   const todaySleep = todaysRow('healthSleep');
   const todayWaterOz = waterTotal();
+  const todayWeight = todaysRow('healthWeight');
 
   const defs: { key: string; label: string; unit?: Metric['unit']; avgValue: string; avgTrend: number; todayValue: string; todayTrend: number }[] = [
     {
@@ -68,17 +71,35 @@ export function HealthStats() {
       todayValue: todayMood?.energy != null ? String(todayMood.energy) : '—',
       todayTrend: todayMood?.energy != null ? Math.min(100, Math.round((Number(todayMood.energy) / 5) * 100)) : 0,
     },
+    {
+      key: 'weight', label: 'Weight', unit: wt.unit,
+      avgValue: wt.pts.length ? String(Math.round(wt.pts[wt.pts.length - 1].weight * 10) / 10) : '—',
+      avgTrend: weightGoalTrend(days),
+      todayValue: todayWeight?.weight != null ? String(Math.round(Number(todayWeight.weight) * 10) / 10) : '—',
+      todayTrend: weightGoalTrend(1),
+    },
   ];
 
   const shown = defs.filter((d) => visible.includes(d.key));
-  const metrics: Metric[] = shown.map((d) => ({ label: d.label, value: d.avgValue, trend: d.avgTrend, unit: d.unit }));
-  const todayMetrics: Metric[] = shown.map((d) => ({ label: d.label, value: d.todayValue, trend: d.todayTrend, unit: d.unit }));
-  const showWeight = visible.includes('weight');
-  const usedMedian = avgs.calUsedMedian || avgs.protUsedMedian;
+  const isDay = range === 'day';
+  const metrics: Metric[] = shown.map((d) => ({
+    label: d.label,
+    value: isDay ? d.todayValue : d.avgValue,
+    trend: isDay ? d.todayTrend : d.avgTrend,
+    unit: d.unit,
+  }));
+  const usedMedian = !isDay && (avgs.calUsedMedian || avgs.protUsedMedian);
+  const categoryLabel = range === 'day' ? 'Today' : range === 'month' ? 'Last 30 days' : 'Last 7 days';
 
   return (
     <div>
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📊 Stats</h2>
+
+      <div className="mb-4 flex gap-2">
+        <button type="button" onClick={() => setRange('day')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'day' ? 'var(--navy)' : 'var(--card)', color: range === 'day' ? 'white' : 'var(--foreground)' }}>Today</button>
+        <button type="button" onClick={() => setRange('week')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'week' ? 'var(--navy)' : 'var(--card)', color: range === 'week' ? 'white' : 'var(--foreground)' }}>This Week</button>
+        <button type="button" onClick={() => setRange('month')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'month' ? 'var(--navy)' : 'var(--card)', color: range === 'month' ? 'white' : 'var(--foreground)' }}>This Month</button>
+      </div>
 
       {usedMedian && (
         <p className="mb-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>
@@ -86,32 +107,13 @@ export function HealthStats() {
         </p>
       )}
 
-      {todayMetrics.length > 0 && (
-        <div className="mb-4">
-          <ActivityCard category="So far" title="🔆 Today" metrics={todayMetrics} />
-        </div>
-      )}
-
-      <div className="mb-4 flex gap-2">
-        <button type="button" onClick={() => setRange('week')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'week' ? 'var(--navy)' : 'var(--card)', color: range === 'week' ? 'white' : 'var(--foreground)' }}>This Week</button>
-        <button type="button" onClick={() => setRange('month')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'month' ? 'var(--navy)' : 'var(--card)', color: range === 'month' ? 'white' : 'var(--foreground)' }}>This Month</button>
-      </div>
-
       {metrics.length > 0 && (
         <ActivityCard
-          category={range === 'month' ? 'Last 30 days' : 'Last 7 days'}
+          category={categoryLabel}
           title="📊 Health Snapshot"
           metrics={metrics}
+          style={{ background: 'var(--tint-1)' }}
         />
-      )}
-
-      {showWeight && (
-        <div className="mt-4 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-          <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>Weight</div>
-          <div className="text-sm" style={{ color: 'var(--foreground)' }}>
-            {wt.pts.length < 2 ? 'Not enough data yet' : wt.label.charAt(0).toUpperCase() + wt.label.slice(1)}
-          </div>
-        </div>
       )}
 
       <button type="button" onClick={() => navigate('/health/hsetup')} className="mt-4 text-sm font-medium" style={{ color: 'var(--primary)' }}>

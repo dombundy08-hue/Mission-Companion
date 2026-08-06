@@ -4,13 +4,19 @@ import { fmtClock, type WorkoutLogEntry } from '@/lib/exercise-data';
 import { getLS, setLS } from '@/lib/storage';
 import { cloudDeleteRow } from '@/lib/supabase-sync';
 
+type Range = 'day' | 'week' | 'month';
+
 export function WorkoutLog() {
   const [log, setLog] = useState<WorkoutLogEntry[]>(() => getLS<WorkoutLogEntry[]>('workoutLog', []).slice().sort((a, b) => b.timestamp - a.timestamp));
+  const [range, setRange] = useState<Range>('day');
 
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const thisWeek = log.filter((e) => e.timestamp >= weekAgo).length;
+  const rangeMs = (range === 'day' ? 1 : range === 'month' ? 30 : 7) * 24 * 60 * 60 * 1000;
+  const since = Date.now() - rangeMs;
+  const inRange = log.filter((e) => e.timestamp >= since);
+  const rangeCount = inRange.length;
+  const rangeMin = Math.round(inRange.reduce((s, e) => s + (e.durationSec || 0), 0) / 60);
   const totalMin = Math.round(log.reduce((s, e) => s + (e.durationSec || 0), 0) / 60);
-  const weekMin = Math.round(log.filter((e) => e.timestamp >= weekAgo).reduce((s, e) => s + (e.durationSec || 0), 0) / 60);
+  const categoryLabel = range === 'day' ? 'Today' : range === 'month' ? 'Last 30 days' : 'Last 7 days';
 
   function deleteEntry(id: string) {
     if (!confirm('Delete this log entry?')) return;
@@ -22,8 +28,8 @@ export function WorkoutLog() {
   }
 
   const metrics: Metric[] = [
-    { label: 'Workouts', value: String(thisWeek), trend: Math.min(100, thisWeek * 20) },
-    { label: 'Minutes', value: String(weekMin), trend: Math.min(100, weekMin), unit: 'min' },
+    { label: 'Workouts', value: String(rangeCount), trend: Math.min(100, rangeCount * 20) },
+    { label: 'Minutes', value: String(rangeMin), trend: Math.min(100, rangeMin), unit: 'min' },
     { label: 'All time', value: String(totalMin), trend: 100, unit: 'min' },
   ];
 
@@ -31,7 +37,13 @@ export function WorkoutLog() {
     <div>
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📈 Log</h2>
 
-      <ActivityCard category="This week" title="📊 Workout Log" metrics={metrics} className="mb-4" />
+      <div className="mb-3 flex gap-2">
+        <button type="button" onClick={() => setRange('day')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'day' ? 'var(--navy)' : 'var(--card)', color: range === 'day' ? 'white' : 'var(--foreground)' }}>Today</button>
+        <button type="button" onClick={() => setRange('week')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'week' ? 'var(--navy)' : 'var(--card)', color: range === 'week' ? 'white' : 'var(--foreground)' }}>This Week</button>
+        <button type="button" onClick={() => setRange('month')} className="flex-1 rounded-xl border py-2.5 text-sm font-bold" style={{ borderColor: 'var(--border)', background: range === 'month' ? 'var(--navy)' : 'var(--card)', color: range === 'month' ? 'white' : 'var(--foreground)' }}>This Month</button>
+      </div>
+
+      <ActivityCard category={categoryLabel} title="📊 Workout Log" metrics={metrics} className="mb-4" style={{ background: 'var(--tint-1)' }} />
 
       {!log.length ? (
         <div className="rounded-[14px] border p-6 text-center text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)' }}>

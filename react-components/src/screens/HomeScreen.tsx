@@ -11,6 +11,7 @@ import { sb } from '@/lib/supabase-sync';
 import { DemoModeBanner } from '@/components/shell/DemoModeBanner';
 import { UpdateBanner } from '@/components/shell/UpdateBanner';
 import { SettingsModal } from '@/components/shell/SettingsModal';
+import { SaveToast } from '@/components/shell/SaveToast';
 
 // Top-level page (no BottomNav, own header) — the app's default landing
 // screen, always shown in the base/untouched palette regardless of which
@@ -105,33 +106,35 @@ export function HomeScreen() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--background)' }}>
-      {isDemoMode() && <DemoModeBanner />}
-      <UpdateBanner />
+      <div className="sticky top-0 z-40">
+        {isDemoMode() && <DemoModeBanner />}
+        <UpdateBanner />
 
-      <header
-        className="sticky top-0 z-30 grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
-        style={{
-          background: 'var(--navy)',
-          backdropFilter: 'blur(14px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(14px) saturate(160%)',
-          boxShadow: '0 1px 6px rgba(0,0,0,.12)',
-        }}
-      >
-        <div />
-        <span className="justify-self-center whitespace-nowrap text-sm font-bold tracking-wide" style={{ color: 'var(--gold)' }}>
-          Missionary Companion
-        </span>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] active:bg-white/10"
-          >
-            ⚙️
-          </button>
-        </div>
-      </header>
+        <header
+          className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
+          style={{
+            background: 'var(--navy)',
+            backdropFilter: 'blur(14px) saturate(160%)',
+            WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+            boxShadow: '0 1px 6px rgba(0,0,0,.12)',
+          }}
+        >
+          <div />
+          <span className="justify-self-center whitespace-nowrap text-sm font-bold tracking-wide" style={{ color: 'var(--gold)' }}>
+            Missionary Companion
+          </span>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Settings"
+              className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] active:bg-white/10"
+            >
+              ⚙️
+            </button>
+          </div>
+        </header>
+      </div>
 
       <main className="mx-auto max-w-[680px] px-4 pt-4 pb-8">
         <h1 className="mb-4 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>
@@ -174,6 +177,7 @@ export function HomeScreen() {
         </div>
       </main>
 
+      <SaveToast />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );

@@ -24,6 +24,7 @@ import {
 } from '@/lib/health-data';
 import { getLS } from '@/lib/storage';
 import { useSettingsChanged } from '@/lib/settings-bus';
+import { notifySaved } from '@/lib/save-toast';
 import { HealthSetup } from './HealthSetup';
 
 const DEFAULT_VISIBLE = ['calories', 'protein', 'sleep', 'water', 'mood', 'energy', 'weight'];
@@ -85,19 +86,23 @@ export function HealthToday() {
     if (delta < 0 && waterTotal() < 8) return;
     addTap('healthWater', 'oz', delta);
     setOz(waterTotal());
+    notifySaved('Water saved.');
   }
   function tapElectrolyte(delta: number) {
     if (delta < 0 && electroTotal() < 1) return;
     addTap('healthWater', 'electrolytes', delta);
     setEl(electroTotal());
+    notifySaved('Electrolytes saved.');
   }
   function tapMood(n: number) {
     saveDayRow('healthMood', 'score', n);
     setMRow(todaysRow('healthMood'));
+    notifySaved('Mood saved.');
   }
   function tapEnergy(n: number) {
     saveDayRow('healthMood', 'energy', n);
     setMRow(todaysRow('healthMood'));
+    notifySaved('Energy saved.');
   }
   function toggleFast() {
     toggleFasting(today);
@@ -117,7 +122,7 @@ export function HealthToday() {
     <div>
       <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🍎 Today</h2>
 
-      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--tint-1)' }}>
         <div className="mb-3 flex gap-2">
           <button type="button" onClick={() => setRange('week')} className="flex-1 rounded-lg py-2 text-sm font-bold" style={{ background: range === 'week' ? 'var(--navy)' : 'var(--secondary)', color: range === 'week' ? 'white' : 'var(--secondary-foreground)' }}>This Week</button>
           <button type="button" onClick={() => setRange('month')} className="flex-1 rounded-lg py-2 text-sm font-bold" style={{ background: range === 'month' ? 'var(--navy)' : 'var(--secondary)', color: range === 'month' ? 'white' : 'var(--secondary-foreground)' }}>This Month</button>
@@ -146,7 +151,7 @@ export function HealthToday() {
         )}
       </div>
 
-      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--tint-2)' }}>
         <label className="flex cursor-pointer items-center gap-2.5">
           <input type="checkbox" checked={fastToday} onChange={toggleFast} className="h-5 w-5 flex-none" />
           <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
@@ -198,7 +203,7 @@ export function HealthToday() {
         <div className="mb-3 rounded-xl border p-3 text-sm" style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)' }}>{ceilNote}</div>
       )}
 
-      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--tint-3)' }}>
         <div className="mb-1 text-sm font-bold" style={{ color: 'var(--foreground)' }}>💧 Water today</div>
         <div className="mb-3 text-xs" style={{ color: 'var(--muted-foreground)' }}>Goal: {g.water} oz</div>
         <div className="flex items-center justify-center gap-6">
@@ -215,7 +220,7 @@ export function HealthToday() {
         </div>
       </div>
 
-      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--tint-4)' }}>
         <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>🙂 Mood today</div>
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -224,7 +229,7 @@ export function HealthToday() {
         </div>
       </div>
 
-      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
+      <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--tint-4)' }}>
         <div className="mb-2 text-sm font-bold" style={{ color: 'var(--foreground)' }}>⚡ Energy today</div>
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((n) => (

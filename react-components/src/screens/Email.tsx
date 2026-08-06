@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getLS, setLS } from '@/lib/storage';
 import { callClaude, aiErrorMessage } from '@/lib/claude-api';
 import { cloudSaveSetting } from '@/lib/supabase-sync';
@@ -10,7 +9,6 @@ const EMAIL_SYSTEM = `You are helping a missionary write his weekly family email
 type View = 'voice' | null;
 
 export function Email() {
-  const navigate = useNavigate();
   const [examples, setExamples] = useState<string[]>(() => getLS('emailVoiceExamples', []));
   const [view, setView] = useState<View>(null);
   const [ev1, setEv1] = useState(examples[0] || '');
@@ -176,15 +174,6 @@ export function Email() {
           />
           <button type="button" onClick={copy} className="w-full rounded-xl py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>
             {copied ? 'Copied!' : '📋 Copy Email'}
-          </button>
-        </div>
-      )}
-
-      {generated && (
-        <div className="mb-4 rounded-[14px] p-4 text-white" style={{ background: 'linear-gradient(150deg,#163C64,#1F5389)' }}>
-          <div className="mb-3 text-sm">📓 Reminder: Don't forget to back up your Journal &amp; Miracles before P-day ends!</div>
-          <button type="button" onClick={() => navigate('/spiritual/journal')} className="w-full rounded-xl py-2.5 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>
-            Go to Backup →
           </button>
         </div>
       )}

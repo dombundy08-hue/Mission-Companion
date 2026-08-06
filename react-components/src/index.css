@@ -62,6 +62,16 @@
   --shadow-md: 0 6px 16px rgba(22,60,100,.10), 0 2px 6px rgba(22,60,100,.06);
   --shadow-lg: 0 16px 40px rgba(22,60,100,.16), 0 6px 12px rgba(22,60,100,.08);
 
+  /* Within-section shade scale — 4 steps of the section's own hue, strongest
+     to palest, so cards inside one section don't all look identical. Defined
+     once here purely in terms of --primary/--card, both of which are already
+     redefined per `.section-*` block below — so every section automatically
+     gets its own correctly-hued scale with no per-section repetition needed. */
+  --tint-1: color-mix(in srgb, var(--primary) 30%, var(--card));
+  --tint-2: color-mix(in srgb, var(--primary) 20%, var(--card));
+  --tint-3: color-mix(in srgb, var(--primary) 12%, var(--card));
+  --tint-4: color-mix(in srgb, var(--primary) 6%, var(--card));
+
   color-scheme: light dark;
 }
 
@@ -273,6 +283,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-tint-1: var(--tint-1);
+  --color-tint-2: var(--tint-2);
+  --color-tint-3: var(--tint-3);
+  --color-tint-4: var(--tint-4);
 
   --font-sans: var(--font-body);
   --font-heading: var(--font-heading);

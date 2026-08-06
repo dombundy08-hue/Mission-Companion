@@ -1,49 +1,11 @@
 import { useMemo, useState } from 'react';
 import { getLS, setLS } from '@/lib/storage';
-import { fmtDateTime, fmtDateShort } from '@/lib/format';
+import { fmtDateTime } from '@/lib/format';
 import { pickPrompt } from '@/lib/journal-prompts';
-import { cloudSaveJournal, cloudSaveSetting, cloudDeleteRow, uid, type JournalEntry } from '@/lib/supabase-sync';
+import { cloudSaveJournal, cloudDeleteRow, uid, type JournalEntry } from '@/lib/supabase-sync';
+import { notifySaved } from '@/lib/save-toast';
 
 type View = 'list' | 'new' | 'read';
-
-function newSinceBackup() {
-  const last = localStorage.getItem('lastBackupTimestamp');
-  const lastT = last ? new Date(last).getTime() : 0;
-  const j = getLS<JournalEntry[]>('journalEntries', []).filter((e) => e.timestamp > lastT);
-  const m = getLS<{ timestamp: number }[]>('miracleEntries', []).filter((e) => e.timestamp > lastT);
-  return { j, m, last };
-}
-
-function doExport() {
-  const { j, m } = newSinceBackup();
-  if (j.length === 0 && m.length === 0) {
-    alert('Nothing new to back up.');
-    return;
-  }
-  const today = fmtDateShort(new Date());
-  let body = `MISSION JOURNAL BACKUP — ${today}\n\n`;
-  body += `========================================\nJOURNAL ENTRIES (${j.length})\n========================================\n\n`;
-  if (j.length === 0) body += '(none)\n\n';
-  [...j].sort((a, b) => a.timestamp - b.timestamp).forEach((e) => {
-    body += `${e.date}\n${e.body || ''}\n`;
-    if (e.reflectionResponse) body += `\nReflection — ${e.reflectionPrompt}\n${e.reflectionResponse}\n`;
-    body += `\n----------------------------------------\n\n`;
-  });
-  body += `\n========================================\nMIRACLES (${m.length})\n========================================\n\n`;
-  if (m.length === 0) body += '(none)\n\n';
-
-  const subject = `Mission Journal Backup — ${today}`;
-  const href = `mailto:dom.bundy08@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = href;
-
-  setTimeout(() => {
-    if (confirm('Did you successfully send the backup email?\n\nTap OK to mark as backed up, or Cancel if not yet.')) {
-      const iso = new Date().toISOString();
-      localStorage.setItem('lastBackupTimestamp', iso);
-      cloudSaveSetting('lastBackupTimestamp', iso);
-    }
-  }, 700);
-}
 
 export function Journal() {
   const [view, setView] = useState<View>('list');
@@ -95,26 +57,8 @@ export function Journal() {
     );
   }
 
-  const { j, m, last } = newSinceBackup();
-  const count = j.length + m.length;
-  const lastTxt = last ? fmtDateShort(new Date(last)) : 'never';
-
   return (
     <div>
-      <div className="mb-4 rounded-[14px] p-4 text-white" style={{ background: 'linear-gradient(150deg,#163C64,#1F5389)' }}>
-        <div className="mb-3 text-sm">
-          📤 <b>{count}</b> new {count === 1 ? 'entry' : 'entries'} since last backup on <b>{lastTxt}</b>.
-        </div>
-        <button
-          type="button"
-          onClick={doExport}
-          className="w-full rounded-xl py-2.5 text-sm font-bold text-white"
-          style={{ background: 'var(--primary)' }}
-        >
-          Export New Entries →
-        </button>
-      </div>
-
       <button
         type="button"
         onClick={() => {
@@ -199,6 +143,7 @@ function JournalNew({
       reflectionResponse: trimmedReflect,
     };
     cloudSaveJournal(entry);
+    notifySaved('Entry saved.');
     onSaved(entry);
   }
 
@@ -253,6 +198,7 @@ function JournalRead({
   function handleDelete() {
     if (!confirm('Delete this entry permanently?')) return;
     cloudDeleteRow('journal_entries', entry);
+    notifySaved('Entry deleted.');
     onDeleted();
   }
 
