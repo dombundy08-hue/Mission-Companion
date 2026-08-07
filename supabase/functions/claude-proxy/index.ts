@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // Server-side proxy for Anthropic's Messages API — the real key lives only
-// here (ANTHROPIC_API_KEY, a Supabase Edge Function secret), never in any
+// here (the "Ai API key" Supabase Edge Function secret), never in any
 // client bundle. verify_jwt is on (see deploy config), so only a signed-in
 // Mission Companion account can call this at all. Mirrors the request/
 // response shape lib/claude-api.ts used to send directly to Anthropic, so
@@ -34,7 +34,7 @@ Deno.serve(async (req: Request) => {
       maxTokens?: number;
     };
 
-    const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+    const apiKey = Deno.env.get('Ai API key');
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'not configured' }), {
         status: 500,

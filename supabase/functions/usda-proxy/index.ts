@@ -1,11 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // Server-side proxy for USDA FoodData Central search — the real key lives
-// only here (USDA_API_KEY, a Supabase Edge Function secret), never in any
-// client bundle. verify_jwt is on (see deploy config), so only a signed-in
-// Mission Companion account can call this at all. Returns the raw USDA
-// response as-is; lib/health-data.ts's usdaSearch() keeps doing all the
-// nutrient parsing client-side, unchanged.
+// only here (the "Food Data base API" Supabase Edge Function secret),
+// never in any client bundle. verify_jwt is on (see deploy config), so
+// only a signed-in Mission Companion account can call this at all.
+// Returns the raw USDA response as-is; lib/health-data.ts's
+// usdaSearch() keeps doing all the nutrient parsing client-side, unchanged.
 //
 // The browser sends a CORS preflight (OPTIONS) before the real POST because
 // sb.functions.invoke() attaches an Authorization header — without an
@@ -26,7 +26,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { query } = (await req.json()) as { query: string };
 
-    const apiKey = Deno.env.get('USDA_API_KEY');
+    const apiKey = Deno.env.get('Food Data base API');
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'not configured' }), {
         status: 500,
