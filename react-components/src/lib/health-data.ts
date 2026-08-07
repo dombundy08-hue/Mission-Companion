@@ -1,6 +1,6 @@
 import { getLS, setLS, uid } from './storage';
 import { fmtDateShort } from './format';
-import { cloudSaveHealth, cloudSaveSetting, cloudDeleteRow, cloudSaveSavedFood } from './supabase-sync';
+import { cloudSaveHealth, cloudSaveSetting, cloudDeleteRow, cloudSaveSavedFood, sb } from './supabase-sync';
 
 export function isoDate(d?: Date): string {
   d = d || new Date();
@@ -540,18 +540,11 @@ export interface FoodResult {
 
 /* USDA FoodData Central search. Values in search results are per 100g;
    pulls Energy (nutrientNumber 208, kcal) and Protein (203, g). */
+// Routed through the usda-proxy Edge Function — the real USDA key lives
+// only as a server-side secret there, never in this client bundle.
 export async function usdaSearch(query: string): Promise<FoodResult[]> {
-  const key = import.meta.env.VITE_USDA_KEY;
-  if (!key) throw new Error('nokey');
-  const url =
-    'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' +
-    encodeURIComponent(key) +
-    '&query=' +
-    encodeURIComponent(query) +
-    '&pageSize=20';
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('status ' + res.status);
-  const data = await res.json();
+  const { data, error } = await sb.functions.invoke('usda-proxy', { body: { query } });
+  if (error) throw new Error('status: ' + error.message);
   interface UsdaNutrient { nutrientNumber?: string | number; nutrient?: { number?: string | number }; unitName?: string; value?: number }
   interface UsdaFood { description?: string; foodNutrients?: UsdaNutrient[]; servingSize?: number; servingSizeUnit?: string; householdServingFullText?: string }
   return ((data.foods || []) as UsdaFood[])

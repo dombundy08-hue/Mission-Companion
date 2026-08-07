@@ -4,7 +4,8 @@
    Supabase data traffic is never cached, so cloud sync stays live/fresh.
    v9: large batch deploy (nav lock during workouts, per-section color
    tints, consolidated Health Stats/Exercise Log, onboarding flow, API
-   keys moved out of Settings into a build-time embed, new built-in
+   keys moved out of Settings into a server-side Edge Function proxy
+   (never shipped to any client), new built-in
    workouts, and a pile of smaller UX fixes) — bumping forces every
    session to pick up the new shell instead of trickling in piecemeal. */
 const CACHE = 'mission-companion-v9';

@@ -39,7 +39,7 @@ export function HealthFood() {
   const [entries, setEntries] = useState<FoodEntry[]>(() =>
     getLS<FoodEntry[]>('healthFood', []).filter((e) => e.entryDate === today).sort((a, b) => b.timestamp - a.timestamp)
   );
-  const hasUsda = !!import.meta.env.VITE_USDA_KEY;
+  const hasUsda = true; // now proxied server-side, always available
   const [isFast, setIsFast] = useState(() => isFasting(today));
   const [lastLogged, setLastLogged] = useState<{ name: string; calories: number | null; protein: number | null } | null>(null);
 
