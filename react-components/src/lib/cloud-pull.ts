@@ -167,46 +167,86 @@ async function pullPrograms(): Promise<void> {
   }
 }
 
-export async function pullAndMergeAll(): Promise<void> {
+// Grouped by section so each cluster can be pulled lazily on first visit
+// (see pullSectionOnce below) instead of all ~13 queries firing on every
+// login regardless of which section the user actually opens.
+const SECTION_PULLS: Record<string, () => Promise<void>> = {
+  spiritual: () =>
+    Promise.all([
+      pullSimple(
+        'journal_entries',
+        'journalEntries',
+        (r) => ({ date: String(r.entry_date), timestamp: new Date(String(r.created_at)).getTime(), body: String(r.body || ''), reflectionPrompt: String(r.reflection_prompt || ''), reflectionResponse: String(r.reflection_response || '') }),
+        (x) => `${x.date}|${x.body}`
+      ),
+      pullSimple(
+        'miracle_entries',
+        'miracleEntries',
+        (r) => ({ date: String(r.entry_date), timestamp: new Date(String(r.created_at)).getTime(), body: String(r.body || '') }),
+        (x) => `${x.date}|${x.body}`
+      ),
+      pullScriptureProgress(),
+    ]).then(() => {}),
+  exercise: () =>
+    Promise.all([
+      pullSimple(
+        'workout_routines',
+        'workoutRoutines',
+        (r) => ({ name: String(r.name || ''), steps: r.steps, createdAt: new Date(String(r.created_at)).getTime() }),
+        (x) => x.name
+      ),
+      pullPrograms(),
+      pullSimple(
+        'workout_log',
+        'workoutLog',
+        (r) => ({ routineName: String(r.routine_name || ''), date: String(r.performed_at || '').slice(0, 10), timestamp: new Date(String(r.performed_at)).getTime(), durationSec: Number(r.duration_seconds) || 0, stepsCompleted: Number(r.steps_completed) || 0 }),
+        (x) => `${x.routineName}|${x.timestamp}`
+      ),
+    ]).then(() => {}),
+  health: () =>
+    Promise.all([
+      pullHealthLog('health_food_log', 'healthFood', (r) => ({ calories: r.calories, protein: r.protein, description: r.description, grams: r.grams, source: r.source })),
+      pullHealthLog('health_weight_log', 'healthWeight', (r) => ({ weight: r.weight })),
+      pullHealthLog('health_sleep_log', 'healthSleep', (r) => ({ hours: r.hours })),
+      pullHealthLog('health_hydration_log', 'healthWater', (r) => ({ oz: r.cups, electrolytes: r.electrolytes })),
+      pullHealthLog('health_mood_log', 'healthMood', (r) => ({ score: r.score, energy: r.energy })),
+      pullSimple(
+        'saved_foods',
+        'savedFoods',
+        (r) => ({ name: String(r.name || ''), calories: (r.calories as number) ?? null, protein: (r.protein as number) ?? null, createdAt: new Date(String(r.created_at)).getTime() }),
+        (x) => x.name
+      ),
+    ]).then(() => {}),
+};
+
+const pulledSections = new Set<string>();
+
+function canPull(): boolean {
+  return !!sb && navigator.onLine && !isDemoMode();
+}
+
+// True once a section's data is pulled OR there's nothing to wait for
+// (offline/Demo Mode) — lets a caller skip showing a sync placeholder for
+// a section that's already settled, avoiding a flash on repeat visits.
+export function isSectionPulled(sectionId: string): boolean {
+  return pulledSections.has(sectionId) || !canPull();
+}
+
+export async function pullSectionOnce(sectionId: string): Promise<void> {
+  if (pulledSections.has(sectionId) || !canPull()) return;
+  const fn = SECTION_PULLS[sectionId];
+  if (!fn) return;
+  await fn();
+  pulledSections.add(sectionId);
+}
+
+// Boot-time only: the small settings pull. Everything else here used to
+// run eagerly on every login (~13 concurrent queries regardless of which
+// section got opened) — now those pull lazily via pullSectionOnce() on
+// first visit. pullSettings() itself stays eager because App.tsx's
+// onboarding gate (getLS('onboarding_complete', ...)) depends on it
+// having already run.
+export async function pullBootSettings(): Promise<void> {
   if (!sb || !navigator.onLine || isDemoMode()) return;
-  await Promise.all([
-    pullSimple(
-      'journal_entries',
-      'journalEntries',
-      (r) => ({ date: String(r.entry_date), timestamp: new Date(String(r.created_at)).getTime(), body: String(r.body || ''), reflectionPrompt: String(r.reflection_prompt || ''), reflectionResponse: String(r.reflection_response || '') }),
-      (x) => `${x.date}|${x.body}`
-    ),
-    pullSimple(
-      'miracle_entries',
-      'miracleEntries',
-      (r) => ({ date: String(r.entry_date), timestamp: new Date(String(r.created_at)).getTime(), body: String(r.body || '') }),
-      (x) => `${x.date}|${x.body}`
-    ),
-    pullSimple(
-      'workout_routines',
-      'workoutRoutines',
-      (r) => ({ name: String(r.name || ''), steps: r.steps, createdAt: new Date(String(r.created_at)).getTime() }),
-      (x) => x.name
-    ),
-    pullPrograms(),
-    pullSimple(
-      'workout_log',
-      'workoutLog',
-      (r) => ({ routineName: String(r.routine_name || ''), date: String(r.performed_at || '').slice(0, 10), timestamp: new Date(String(r.performed_at)).getTime(), durationSec: Number(r.duration_seconds) || 0, stepsCompleted: Number(r.steps_completed) || 0 }),
-      (x) => `${x.routineName}|${x.timestamp}`
-    ),
-    pullHealthLog('health_food_log', 'healthFood', (r) => ({ calories: r.calories, protein: r.protein, description: r.description, grams: r.grams, source: r.source })),
-    pullHealthLog('health_weight_log', 'healthWeight', (r) => ({ weight: r.weight })),
-    pullHealthLog('health_sleep_log', 'healthSleep', (r) => ({ hours: r.hours })),
-    pullHealthLog('health_hydration_log', 'healthWater', (r) => ({ oz: r.cups, electrolytes: r.electrolytes })),
-    pullHealthLog('health_mood_log', 'healthMood', (r) => ({ score: r.score, energy: r.energy })),
-    pullSimple(
-      'saved_foods',
-      'savedFoods',
-      (r) => ({ name: String(r.name || ''), calories: (r.calories as number) ?? null, protein: (r.protein as number) ?? null, createdAt: new Date(String(r.created_at)).getTime() }),
-      (x) => x.name
-    ),
-    pullScriptureProgress(),
-    pullSettings(),
-  ]);
+  await pullSettings();
 }

@@ -57,9 +57,13 @@ rule isn't decision-relevant, cut it.
 
 - localStorage is canonical (`lib/storage.ts`'s `getLS`/`setLS`).
 - Every write also fires a `cloudSave*()` (`lib/supabase-sync.ts`),
-  non-blocking.
-- `lib/cloud-pull.ts`'s `pullAndMergeAll()` pulls once per session,
-  additive-only, deduped by natural key.
+  non-blocking. `cloudSaveSettings()` batches several keys into one
+  upsert when they belong to one logical action (e.g. onboarding).
+- `lib/cloud-pull.ts`: only `pullBootSettings()` runs eagerly at login
+  (small, and the onboarding gate depends on it). Per-section data
+  (journal/miracles/scripture, workouts, health logs) pulls lazily on
+  first visit to that section via `pullSectionOnce()` — additive-only,
+  deduped by natural key, same as before, just deferred until needed.
 
 ## Sections & Navigation
 

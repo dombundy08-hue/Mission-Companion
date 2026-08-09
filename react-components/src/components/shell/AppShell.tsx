@@ -8,8 +8,10 @@ import { FastReminderModal } from './FastReminderModal';
 import { UpdateBanner } from './UpdateBanner';
 import { DemoModeBanner } from './DemoModeBanner';
 import { SaveToast } from './SaveToast';
+import { SyncPlaceholder } from './SyncPlaceholder';
 import { isDemoMode } from '@/lib/demo';
 import { shouldShowFastReminder, getFastingIntention, isoDate } from '@/lib/health-data';
+import { pullSectionOnce, isSectionPulled } from '@/lib/cloud-pull';
 
 export function AppShell() {
   const { sectionId = 'spiritual', tabId = 'journal' } = useParams();
@@ -17,6 +19,27 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
   const [showFastReminder, setShowFastReminder] = useState(false);
+  const [sectionReady, setSectionReady] = useState(() => isSectionPulled(sectionId));
+
+  // Pull this section's data on first visit only — see lib/cloud-pull.ts's
+  // pullSectionOnce(). Gates just the section content (not TopBar/BottomNav)
+  // so a screen never mounts before its own data has actually landed in
+  // localStorage — mounting early would show empty/stale data with no
+  // automatic re-render once the pull finishes.
+  useEffect(() => {
+    if (isSectionPulled(sectionId)) {
+      setSectionReady(true);
+      return;
+    }
+    let cancelled = false;
+    setSectionReady(false);
+    pullSectionOnce(sectionId).finally(() => {
+      if (!cancelled) setSectionReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sectionId]);
 
   // Re-evaluate on every tab navigation (AppShell itself doesn't remount when
   // moving between tabs within a section) and whenever the tab regains focus
@@ -56,7 +79,7 @@ export function AppShell() {
         <TopBar activeSectionId={sectionId} onOpenSettings={() => setSettingsOpen(true)} />
       </div>
       <main className="mx-auto max-w-[680px] px-4 pt-4" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
-        <Outlet />
+        {sectionReady ? <Outlet /> : <SyncPlaceholder />}
       </main>
       <BottomNav activeSectionId={sectionId} activeTabId={tabId} />
       <SaveToast />

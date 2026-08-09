@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/shell/AppShell';
 import { KineticLoader } from '@/components/shell/KineticLoader';
@@ -13,13 +13,9 @@ import { ContactsCollection } from '@/screens/ContactsCollection';
 import { Placeholder } from '@/screens/Placeholder';
 import { Journal } from '@/screens/Journal';
 import { Miracles } from '@/screens/Miracles';
-import { Spanish } from '@/screens/Spanish';
-import { Objections } from '@/screens/Objections';
-import { Email } from '@/screens/Email';
 import { Mastery } from '@/screens/Mastery';
 import { MissionStatement } from '@/screens/MissionStatement';
 import { HealthToday } from '@/screens/HealthToday';
-import { HealthFood } from '@/screens/HealthFood';
 import { HealthBody } from '@/screens/HealthBody';
 import { HealthStats } from '@/screens/HealthStats';
 import { HealthSetup } from '@/screens/HealthSetup';
@@ -27,7 +23,16 @@ import { Routines } from '@/screens/Routines';
 import { Workout } from '@/screens/Workout';
 import { WorkoutLog } from '@/screens/WorkoutLog';
 import { findTab } from '@/lib/sections';
-import { pullAndMergeAll } from '@/lib/cloud-pull';
+import { pullBootSettings } from '@/lib/cloud-pull';
+import { SyncPlaceholder } from '@/components/shell/SyncPlaceholder';
+
+// Code-split: these are the heaviest/least-often-needed screens (AI chat
+// calls, food search) — no reason to ship them in the chunk every user
+// downloads just to open Journal.
+const Spanish = lazy(() => import('@/screens/Spanish').then((m) => ({ default: m.Spanish })));
+const Objections = lazy(() => import('@/screens/Objections').then((m) => ({ default: m.Objections })));
+const Email = lazy(() => import('@/screens/Email').then((m) => ({ default: m.Email })));
+const HealthFood = lazy(() => import('@/screens/HealthFood').then((m) => ({ default: m.HealthFood })));
 
 function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
   switch (`${sectionId}/${tabId}`) {
@@ -70,21 +75,27 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
 
 function TabPage() {
   const { sectionId = 'spiritual', tabId = 'journal' } = useParams();
-  return <TabRoute sectionId={sectionId} tabId={tabId} />;
+  return (
+    <Suspense fallback={<SyncPlaceholder />}>
+      <TabRoute sectionId={sectionId} tabId={tabId} />
+    </Suspense>
+  );
 }
 
-// Pulls existing cloud data down into localStorage once per authenticated
-// session — this was documented as the intended design but never actually
-// built, so a device with empty/cleared local storage would show nothing
-// even though real data was safely sitting in Supabase the whole time.
-// KineticLoader (real "something is loading" indicator) covers this wait.
+// Pulls the small settings row down into localStorage once per
+// authenticated session — this was documented as the intended design but
+// never actually built, so a device with empty/cleared local storage
+// would show nothing even though real data was safely sitting in Supabase
+// the whole time. KineticLoader covers this brief wait. Per-section data
+// (journal, workouts, health logs, etc.) pulls lazily on first visit to
+// each section instead — see lib/cloud-pull.ts's pullSectionOnce().
 function useCloudSynced(authenticated: boolean) {
   const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     if (!authenticated) return;
     let cancelled = false;
-    pullAndMergeAll().finally(() => {
+    pullBootSettings().finally(() => {
       if (!cancelled) setSynced(true);
     });
     return () => {
@@ -102,7 +113,7 @@ function GatedApp() {
   const [onboardingDone, setOnboardingDone] = useState(false);
 
   // Recompute only once the cloud pull has landed (not at mount) — the
-  // local flag may not exist yet on a fresh device until pullAndMergeAll()
+  // local flag may not exist yet on a fresh device until pullBootSettings()
   // brings it down from the account's own app_settings row.
   useEffect(() => {
     if (synced) setOnboardingDone(isDemoMode() || getLS('onboarding_complete', false));
