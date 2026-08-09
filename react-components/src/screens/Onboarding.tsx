@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { sb, cloudSaveSetting } from '@/lib/supabase-sync';
+import { sb, cloudSaveSettings } from '@/lib/supabase-sync';
 import { setLS } from '@/lib/storage';
 import { notifySaved } from '@/lib/save-toast';
 
@@ -42,9 +42,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     setLS('profile_title', title);
     setLS('profile_language', finalLanguage);
     setLS('onboarding_complete', true);
-    cloudSaveSetting('profile_title', title);
-    cloudSaveSetting('profile_language', finalLanguage);
-    cloudSaveSetting('onboarding_complete', true);
+    cloudSaveSettings({ profile_title: title, profile_language: finalLanguage, onboarding_complete: true });
 
     setBusy(false);
     notifySaved('Profile saved.');

@@ -192,6 +192,23 @@ export async function cloudSaveSetting(key: string, value: unknown) {
   }
 }
 
+// Same as cloudSaveSetting but for several keys that belong to one logical
+// action (e.g. finishing onboarding) — one multi-row upsert instead of one
+// round-trip per key.
+export async function cloudSaveSettings(entries: Record<string, unknown>) {
+  if (!sbOnline()) {
+    markPending();
+    return;
+  }
+  try {
+    const rows = Object.entries(entries).map(([key, value]) => ({ key, value: JSON.stringify(value) }));
+    const up = await sb.from('app_settings').upsert(rows, { onConflict: 'user_id,key' });
+    if (up.error) throw up.error;
+  } catch {
+    markPending();
+  }
+}
+
 /* ---------- Health logs: one dispatcher table, ported 1:1 from vanilla's
    HEALTH_LOGS + cloudSaveHealth. Optional-column flags (foodProteinOk etc.)
    let the app survive a Supabase table missing a column it expects — a
