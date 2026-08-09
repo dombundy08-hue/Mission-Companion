@@ -7,8 +7,14 @@
    keys moved out of Settings into a server-side Edge Function proxy
    (never shipped to any client), new built-in
    workouts, and a pile of smaller UX fixes) — bumping forces every
-   session to pick up the new shell instead of trickling in piecemeal. */
-const CACHE = 'mission-companion-v9';
+   session to pick up the new shell instead of trickling in piecemeal.
+   v10: Home dashboard removed (fixes a real "Welcome Elder" bug — its
+   greeting split display_name on whitespace and grabbed the title
+   instead of the name), Scripture Lock removed, investigator -> Friend
+   everywhere. Bumping so any device still on the pre-v10 shell picks up
+   the name-greeting fix immediately instead of waiting on background
+   revalidation. */
+const CACHE = 'mission-companion-v10';
 
 /* v4: the React app is now the primary site (was previously the vanilla
    index.html + an embedded react-build/ iframe). Bumping CACHE purges
