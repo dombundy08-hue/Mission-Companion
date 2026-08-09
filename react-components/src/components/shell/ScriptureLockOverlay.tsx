@@ -3,6 +3,8 @@ import { getLS } from '@/lib/storage';
 import { getDeck } from '@/lib/mastery';
 import { useAuth } from './AuthContext';
 
+export const SCRIPTURE_LOCK_CARD_ID_KEY = 'scriptureLockCardId';
+
 const IDLE_MS = 5 * 60 * 1000;
 const POLL_MS = 30000;
 const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'touchstart', 'click', 'scroll'] as const;
@@ -22,6 +24,15 @@ function scriptureLockEnabled(): boolean {
 function pickCard() {
   const deck = getDeck();
   if (!deck.length) return null;
+
+  const chosenId = getLS<string>(SCRIPTURE_LOCK_CARD_ID_KEY, '');
+  if (chosenId) {
+    const chosen = deck.find((c) => String(c.id) === chosenId);
+    if (chosen) return chosen;
+    // Stored id no longer exists in the deck (e.g. deck was reset) — fall
+    // through to the random pool below rather than getting stuck.
+  }
+
   const reviewed = deck.filter((c) => (c.reviewCount || 0) > 0);
   const pool = reviewed.length ? reviewed : deck;
   return pool[Math.floor(Math.random() * pool.length)];

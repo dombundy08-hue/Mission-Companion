@@ -4,7 +4,9 @@ import { getLS, setLS } from '@/lib/storage';
 import { cloudSaveSetting } from '@/lib/supabase-sync';
 import { applyTheme, isDarkModeOn } from '@/lib/theme';
 import { listEnglishVoiceNames, getPreferredVoiceName, setPreferredVoiceName, speak } from '@/lib/audio';
+import { getDeck } from '@/lib/mastery';
 import { useAuth } from './AuthContext';
+import { SCRIPTURE_LOCK_CARD_ID_KEY } from './ScriptureLockOverlay';
 import { getQrCode, contactShareUrl, qrImageUrl } from '@/lib/qr';
 import { getBuildHistory } from '@/lib/update-check';
 import { notifySettingsChanged } from '@/lib/settings-bus';
@@ -276,12 +278,14 @@ function VoicePage({ onBack }: { onBack: () => void }) {
 function AccountPage({ onBack }: { onBack: () => void }) {
   const { lock } = useAuth();
   const [scriptureLock, setScriptureLock] = useState(() => getLS('scriptureLockMode', false));
+  const [lockCardId, setLockCardId] = useState(() => getLS(SCRIPTURE_LOCK_CARD_ID_KEY, ''));
+  const deck = getDeck();
 
   return (
     <div>
       <BackBtn onBack={onBack} />
       <h3 className="mb-3 text-[19px] font-bold" style={{ color: 'var(--foreground)' }}>Account</h3>
-      <label className="mb-4 flex cursor-pointer items-center gap-2.5">
+      <label className="mb-2 flex cursor-pointer items-center gap-2.5">
         <input
           type="checkbox"
           checked={scriptureLock}
@@ -299,6 +303,31 @@ function AccountPage({ onBack }: { onBack: () => void }) {
           <span style={{ color: 'var(--muted-foreground)' }}>(type a practiced scripture to re-enter after being idle — password always still works)</span>
         </span>
       </label>
+      {scriptureLock && (
+        <div className="mb-4 pl-[30px]">
+          <label htmlFor="lockScripture" className="mb-1.5 block text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>
+            Which scripture?
+          </label>
+          <select
+            id="lockScripture"
+            value={lockCardId}
+            onChange={(e) => {
+              setLockCardId(e.target.value);
+              setLS(SCRIPTURE_LOCK_CARD_ID_KEY, e.target.value);
+              cloudSaveSetting(SCRIPTURE_LOCK_CARD_ID_KEY, e.target.value);
+              notifySettingsChanged();
+              notifySaved('Account settings saved.');
+            }}
+            className={fieldClass}
+            style={fieldStyle}
+          >
+            <option value="">Random from practiced</option>
+            {deck.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.reference}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <button
         type="button"
         onClick={() => {

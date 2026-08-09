@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-
 import { AppShell } from '@/components/shell/AppShell';
 import { KineticLoader } from '@/components/shell/KineticLoader';
 import { AppIntro } from '@/components/shell/AppIntro';
+import { ScriptureLockOverlay } from '@/components/shell/ScriptureLockOverlay';
 import { AuthProvider, useAuth } from '@/components/shell/AuthContext';
 import { LockScreen } from '@/components/shell/LockScreen';
 import { Onboarding } from '@/screens/Onboarding';
@@ -128,14 +129,20 @@ function GatedApp() {
   if (!onboardingDone) return <Onboarding onDone={() => setOnboardingDone(true)} />;
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/home" replace />} />
-      <Route path="/contacts" element={<ContactsCollection />} />
-      <Route path="/home" element={<HomeScreen />} />
-      <Route element={<AppShell />}>
-        <Route path="/:sectionId/:tabId" element={<TabPage />} />
-      </Route>
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/contacts" element={<ContactsCollection />} />
+        <Route path="/home" element={<HomeScreen />} />
+        <Route element={<AppShell />}>
+          <Route path="/:sectionId/:tabId" element={<TabPage />} />
+        </Route>
+      </Routes>
+      {/* Sibling of <Routes>, not inside a <Route> — must survive in-app
+          navigation between Home/Contacts/section tabs so the lock can't be
+          dismissed just by navigating away while it's showing. */}
+      <ScriptureLockOverlay />
+    </>
   );
 }
 

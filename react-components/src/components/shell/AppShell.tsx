@@ -3,7 +3,6 @@ import { Outlet, useParams, useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { SettingsModal } from './SettingsModal';
-import { ScriptureLockOverlay } from './ScriptureLockOverlay';
 import { WeeklyReflectionModal, shouldShowWeeklyReflection } from './WeeklyReflectionModal';
 import { FastReminderModal } from './FastReminderModal';
 import { UpdateBanner } from './UpdateBanner';
@@ -63,7 +62,6 @@ export function AppShell() {
       <BottomNav activeSectionId={sectionId} activeTabId={tabId} />
       <SaveToast />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      <ScriptureLockOverlay />
       {showFastReminder ? (
         <FastReminderModal intention={getFastingIntention(isoDate())} onClose={() => setShowFastReminder(false)} />
       ) : (
