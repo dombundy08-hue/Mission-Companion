@@ -35,6 +35,12 @@ interface WorkoutState {
   steps: TimedItem[];
   stepIdx: number;
   remaining: number;
+  // Wall-clock timestamp the current step should end at — the source of
+  // truth for `remaining`, recomputed from this rather than decremented,
+  // so the countdown is correct even after the screen was off for a while
+  // (setInterval ticks get throttled/suspended while backgrounded; this
+  // timestamp doesn't drift with them).
+  stepEndsAt: number;
   running: boolean;
   countdown: number;
 }
@@ -42,6 +48,14 @@ interface RepState {
   steps: RepItem[];
   counts: number[];
   restLeft: number[];
+  // Same wall-clock approach as `stepEndsAt`, one per exercise.
+  restEndsAt: number[];
+}
+
+// Minimal ambient shape for the Wake Lock API — avoids depending on the
+// installed TS lib version actually declaring `navigator.wakeLock`.
+interface WakeLockSentinelLike {
+  release: () => Promise<void>;
 }
 
 const badgeClass = (bd: string) => (bd === 'Reps' ? '#2CD758' : bd === 'Mixed' ? '#A355FF' : bd === 'Circuit' ? '#FF6B35' : '#1C6FB0');
@@ -51,8 +65,8 @@ export function Workout() {
   const [params] = useSearchParams();
   const [routines] = useState<Routine[]>(() => getRoutines());
   const [session, setSession] = useState<Session | null>(null);
-  const [w, setW] = useState<WorkoutState>({ kind: 'timed', view: 'pick', steps: [], stepIdx: 0, remaining: 0, running: false, countdown: 3 });
-  const [rep, setRep] = useState<RepState>({ steps: [], counts: [], restLeft: [] });
+  const [w, setW] = useState<WorkoutState>({ kind: 'timed', view: 'pick', steps: [], stepIdx: 0, remaining: 0, stepEndsAt: 0, running: false, countdown: 3 });
+  const [rep, setRep] = useState<RepState>({ steps: [], counts: [], restLeft: [], restEndsAt: [] });
   const [lastLog, setLastLog] = useState<{ durationSec: number } | null>(null);
 
   const sessionRef = useRef(session);
@@ -66,6 +80,7 @@ export function Workout() {
   const leadTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const leadToken = useRef(0);
   const restTimers = useRef<(ReturnType<typeof setInterval> | null)[]>([]);
+  const wakeLock = useRef<WakeLockSentinelLike | null>(null);
 
   function clearLeadTimers() {
     leadTimers.current.forEach((id) => clearTimeout(id));
@@ -83,14 +98,84 @@ export function Workout() {
     cancelSpeech();
   }
 
+  async function acquireWakeLock() {
+    try {
+      const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinelLike> } };
+      if (nav.wakeLock) wakeLock.current = await nav.wakeLock.request('screen');
+    } catch {
+      // Best-effort only — unsupported browsers, or the OS refusing the
+      // request, must never block the workout from running.
+    }
+  }
+  function releaseWakeLock() {
+    wakeLock.current?.release().catch(() => {});
+    wakeLock.current = null;
+  }
+
   useEffect(() => {
     setWorkoutActive(!!session?.active);
+    if (session?.active) acquireWakeLock();
+    else releaseWakeLock();
   }, [session?.active]);
 
   useEffect(() => () => {
     stopTimer();
     setWorkoutActive(false);
+    releaseWakeLock();
   }, []);
+
+  // A WakeLockSentinel auto-releases whenever the document is hidden (spec
+  // behavior) — re-acquire it when the screen comes back if a session is
+  // still running. This is also where the countdown corrects itself: a
+  // `setInterval` firing every second only knows to subtract 1 per tick, so
+  // if the OS suspended it while the screen was off, `catchUp()` recomputes
+  // from the wall-clock end time instead of trusting how many ticks fired.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return;
+      if (sessionRef.current?.active) acquireWakeLock();
+      catchUp();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  function catchUp() {
+    const cur = wRef.current;
+    const ss = sessionRef.current;
+    if (cur.view !== 'run' || !cur.running || !ss?.active) return;
+    let idx = cur.stepIdx;
+    let endsAt = cur.stepEndsAt;
+    const steps = cur.steps;
+    let ranOut = false;
+    // Count every step-boundary crossed, including the final one that ends
+    // the part — mirrors nextStep()'s "always +1 before checking if that
+    // was the last step," so a session that finished entirely while the
+    // screen was off still logs the right number completed, not just the
+    // number of *transitions* between still-visible steps.
+    let stepsFinished = 0;
+    while (Date.now() >= endsAt) {
+      stepsFinished++;
+      if (idx >= steps.length - 1) {
+        ranOut = true;
+        break;
+      }
+      idx++;
+      endsAt += (steps[idx].seconds || 45) * 1000;
+    }
+    if (stepsFinished > 0) {
+      const completed = ss.completed + stepsFinished;
+      setSession({ ...ss, completed });
+      sessionRef.current = { ...ss, completed };
+    }
+    if (ranOut) {
+      sessionPartDone();
+      return;
+    }
+    if (stepsFinished > 0) announceStep(steps, idx);
+    const remaining = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+    setW((prev) => ({ ...prev, stepIdx: idx, remaining, stepEndsAt: endsAt }));
+  }
 
   function partPrefix(ss: Session) {
     return ss.parts.length > 1 ? `Part ${ss.idx + 1} of ${ss.parts.length} · ` : '';
@@ -150,7 +235,7 @@ export function Workout() {
     if (tickTimer.current) clearInterval(tickTimer.current);
     tickTimer.current = setInterval(() => {
       if (!wRef.current.running) return;
-      const remaining = wRef.current.remaining - 1;
+      const remaining = Math.max(0, Math.round((wRef.current.stepEndsAt - Date.now()) / 1000));
       if (remaining <= 0) {
         nextStep();
       } else {
@@ -175,7 +260,7 @@ export function Workout() {
     const stepIdx = cur.stepIdx + 1;
     const remaining = cur.steps[stepIdx].seconds || 45;
     announceStep(cur.steps, stepIdx);
-    setW((prev) => ({ ...prev, stepIdx, remaining }));
+    setW((prev) => ({ ...prev, stepIdx, remaining, stepEndsAt: Date.now() + remaining * 1000 }));
   }
 
   function runLeadIn(ss: Session, steps: TimedItem[], isAdvance: boolean) {
@@ -202,7 +287,7 @@ export function Workout() {
           leadTimers.current.push(
             setTimeout(() => {
               if (!alive()) return;
-              setW((prev) => ({ ...prev, view: 'run', running: true }));
+              setW((prev) => ({ ...prev, view: 'run', running: true, stepEndsAt: Date.now() + prev.remaining * 1000 }));
               tickStart();
             }, 750)
           );
@@ -216,7 +301,7 @@ export function Workout() {
   function startTimedPart(ss: Session, part: RoutinePart, isAdvance: boolean) {
     const steps = part.type === 'circuit' ? expandCircuit(part) : (part.items as TimedItem[]).filter((x) => x && x.name).map((s) => ({ name: s.name, seconds: s.seconds || 45 }));
     if (!steps.length) return sessionPartDone();
-    setW({ kind: 'timed', view: 'ready', steps, stepIdx: 0, remaining: steps[0].seconds || 45, running: false, countdown: 3 });
+    setW({ kind: 'timed', view: 'ready', steps, stepIdx: 0, remaining: steps[0].seconds || 45, stepEndsAt: 0, running: false, countdown: 3 });
     setTimeout(() => runLeadIn(ss, steps, isAdvance), 0);
   }
 
@@ -224,7 +309,7 @@ export function Workout() {
     const steps = (part.items as RepItem[]).filter((x) => x && x.name);
     if (!steps.length) return sessionPartDone();
     restTimers.current = steps.map(() => null);
-    setRep({ steps, counts: steps.map(() => 0), restLeft: steps.map(() => 0) });
+    setRep({ steps, counts: steps.map(() => 0), restLeft: steps.map(() => 0), restEndsAt: steps.map(() => 0) });
     setW((prev) => ({ ...prev, kind: 'rep', view: 'run' }));
     const many = ss.parts.length > 1;
     const lead = isAdvance && many ? `Part ${ss.idx + 1}. ` : `Starting ${ss.routineName}. `;
@@ -269,7 +354,10 @@ export function Workout() {
     setW((prev) => {
       const running = !prev.running;
       if (!running) cancelSpeech();
-      return { ...prev, running };
+      // Resuming: recompute stepEndsAt from the current remaining seconds —
+      // the old absolute end timestamp doesn't account for how long the
+      // workout sat paused, so reusing it would eat the pause time.
+      return running ? { ...prev, running, stepEndsAt: Date.now() + prev.remaining * 1000 } : { ...prev, running };
     });
   }
 
@@ -283,9 +371,14 @@ export function Workout() {
       setRep((prev) => ({ ...prev, restLeft: prev.restLeft.map((v, idx) => (idx === i ? 0 : v)) }));
       return;
     }
-    setRep((prev) => ({ ...prev, restLeft: prev.restLeft.map((v, idx) => (idx === i ? rest : v)) }));
+    const endsAt = Date.now() + rest * 1000;
+    setRep((prev) => ({
+      ...prev,
+      restLeft: prev.restLeft.map((v, idx) => (idx === i ? rest : v)),
+      restEndsAt: prev.restEndsAt.map((v, idx) => (idx === i ? endsAt : v)),
+    }));
     restTimers.current[i] = setInterval(() => {
-      const left = repRef.current.restLeft[i] - 1;
+      const left = Math.max(0, Math.round((repRef.current.restEndsAt[i] - Date.now()) / 1000));
       if (left <= 0) {
         clearInterval(restTimers.current[i]!);
         restTimers.current[i] = null;
@@ -338,7 +431,7 @@ export function Workout() {
           <h3 className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>Workout complete</h3>
           <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{session?.completed || 0} completed · about {mins} minute{mins === 1 ? '' : 's'}. Logged.</p>
         </div>
-        <button type="button" onClick={() => { setW({ kind: 'timed', view: 'pick', steps: [], stepIdx: 0, remaining: 0, running: false, countdown: 3 }); setSession(null); }} className="w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)' }}>Do Another</button>
+        <button type="button" onClick={() => { setW({ kind: 'timed', view: 'pick', steps: [], stepIdx: 0, remaining: 0, stepEndsAt: 0, running: false, countdown: 3 }); setSession(null); }} className="w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)' }}>Do Another</button>
       </div>
     );
   }
