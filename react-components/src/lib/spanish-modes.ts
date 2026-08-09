@@ -21,7 +21,7 @@ export const SPANISH_MODES: Record<string, SpanishMode> = {
     label: 'Lesson',
     icon: '📖',
     persona:
-      'You are a Spanish-speaking investigator who has invited the missionaries in. You are curious but have questions and occasional doubts. The conversation is longer and deeper. Use more complex sentences. Ask follow-up questions about what the missionary is teaching.',
+      'You are a Spanish-speaking Friend who has invited the missionaries in. You are curious but have questions and occasional doubts. The conversation is longer and deeper. Use more complex sentences. Ask follow-up questions about what the missionary is teaching.',
   },
 };
 

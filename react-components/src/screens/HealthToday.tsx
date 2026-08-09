@@ -167,7 +167,7 @@ export function HealthToday() {
                   value={fastIntention}
                   onChange={(e) => saveFastIntention(e.target.value)}
                   onBlur={confirmFastIntention}
-                  placeholder="e.g. a companion who's struggling, an investigator's family…"
+                  placeholder="e.g. a companion who's struggling, a Friend's family…"
                   className="min-h-[60px] w-full rounded-xl border p-2.5 text-sm"
                   style={{ borderColor: 'var(--border)', background: 'var(--background)', color: 'var(--foreground)' }}
                 />

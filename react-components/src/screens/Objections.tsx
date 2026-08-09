@@ -94,7 +94,7 @@ export function Objections() {
       {!started ? (
         <div className="rounded-[14px] border p-4 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <p className="mb-2 text-[15px]" style={{ color: 'var(--foreground)' }}>
-            A question or concern will appear below.<br />Respond as you would on your mission.<br />The investigator will respond like a real person.
+            A question or concern will appear below.<br />Respond as you would on your mission.<br />The Friend will respond like a real person.
           </p>
           <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>There are no right answers here — just practice.</p>
           <button type="button" onClick={begin} className="rounded-xl px-6 py-2.5 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>
@@ -105,7 +105,7 @@ export function Objections() {
         question && (
           <div>
             <div className="mb-3 rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-              <div className="mb-1 text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--gold-dark)' }}>The investigator says</div>
+              <div className="mb-1 text-xs font-bold tracking-wide uppercase" style={{ color: 'var(--gold-dark)' }}>The Friend says</div>
               <div className="text-[15px]" style={{ color: 'var(--foreground)' }}>{question.text}</div>
             </div>
 
