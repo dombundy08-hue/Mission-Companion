@@ -21,7 +21,7 @@ export function AppShell() {
   // Re-evaluate on every tab navigation (AppShell itself doesn't remount when
   // moving between tabs within a section) and whenever the tab regains focus
   // — catches a day/week rolling over while the app was left open, not just
-  // the moment a section is first entered from Home.
+  // the moment a section is first entered.
   useEffect(() => {
     function recheck() {
       setShowFastReminder(shouldShowFastReminder());
@@ -34,10 +34,9 @@ export function AppShell() {
 
   // Per-section color scheme — applied to <html> (same element theme.ts
   // toggles `.dark` on) so `.dark.section-spiritual` etc. in index.css can
-  // combine correctly regardless of where in the tree this runs. Home
-  // (a separate top-level route, see HomeScreen.tsx) never mounts AppShell,
-  // so it never gets one of these classes and always shows the untouched
-  // base palette.
+  // combine correctly regardless of where in the tree this runs. `/contacts`
+  // (a separate top-level route) never mounts AppShell, so it never gets one
+  // of these classes and always shows the untouched base palette.
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('section-spiritual', 'section-exercise', 'section-health');

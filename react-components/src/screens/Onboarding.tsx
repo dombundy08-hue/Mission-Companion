@@ -12,8 +12,8 @@ const fieldStyle = { background: 'var(--card)', color: 'var(--foreground)' };
 // login/signup — see App.tsx's `onboardingDone` gate. Sign-up itself only
 // collects email + password; this is where the rest of the profile is
 // gathered, structured (title + name rather than one free-text field) so
-// `display_name` stays consistent everywhere it's read (HomeScreen's
-// "Welcome back", ContactShare's public page).
+// `display_name` stays consistent everywhere it's read (ContactShare's
+// public page).
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const [title, setTitle] = useState<'Elder' | 'Sister'>('Elder');
   const [name, setName] = useState('');

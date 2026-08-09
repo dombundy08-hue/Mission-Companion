@@ -18,7 +18,7 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
   return (
     <>
       <header
-        className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
+        className="flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white"
         style={{
           background: 'var(--navy)',
           backgroundImage: 'linear-gradient(var(--navy), var(--navy))',
@@ -27,40 +27,27 @@ export function TopBar({ activeSectionId, onOpenSettings }: TopBarProps) {
           boxShadow: '0 1px 6px rgba(0,0,0,.12)',
         }}
       >
-        <div className="flex justify-start">
-          <motion.button
-            type="button"
-            onClick={() => { if (!isWorkoutActive()) setSwitcherOpen(true); }}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.94 }}
-            transition={{ duration: 0.25, ease: 'backInOut' }}
-            className="flex items-center gap-2 text-base font-semibold"
-          >
-            {section?.iconImage && <img src={section.iconImage} alt="" className="h-9 w-9 object-contain" />}
-            <span>{section?.name}</span>
-            <span className="text-xs opacity-70">▾</span>
-          </motion.button>
-        </div>
+        <motion.button
+          type="button"
+          onClick={() => { if (!isWorkoutActive()) setSwitcherOpen(true); }}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.94 }}
+          transition={{ duration: 0.25, ease: 'backInOut' }}
+          className="flex items-center gap-2 text-base font-semibold"
+        >
+          {section?.iconImage && <img src={section.iconImage} alt="" className="h-9 w-9 object-contain" />}
+          <span>{section?.name}</span>
+          <span className="text-xs opacity-70">▾</span>
+        </motion.button>
 
         <button
           type="button"
-          onClick={() => { if (!isWorkoutActive()) navigate('/home'); }}
-          className="justify-self-center whitespace-nowrap text-sm font-bold tracking-wide"
-          style={{ color: 'var(--gold)' }}
+          onClick={onOpenSettings}
+          aria-label="Settings"
+          className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] active:bg-white/10"
         >
-          Missionary Companion
+          ⚙️
         </button>
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            aria-label="Settings"
-            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[22px] active:bg-white/10"
-          >
-            ⚙️
-          </button>
-        </div>
       </header>
 
       {switcherOpen && (
