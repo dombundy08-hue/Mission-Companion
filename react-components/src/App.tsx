@@ -17,6 +17,7 @@ import { Spanish } from '@/screens/Spanish';
 import { Objections } from '@/screens/Objections';
 import { Email } from '@/screens/Email';
 import { Mastery } from '@/screens/Mastery';
+import { MissionStatement } from '@/screens/MissionStatement';
 import { HealthToday } from '@/screens/HealthToday';
 import { HealthFood } from '@/screens/HealthFood';
 import { HealthBody } from '@/screens/HealthBody';
@@ -42,6 +43,8 @@ function TabRoute({ sectionId, tabId }: { sectionId: string; tabId: string }) {
       return <Email />;
     case 'spiritual/mastery':
       return <Mastery />;
+    case 'spiritual/mission':
+      return <MissionStatement />;
     case 'health/health':
       return <HealthToday />;
     case 'health/hfood':

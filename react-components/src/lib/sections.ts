@@ -28,6 +28,7 @@ export const SECTIONS: SectionDef[] = [
       { id: 'spanish', label: 'Spanish', icon: '🗣️' },
       { id: 'mastery', label: 'Mastery', icon: '📖' },
       { id: 'email', label: 'Email', icon: '✉️' },
+      { id: 'mission', label: 'Mission', icon: '🧭' },
     ],
   },
   {
@@ -54,16 +55,6 @@ export const SECTIONS: SectionDef[] = [
     ],
   },
 ];
-
-// Home isn't wrapped in any `.section-*` CSS class (it always shows the
-// base palette), so its tile swatches need plain JS colors that mirror
-// each section's `--primary`/`--accent` from index.css. Keep hand-synced
-// if those hexes ever get tuned.
-export const SECTION_ACCENT_COLORS: Record<string, { light: string; dark: string }> = {
-  spiritual: { light: '#7A3FC4', dark: '#A96FE0' },
-  exercise: { light: '#D9622B', dark: '#E27A45' },
-  health: { light: '#1E8F6F', dark: '#4FC79E' },
-};
 
 export function findSection(sectionId: string): SectionDef | undefined {
   return SECTIONS.find((s) => s.id === sectionId);
