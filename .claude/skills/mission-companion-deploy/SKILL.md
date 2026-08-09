@@ -11,6 +11,15 @@ A `PreToolUse` hook on `git push` (`.claude/settings.local.json`) blocks
 any push that didn't just come out of this pipeline — see "Push gate"
 below.
 
+**Runs straight through, no pauses.** Build, Code Audit, Auto-Fix, and
+Learning always run back-to-back with no stop for confirmation —
+including applying schema migrations and the final push. The *only*
+thing that ever pauses this pipeline is a finding that needs action on a
+system this skill has no access to (rotating a credential in a
+third-party console, a dashboard toggle, etc.) — and even then, only that
+one item pauses; everything else still gets fixed and pushed in the same
+run, with the un-fixable item reported alongside.
+
 ## Four-Subagent Workflow (push now happens last, not first)
 
 ### 1. Build Agent
