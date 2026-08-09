@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-const WORDS = ['LOADING', 'MISSIONARY', 'COMPANION'];
+const WORDS = ['MISSIONARY', 'COMPANION'];
 
 export function KineticLoader() {
   const textRef = useRef<HTMLHeadingElement>(null);
@@ -74,7 +74,7 @@ export function KineticLoader() {
       className="fixed inset-0 z-[999] flex items-center justify-center"
       style={{ background: 'var(--navy)' }}
       role="status"
-      aria-label="Loading Mission Companion"
+      aria-label="Mission Companion"
     >
       <h1
         ref={textRef}
