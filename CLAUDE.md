@@ -1,204 +1,119 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code working in this repository.
-Keep it lean — every line competes for attention, so if a rule isn't
-decision-relevant, cut it.
+Guidance, not enforced config — every line competes for attention. If a
+rule isn't decision-relevant, cut it.
 
-**After a significant feature batch or architectural change**, run the
-`mission-companion-deploy` skill's audit cycle (Code Audit → Auto-Fix →
-Learning) — it's what keeps this file and `SKILL.md` current, but only
-runs when actually invoked.
+## How We Work
+
+- Status updates: bullet lists, **Done** / **Needed**. No prose recaps.
+- **Nothing gets built or deployed without Dom saying "approved."**
+- Multi-item batches: plan mode first, clarify each item before writing
+  code — not a guess dressed up as a fix.
+- Vague or visual/mobile-only bug reports get a screenshot request before
+  a blind fix attempt.
+- **When addressing a bug, run the `mission-companion-deploy` skill (at
+  least its Code Audit phase) to investigate first** — not an ad hoc
+  read-and-guess.
+- "Compiles clean" isn't proof. Verify against the real dev server or the
+  live site, especially anything touching auth, RLS, or a third-party API.
+- After a big batch: run the `mission-companion-deploy` skill's audit
+  cycle — it's what keeps this file current, but only when invoked.
 
 ---
 
 ## Architecture
 
-Mission Companion: React 19 + Vite + TypeScript + Tailwind v4 PWA for LDS
-missionaries (journal, language practice, scripture mastery, health,
-exercise). Supports real, independent accounts (soft-capped at 5) with
-fully private data per account.
+- React 19 + Vite + TS + Tailwind v4 PWA. `react-components/src/` is the
+  only source — no vanilla HTML, no iframe (retired 2026-08-04). Ignore
+  anything describing `render<Tab>()` or postMessage.
+- Deploy: `cd react-components && npm run build`, copy `dist/*` to repo
+  root, commit, push.
+- Landing page: `/home` (`screens/HomeScreen.tsx`).
+- Hosting: GitHub Pages, public repo (free plan requires it) — no real
+  secret lives in the repo, so this is an accepted tradeoff.
 
-- **Source of truth:** `react-components/src/` — this IS the site. No
-  vanilla `index.html`, no iframe embedding (retired 2026-08-04, tag
-  `pre-build-website`). Ignore any doc/comment describing `render<Tab>()`,
-  `state.<section>`, or postMessage — that architecture is gone.
-- **Build/deploy:** `cd react-components && npm run build`, copy `dist/*`
-  to repo root, commit, push → live in ~60s.
-- **Auth:** real Supabase Auth, not a shared password. See "Accounts &
-  Data Isolation."
-- **Default landing page:** `/home` (`screens/HomeScreen.tsx`) — one tile
-  per section with a live snapshot, linking into that section's normal
-  tabs. Reachable from any section via the "Missionary Companion" button
-  in the header (`TopBar.tsx`).
-- **Hosting:** GitHub Pages, custom domain missionarycompanion.com. Repo
-  is public and the GitHub account is on the free plan — Pages requires a
-  public repo on free, so it can't be made private without a paid plan.
-  No real secret lives in the repo (see "What's public" below), so this
-  is an accepted tradeoff, not a gap to fix.
+## Accounts & Data
 
----
+- Supabase Auth, soft-capped at 5 accounts (`lib/auth.ts`).
+- **Every table has `user_id default auth.uid()` + owner-scoped RLS — RLS
+  already does the access control, don't hand-write `.eq('user_id', ...)`
+  filters.** Exceptions: `app_settings` (unique on `user_id, key`),
+  `shared_programs` (open read; likes go through the
+  `increment_program_likes` RPC, not a direct UPDATE), `contact_leads`
+  (open insert for anonymous QR scans, scoped by
+  `auth.uid()::text = code`).
+- Demo Mode is fully local, never touches Supabase (`lib/demo.ts`).
+- Sign-out wipes local data (`AuthContext.tsx`) — required, since
+  localStorage is read before any cloud pull.
+- Supabase URL/publishable key are meant to be public — RLS enforces
+  access, not secrecy of that key.
+- **AI and food-search calls go through Supabase Edge Function proxies**
+  (`supabase/functions/claude-proxy`, `usda-proxy`) — the real API keys
+  live only as server-side secrets there. Never reintroduce a
+  client-side key; a prior attempt to embed one in the build got
+  GitHub's push protection blocked for exactly this reason.
 
-## Accounts & Data Isolation
+## Data & Sync
 
-Supabase Auth, soft-capped at `MAX_ACCOUNTS = 5` (`lib/auth.ts`'s
-`accountCount()`, checked client-side pre-signup via an open-read
-`profiles` table populated by an `auth.users` insert trigger).
+- localStorage is canonical (`lib/storage.ts`'s `getLS`/`setLS`).
+- Every write also fires a `cloudSave*()` (`lib/supabase-sync.ts`),
+  non-blocking.
+- `lib/cloud-pull.ts`'s `pullAndMergeAll()` pulls once per session,
+  additive-only, deduped by natural key.
 
-- **Sign-up/sign-in:** `components/shell/LockScreen.tsx`. Display name
-  passed via `signUp()`'s `options.data.display_name` (lands in
-  `auth.users.raw_user_meta_data` immediately, before email confirmation,
-  since there's no session yet for a follow-up `profiles` update).
-- **Session state:** `components/shell/AuthContext.tsx` — `authenticated`
-  is derived from `sb.auth.getSession()` + `onAuthStateChange()`, not a
-  stored flag.
-- **Every data table has `user_id` defaulting to `auth.uid()`, with
-  owner-scoped RLS.** Existing call sites needed no code changes — see
-  Gotchas. Three tables differ:
-  - `app_settings` — unique on `(user_id, key)`, not `key` alone (used to
-    be one global row per key for everyone). `cloudSaveSetting()`'s
-    upsert `onConflict` must match this exactly.
-  - `shared_programs` (Community) — open SELECT, owner-only write. Liking
-    someone else's program goes through the `increment_program_likes
-    (program_id)` RPC, not a direct UPDATE (RLS would block it).
-  - `contact_leads` (public QR contact-share) — open INSERT (anonymous
-    submitters), SELECT/DELETE scoped to `auth.uid()::text = code`.
-    `code` is the owning account's own uid (`lib/qr.ts`'s `getQrCode()`).
-    `screens/ContactShare.tsx` looks up and shows that account's real
-    `display_name` — never hardcode a name there.
-- **Demo Mode is fully local and orthogonal** — never calls `sb.auth.*` or
-  Supabase at all (`lib/demo.ts`), checked before real-session state
-  everywhere.
-- **Sign-out wipes local data** (`AuthContext.tsx`'s `lock()`:
-  `sb.auth.signOut()` then `wipeLocalData()`) — required, not cosmetic,
-  since this app reads localStorage before any cloud pull; without the
-  wipe a second person on the same browser would see the first account's
-  cached data.
-- **What's public, and why that's fine:** the Supabase URL + publishable
-  key are hardcoded client-side by design (like a Stripe publishable
-  key) — RLS enforces access, not secrecy of this key. Real secrets (API
-  keys, passwords) never touch the repo; they live only in a signed-in
-  user's own `localStorage`/`app_settings` row.
+## Sections & Navigation
+
+- `lib/sections.ts`'s `SECTIONS` array is the single source —
+  `TopBar`/`BottomNav` build themselves from it.
+- Routing: `/:sectionId/:tabId` under `<AppShell>`; `/home`, `/contacts`,
+  `/contact/:code` are standalone routes.
+- Each section has its own CSS palette (`.section-<id>` in `index.css`)
+  plus a 4-step tint scale (`--tint-1..4`, via `color-mix`) for shading
+  cards within a section. Home always uses the base palette.
+
+## Making Changes
+
+- New screen: component under `screens/`; if it's a tab, add to
+  `SECTIONS` and `App.tsx`'s `TabRoute`.
+- New Supabase table: `user_id default auth.uid()` + RLS from the start,
+  a `cloudSave*()`, and a pull function if it should round-trip.
+- CSS: use the `var(--*)` tokens, never hardcode colors — source of truth
+  for the whole palette/type/spacing/component system is
+  `design-system/mission-companion/MASTER.md`.
 
 ---
 
-## Data & Sync Model
+## Verify & Deploy
 
-- **localStorage** is canonical and synchronous — `getLS(key, fallback)` /
-  `setLS(key, val)` (`lib/storage.ts`), JSON handled automatically.
-- **Supabase push:** every local write also fires a `cloudSave*()`
-  (`lib/supabase-sync.ts`), non-blocking, isolated per table (`sbOnline()`
-  gate, `markPending()` on failure — never throws).
-- **Supabase pull:** `lib/cloud-pull.ts`'s `pullAndMergeAll()`, once per
-  authenticated session (`App.tsx`'s `useCloudSynced()`). Additive-only,
-  deduped by natural keys where no `cloudId` exists yet.
-
----
-
-## Navigation & Sections
-
-Data-driven — `lib/sections.ts`'s `SECTIONS` array is the single source;
-`TopBar.tsx`/`BottomNav.tsx` build themselves from it.
-
-```ts
-SECTIONS = [
-  { id: 'spiritual', tabs: [journal, miracles, objections, spanish, mastery, email] },
-  { id: 'exercise',  tabs: [workout, routines, wlog] },
-  { id: 'health',    tabs: [health, hfood, hbody, hstats] },
-]
-```
-
-Routing (`App.tsx`): `/:sectionId/:tabId` under `<AppShell>`. `/home`,
-`/contacts`, `/contact/:code` are top-level routes outside that chrome,
-each self-contained with no BottomNav.
-
-**Per-section color palettes:** each section has its own CSS-variable
-palette in `index.css`, applied via a `.section-<id>` class on `<html>`
-(`AppShell.tsx`'s effect). Home never gets one — always the base palette.
-Home: blue, Spiritual: purple, Exercise: orange, Health: green.
-`lib/sections.ts`'s `SECTION_ACCENT_COLORS` hand-mirrors each palette's
-hex for `HomeScreen.tsx`'s tiles (Home can't read a `.section-*` CSS var
-it's not wrapped in) — update both together if a palette changes.
-
----
-
-## How to Make Changes
-
-**Adding a screen:** component under `screens/`. If it's a section tab,
-add to `lib/sections.ts`'s `SECTIONS` and `App.tsx`'s `TabRoute`. If
-standalone (like `/home`), add a sibling `<Route>` outside `<AppShell>`.
-Reuse `lib/health-data.ts` / `lib/exercise-data.ts` / `lib/mastery.ts`
-before writing new data helpers.
-
-**New Supabase table:** `apply_migration` with `user_id default
-auth.uid()` + owner-scoped RLS from the start, a `cloudSave*()` in
-`supabase-sync.ts`, and a pull function in `cloud-pull.ts` if it should
-round-trip across a re-login.
-
-**CSS:** `var(--foreground)` / `var(--card)` / `var(--background)` etc. —
-never hardcoded colors. `--navy` / `--navy-soft` / `--gold` / `--gold-dark`
-are this app's own tokens; every palette defines all four.
-
----
-
-## Testing & Verification
-
-1. Dev server: `mission-companion-react` launch config (real Vite
-   server) — not `mission-companion` (stale prebuilt `dist/`, never
-   reflects edits).
-2. After any edit, restart the dev server (`preview_stop` +
-   `preview_start`), not just a reload — Vite HMR can serve stale
-   closures, especially on files exporting both a component and a hook.
-3. `npx tsc -b` clean before calling anything done.
-4. Verify data round-trips with a real write + read (`execute_sql`, or
-   log out/in) when a fix touches the write/RLS path — a clean console
-   isn't proof.
-5. Check both light and dark mode for any palette touched.
-6. After deploy, poll
-   `curl -sL https://missionarycompanion.com/index.html | grep -o 'index-[A-Za-z0-9_-]*\.\(js\|css\)'`
-   until the new hash appears (~30–60s).
-
----
+1. Dev server: `mission-companion-react` launch config — full restart
+   after edits, not just reload (Vite HMR serves stale closures).
+2. `npx tsc -b` clean.
+3. Real write+read check (not just a clean console) for anything
+   touching a write/RLS path.
+4. Light + dark mode for any palette touched.
+5. `npm run build`, copy `dist/*` to repo root — **never delete old-hash
+   `assets/*.js`/`.css` first** (a `PreToolUse` hook in
+   `.claude/settings.local.json` blocks this; it caused a real
+   production crash once) — push, poll `missionarycompanion.com` for the
+   new hash.
 
 ## Gotchas
 
-- A "starts clean" guarantee needs both entry and exit checked, not just
-  one — e.g. a mode that's supposed to wipe data must wipe on the way in
-  too, not only on the way out.
-- Open-RLS tables need client-side shape validation on read, same as any
-  untrusted input — anyone with the public key can `POST` arbitrary JSON
-  to a table whose RLS allows it (e.g. `shared_programs`).
-- **`sw.js` exists at repo root and at `react-components/public/sw.js`**
-  and must be kept byte-identical by hand — always edit/copy both.
-- **A migration adding `user_id` to an existing table runs with no
-  session**, so `auth.uid()` is `null` and violates `not null`
-  immediately. Default to the owner's literal uuid first (backfills in
-  the same statement), verify, then a separate migration flips the
-  default to `auth.uid()`.
-- **RLS does the real access-control work — don't hand-write
-  `.eq('user_id', ...)` filters.** The column default + policy already
-  scope every insert/select/update/delete; manual filters are redundant
-  at best.
-- A `security definer` RPC is the right tool when RLS is legitimately too
-  coarse (e.g. letting any signed-in user bump a shared counter without
-  full row-owner rights) — keep it narrow, one column, one operation.
-- Supabase's default email sending has a low rate limit — "email rate
-  limit exceeded" during signup testing isn't a bug. Turning off "Confirm
-  email" (Authentication → Providers → Email) sidesteps it for this small
-  known-group app.
-
----
-
-## Deployment Checklist
-
-1. `cd react-components && npx tsc -b` clean.
-2. Test against the real dev server, full restart after edits.
-3. Console clean (watch for stale entries carried over from before a restart).
-4. Dark mode checked for any palette touched.
-5. No real secrets in code (the Supabase publishable key is fine — see "What's public").
-6. `npm run build` (auto-syncs `dist/404.html`).
-7. Copy `dist/*` to repo root, `git push`, poll for the new hash live.
-8. Any schema/RLS change a live client already talks to — ship the matching client fix in the same deploy.
-9. Any "starts clean" feature — verify both entry and exit.
+- `sw.js` exists at repo root **and** `react-components/public/sw.js` —
+  keep byte-identical by hand.
+- A migration adding `user_id` to an existing table runs with no
+  session, so `auth.uid()` is null — default to the owner's literal uuid
+  first, verify, then a second migration flips the default.
+- A "starts clean" feature (wipe/reset) needs both entry and exit
+  checked, not just one.
+- `git push` is blocked by a `PreToolUse` hook unless
+  `mission-companion-deploy` just ran clean against the current commit
+  (one-time bypass: create `.claude/.deploy-override`) — see that
+  skill's "Push gate" section.
+- `.claude/` is gitignored project-wide — only files force-added
+  (`git add -f`) are tracked (both skill `SKILL.md` files needed this).
+  Run `git ls-files .claude/` before assuming an edit under `.claude/`
+  is actually saved to history.
 
 ---
 
@@ -206,5 +121,11 @@ are this app's own tokens; every palette defines all four.
 
 - Supabase: https://app.supabase.com/projects (ref `mxlfwmwjkanvsjimralh`)
 - Live app: https://missionarycompanion.com
-- GitHub: https://github.com/dombundy08-hue/Mission-Companion (public repo, free-tier — see Hosting)
-- Deploy/audit skill: `.claude/skills/mission-companion-deploy/SKILL.md` — keep its benchmark log current
+- GitHub: https://github.com/dombundy08-hue/Mission-Companion (public,
+  free-tier — see Hosting)
+- Deploy/audit skill: `.claude/skills/mission-companion-deploy/SKILL.md`
+- Performance report skill (read-only, auto-runs after deploy):
+  `.claude/skills/mission-companion-optimize/SKILL.md`
+- Style/design source of truth: `design-system/mission-companion/MASTER.md`
+- Feature/build status: `react-components/docs/build-plan.md` (there is
+  no unified PRD — this + this file are the current sources)
