@@ -147,6 +147,10 @@ function GatedApp() {
       <Route element={<AppShell />}>
         <Route path="/:sectionId/:tabId" element={<TabPage />} />
       </Route>
+      {/* Catches dead/unmatched URLs (old bookmarks, shared links, PWA
+          shortcuts pointing at a since-removed route like /home) so they
+          land in the app instead of a blank screen. */}
+      <Route path="*" element={<Navigate to="/spiritual/journal" replace />} />
     </Routes>
   );
 }
