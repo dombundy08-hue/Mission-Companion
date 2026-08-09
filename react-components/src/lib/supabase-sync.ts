@@ -9,15 +9,6 @@ const SUPABASE_KEY = 'sb_publishable_8HpSPjIDolxclSxlp4OQxw_GDC6XoOL';
 
 export const sb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// pendingPush marks unsynced local changes waiting for a connection.
-// Matches the vanilla app's gating exactly: sbOnline() only. (An earlier
-// version of this file added a cloudReady gate meant to unlock after an
-// initial boot-time pull+merge, but that pull was never built, so the gate
-// never opened and every cloud write silently no-op'd. Since there's no pull
-// sync yet, gating on it is strictly worse than vanilla's simpler check —
-// removed rather than half-finished.)
-let pendingPush = false;
-
 // Demo Mode is treated as permanently offline — every cloud write below
 // checks this first and silently no-ops instead, so a demo session can
 // never reach Dom's real Supabase data.
@@ -25,9 +16,12 @@ function sbOnline(): boolean {
   return !!sb && navigator.onLine && !isDemoMode();
 }
 
-function markPending() {
-  pendingPush = true;
-}
+// A failed or offline cloud write is dropped silently (the local write via
+// setLS already succeeded) — there's no retry queue yet. A prior
+// `pendingPush` flag pretended to track this for a future retry but was
+// never read anywhere; removed rather than left as dead state (matches this
+// file's own precedent — see the removed `cloudReady` gate in git history).
+function markPending() {}
 
 export interface MiracleEntry {
   id: string;
@@ -439,10 +433,10 @@ export async function cloudSaveProgram(
 }
 
 /* ---------- Community: shared workout programs. Post/browse/like only —
-   no chat, kept low-distraction per explicit request. Anyone can post or
-   like (same open-RLS trust model as every other table here); "already
-   liked" is tracked per-device in localStorage since there's no real user
-   account system yet, not enforced server-side. */
+   no chat, kept low-distraction per explicit request. Anyone can read or
+   post (open-RLS trust model); liking goes through the account-scoped
+   `increment_program_likes` RPC, not a direct UPDATE. "Already liked" is
+   still tracked per-device in localStorage, not server-enforced. */
 export interface SharedProgram {
   id: string;
   createdAt: string;

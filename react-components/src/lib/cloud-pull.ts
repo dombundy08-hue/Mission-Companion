@@ -50,7 +50,7 @@ async function pullSettings(): Promise<void> {
   // (JSON-parsed), not raw localStorage.getItem() like the RAW_KEYS below —
   // the default (non-raw) pull path already stores them in exactly the
   // JSON-string form getLS() expects, so they don't belong in this set.
-  const RAW_KEYS = new Set(['apiKey', 'usdaApiKey', 'theme']);
+  const RAW_KEYS = new Set(['theme']);
   try {
     const res = await sb.from('app_settings').select('key,value');
     if (res.error || !res.data) return;

@@ -164,7 +164,7 @@ function PopupsPage({ onBack }: { onBack: () => void }) {
           const v = parseInt(e.target.value, 10);
           setDay(v);
           setLS('health_reflectionReminderDay', v);
-          cloudSaveSetting('health_reflectionReminderDay', String(v));
+          cloudSaveSetting('health_reflectionReminderDay', v);
           notifySettingsChanged();
           notifySaved('Pop-up settings saved.');
         }}
@@ -207,7 +207,7 @@ function HealthMetricsPage({ onBack }: { onBack: () => void }) {
     const next = selected.includes(id) ? selected.filter((m) => m !== id) : [...selected, id];
     setSelected(next);
     setLS('health_visibleMetrics', next);
-    cloudSaveSetting('health_visibleMetrics', JSON.stringify(next));
+    cloudSaveSetting('health_visibleMetrics', next);
     notifySettingsChanged();
     notifySaved('Metrics updated.');
   }
