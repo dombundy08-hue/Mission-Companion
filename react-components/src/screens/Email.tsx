@@ -6,22 +6,41 @@ import { thisWeeksHabitTip } from '@/lib/seven-habits';
 
 const EMAIL_SYSTEM = `You are helping a missionary write his weekly family email. Below are examples of his previous emails that show his voice, tone, and style. Study them carefully. Then, using the bullet points he has provided about this week, write a warm, personal, faith-centered weekly missionary email in his exact voice. Do not add events or details he did not mention. Do not make the email longer than 400 words. Do not use bullet points in the output — write it as flowing paragraphs. Sign off naturally in his voice.`;
 
+// More examples = a better voice match, but each one adds to every future
+// generation's prompt size/cost — 6 is a deliberate cap, not arbitrary.
+const MAX_VOICE_EXAMPLES = 6;
+const MIN_VOICE_EXAMPLE_SLOTS = 3;
+
 type View = 'voice' | null;
 
 export function Email() {
   const [examples, setExamples] = useState<string[]>(() => getLS('emailVoiceExamples', []));
   const [view, setView] = useState<View>(null);
-  const [ev1, setEv1] = useState(examples[0] || '');
-  const [ev2, setEv2] = useState(examples[1] || '');
-  const [ev3, setEv3] = useState(examples[2] || '');
+  const [drafts, setDrafts] = useState<string[]>(() => {
+    const seeded = examples.length ? [...examples] : [''];
+    while (seeded.length < MIN_VOICE_EXAMPLE_SLOTS) seeded.push('');
+    return seeded;
+  });
   const [highlights, setHighlights] = useState('');
   const [generated, setGenerated] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  function updateDraft(i: number, value: string) {
+    setDrafts((prev) => prev.map((d, idx) => (idx === i ? value : d)));
+  }
+
+  function addDraft() {
+    setDrafts((prev) => (prev.length >= MAX_VOICE_EXAMPLES ? prev : [...prev, '']));
+  }
+
+  function removeDraft(i: number) {
+    setDrafts((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+  }
+
   function saveVoice() {
-    const arr = [ev1.trim(), ev2.trim(), ev3.trim()].filter(Boolean);
+    const arr = drafts.map((d) => d.trim()).filter(Boolean);
     if (!arr.length) {
       alert('Please paste at least one example email.');
       return;
@@ -99,33 +118,44 @@ export function Email() {
         )}
         <div className="rounded-[14px] border p-4" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
           <p className="mb-3 text-[15px]" style={{ color: 'var(--foreground)' }}>
-            Before I can write in your voice, paste in 1–3 example emails you've sent to family. The more examples you give, the better I can match your style.
+            Before I can write in your voice, paste in a few example emails you've sent to family. The more examples you give (up to {MAX_VOICE_EXAMPLES}), the better I can match your style.
           </p>
-          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>Example 1</label>
-          <textarea
-            value={ev1}
-            onChange={(e) => setEv1(e.target.value)}
-            className="mb-3 min-h-[160px] w-full rounded-xl border p-3 text-base"
-            style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}
-          />
-          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-            Example 2 <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>(optional)</span>
-          </label>
-          <textarea
-            value={ev2}
-            onChange={(e) => setEv2(e.target.value)}
-            className="mb-3 min-h-[100px] w-full rounded-xl border p-3 text-base"
-            style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}
-          />
-          <label className="mb-1 block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-            Example 3 <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>(optional)</span>
-          </label>
-          <textarea
-            value={ev3}
-            onChange={(e) => setEv3(e.target.value)}
-            className="mb-3 min-h-[100px] w-full rounded-xl border p-3 text-base"
-            style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}
-          />
+          {drafts.map((d, i) => (
+            <div key={i} className="mb-3">
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                  Example {i + 1}{' '}
+                  {i > 0 && <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>(optional)</span>}
+                </label>
+                {drafts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeDraft(i)}
+                    className="text-xs font-medium"
+                    style={{ color: 'var(--muted-foreground)' }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={d}
+                onChange={(e) => updateDraft(i, e.target.value)}
+                className={`w-full rounded-xl border p-3 text-base ${i === 0 ? 'min-h-[160px]' : 'min-h-[100px]'}`}
+                style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--foreground)' }}
+              />
+            </div>
+          ))}
+          {drafts.length < MAX_VOICE_EXAMPLES && (
+            <button
+              type="button"
+              onClick={addDraft}
+              className="mb-3 w-full rounded-xl border py-2.5 text-sm font-medium"
+              style={{ borderColor: 'var(--border)', color: 'var(--primary)' }}
+            >
+              + Add another example
+            </button>
+          )}
           <button type="button" onClick={saveVoice} className="w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--primary)' }}>
             Save My Voice Examples
           </button>
