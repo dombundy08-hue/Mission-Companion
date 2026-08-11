@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { sb } from '@/lib/supabase-sync';
 import { isDemoMode, setDemoMode, wipeLocalData } from '@/lib/demo';
+import { seedDemoData } from '@/lib/demo-seed';
 
 interface AuthContextValue {
   authenticated: boolean;
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function unlockDemo() {
     localStorage.clear();
     setDemoMode(true);
+    seedDemoData();
     setDemo(true);
   }
 
