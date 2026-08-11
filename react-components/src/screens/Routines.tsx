@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getRoutines,
@@ -27,11 +27,10 @@ import {
   type WorkoutProgram,
 } from '@/lib/exercise-data';
 import { setLS, getLS, uid } from '@/lib/storage';
-import { cloudSaveRoutine, cloudDeleteRow, fetchSharedPrograms, postSharedProgram, likeSharedProgram, type SharedProgram } from '@/lib/supabase-sync';
-import { programSnapshot, importSharedProgram } from '@/lib/exercise-data';
+import { cloudSaveRoutine, cloudDeleteRow } from '@/lib/supabase-sync';
 import { notifySaved } from '@/lib/save-toast';
 
-type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble' | 'programs' | 'program-edit' | 'community' | 'built-in';
+type View = 'list' | 'pick-part' | 'edit-timed' | 'edit-rep' | 'edit-circuit' | 'assemble' | 'programs' | 'program-edit' | 'built-in';
 type PartType = 'timed' | 'rep' | 'circuit';
 
 interface Build {
@@ -58,18 +57,6 @@ export function Routines() {
   const [programEditId, setProgramEditId] = useState<string | null>(null);
   const [programName, setProgramName] = useState('');
   const [programRoutineIds, setProgramRoutineIds] = useState<string[]>([]);
-  const [shared, setShared] = useState<SharedProgram[]>([]);
-  const [sharedLoading, setSharedLoading] = useState(false);
-  const [likedIds, setLikedIds] = useState<string[]>(() => getLS('likedSharedPrograms', []));
-
-  useEffect(() => {
-    if (view !== 'community') return;
-    setSharedLoading(true);
-    fetchSharedPrograms().then((rows) => {
-      setShared(rows);
-      setSharedLoading(false);
-    });
-  }, [view]);
 
   const [draftTimed, setDraftTimed] = useState<TimedItem[]>([{ name: '', seconds: 45 }]);
   const [draftRep, setDraftRep] = useState<RepItem[]>([{ name: '', sets: 3, reps: null, rest: 60, note: '' }]);
@@ -153,29 +140,6 @@ export function Routines() {
   function stopProgram() {
     setActiveProgram(null);
     refreshPrograms();
-  }
-  async function shareProgram(p: WorkoutProgram) {
-    const author = prompt('Post as (optional name):', getLS('communityAuthorName', ''));
-    if (author === null) return;
-    setLS('communityAuthorName', author);
-    const ok = await postSharedProgram(p.name, author, programSnapshot(p));
-    say(ok ? 'Shared to Community.' : "Couldn't share right now — check your connection.");
-  }
-  async function likeProgram(sp: SharedProgram) {
-    if (likedIds.includes(sp.id)) return;
-    const ok = await likeSharedProgram(sp.id);
-    if (ok) {
-      const nextLiked = [...likedIds, sp.id];
-      setLikedIds(nextLiked);
-      setLS('likedSharedPrograms', nextLiked);
-      setShared((arr) => arr.map((x) => (x.id === sp.id ? { ...x, likes: x.likes + 1 } : x)).sort((a, b) => b.likes - a.likes));
-    }
-  }
-  function useSharedProgram(sp: SharedProgram) {
-    importSharedProgram(sp.name, sp.workouts);
-    refresh();
-    refreshPrograms();
-    say(`"${sp.name}" added to your routines and programs.`);
   }
   function editRoutine(r: Routine) {
     setEditId(r.id);
@@ -492,8 +456,7 @@ export function Routines() {
       <div>
         <button type="button" onClick={() => setView('list')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
         <h2 className="mb-3 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>📆 Programs</h2>
-        <button type="button" onClick={startNewProgram} className="mb-2.5 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Program</button>
-        <button type="button" onClick={() => setView('community')} className="mb-4 w-full rounded-xl py-2.5 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Browse Community Programs</button>
+        <button type="button" onClick={startNewProgram} className="mb-4 w-full rounded-xl py-3 text-[17px] font-bold text-white" style={{ background: 'var(--navy)' }}>＋ New Program</button>
         {!programs.length ? (
           <div className="rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Bundle a week or month of routines into one program you can apply all at once.</p>
@@ -511,7 +474,6 @@ export function Routines() {
                   <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>{p.routineIds.length} day{p.routineIds.length === 1 ? '' : 's'}</div>
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => editProgram(p)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Edit</button>
-                    <button type="button" onClick={() => shareProgram(p)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>🌐 Share</button>
                     {isActive ? (
                       <button type="button" onClick={stopProgram} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}>Stop</button>
                     ) : (
@@ -520,49 +482,6 @@ export function Routines() {
                     <button type="button" onClick={() => removeProgram(p.id)} className="rounded-xl px-4 py-2 text-sm font-medium" style={{ background: 'var(--secondary)', color: 'var(--destructive)' }}>Delete</button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (view === 'community') {
-    return (
-      <div>
-        <button type="button" onClick={() => setView('programs')} className="mb-3 text-sm font-medium" style={{ color: 'var(--primary)' }}>← Back</button>
-        <h2 className="mb-1 text-[22px] font-bold" style={{ color: 'var(--foreground)' }}>🌐 Community</h2>
-        <p className="mb-4 text-sm" style={{ color: 'var(--muted-foreground)' }}>Programs other missionaries have shared. No chat — just browse, like, and use.</p>
-        {sharedLoading ? (
-          <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Loading…</div>
-        ) : !shared.length ? (
-          <div className="rounded-[14px] border p-6 text-center" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-            <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Nothing shared yet — be the first from the Programs page.</p>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {shared.map((sp) => {
-              const dayCount = Array.isArray(sp.workouts) ? sp.workouts.length : 0;
-              return (
-              <div key={sp.id} className="rounded-[14px] border p-3.5" style={{ borderColor: 'var(--border)', background: 'var(--card)' }}>
-                <div className="mb-1 font-bold" style={{ color: 'var(--foreground)' }}>{sp.name}</div>
-                <div className="mb-2.5 text-sm" style={{ color: 'var(--muted-foreground)' }}>
-                  {dayCount} day{dayCount === 1 ? '' : 's'}{sp.author ? ` · by ${sp.author}` : ''}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => likeProgram(sp)}
-                    disabled={likedIds.includes(sp.id)}
-                    className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60"
-                    style={{ background: 'var(--secondary)', color: 'var(--secondary-foreground)' }}
-                  >
-                    {likedIds.includes(sp.id) ? '❤️' : '🤍'} {sp.likes}
-                  </button>
-                  <button type="button" onClick={() => useSharedProgram(sp)} className="rounded-xl px-4 py-2 text-sm font-bold text-white" style={{ background: 'var(--primary)' }}>Use This Program</button>
-                </div>
-              </div>
               );
             })}
           </div>

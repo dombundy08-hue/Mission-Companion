@@ -425,10 +425,10 @@ export async function cloudSaveWorkoutLog(e: WorkoutLogRow): Promise<void> {
 }
 
 /* ---------- Multi-week workout programs. Stored as a self-contained
-   snapshot (full routine content, not local-only routine ids) — same
-   approach as Community sharing — so it survives a pull to a device with
-   different local routine ids. `workouts` is pre-built by the caller
-   (exercise-data.ts's programSnapshot) to avoid a circular import. */
+   snapshot (full routine content, not local-only routine ids) so it
+   survives a pull to a device with different local routine ids.
+   `workouts` is pre-built by the caller (exercise-data.ts's
+   programSnapshot) to avoid a circular import. */
 export async function cloudSaveProgram(
   program: { id: string; cloudId?: string; name: string },
   workouts: unknown
@@ -446,66 +446,6 @@ export async function cloudSaveProgram(
     }
   } catch {
     markPending();
-  }
-}
-
-/* ---------- Community: shared workout programs. Post/browse/like only —
-   no chat, kept low-distraction per explicit request. Anyone can read or
-   post (open-RLS trust model); liking goes through the account-scoped
-   `increment_program_likes` RPC, not a direct UPDATE. "Already liked" is
-   still tracked per-device in localStorage, not server-enforced. */
-export interface SharedProgram {
-  id: string;
-  createdAt: string;
-  name: string;
-  author: string | null;
-  workouts: { name: string; parts: unknown }[];
-  likes: number;
-}
-
-export async function fetchSharedPrograms(): Promise<SharedProgram[]> {
-  if (!sb) return [];
-  try {
-    const res = await sb.from('shared_programs').select('*').order('likes', { ascending: false }).limit(50);
-    if (res.error || !res.data) return [];
-    return res.data.map((r) => ({
-      id: r.id,
-      createdAt: r.created_at,
-      name: r.name,
-      author: r.author,
-      workouts: r.workouts,
-      likes: r.likes,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export async function postSharedProgram(
-  name: string,
-  author: string,
-  workouts: { name: string; parts: unknown }[]
-): Promise<boolean> {
-  if (!sbOnline()) return false;
-  try {
-    const ins = await sb.from('shared_programs').insert({ name, author: author || null, workouts, likes: 0 });
-    return !ins.error;
-  } catch {
-    return false;
-  }
-}
-
-// Goes through a security-definer RPC rather than a direct UPDATE — RLS
-// restricts shared_programs UPDATE to the program's own author, so any
-// other signed-in user liking someone else's program needs a narrow,
-// server-side-checked path that only ever touches the likes counter.
-export async function likeSharedProgram(id: string): Promise<boolean> {
-  if (!sbOnline()) return false;
-  try {
-    const up = await sb.rpc('increment_program_likes', { program_id: id });
-    return !up.error;
-  } catch {
-    return false;
   }
 }
 
