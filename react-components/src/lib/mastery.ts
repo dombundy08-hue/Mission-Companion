@@ -16,16 +16,30 @@ export interface Streak {
 
 export function getDeck(): DeckCard[] {
   let stored = getLS<DeckCard[] | null>('scriptureDeck', null);
+  let changed = false;
   if (!Array.isArray(stored)) {
     stored = SCRIPTURE_DEFAULTS.map((c) => ({ ...c, confidence: 0, reviewCount: 0, lastReviewed: null }));
-    setLS('scriptureDeck', stored);
-    return stored;
+    changed = true;
   }
   const have = new Set(stored.map((c) => c.id));
-  let changed = false;
   SCRIPTURE_DEFAULTS.forEach((d) => {
     if (!have.has(d.id)) {
       stored!.push({ ...d, confidence: 0, reviewCount: 0, lastReviewed: null });
+      have.add(d.id);
+      changed = true;
+    }
+  });
+  // Restore custom cards synced from another device. Their content
+  // (id/reference/keyPhrase/fullText) has no SCRIPTURE_DEFAULTS entry to
+  // merge against, so without this a pulled `customScriptureCards` setting
+  // just sits inert in localStorage — never reaches the visible deck, and
+  // its confidence/reviewCount can never attach since pullScriptureProgress
+  // matches against cards already in `scriptureDeck` by id.
+  const customs = getLS<{ id: number; reference: string; keyPhrase: string; fullText: string }[]>('customScriptureCards', []);
+  customs.forEach((c) => {
+    if (!have.has(c.id)) {
+      stored!.push({ id: c.id, collection: 'Custom', reference: c.reference, keyPhrase: c.keyPhrase, fullText: c.fullText, confidence: 0, reviewCount: 0, lastReviewed: null });
+      have.add(c.id);
       changed = true;
     }
   });
