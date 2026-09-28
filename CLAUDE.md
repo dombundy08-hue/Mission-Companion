@@ -3,133 +3,80 @@
 Guidance, not enforced config — every line competes for attention. If a
 rule isn't decision-relevant, cut it.
 
-## How We Work
+## What this repo is
 
-- Status updates: bullet lists, **Done** / **Needed**. No prose recaps.
-- **Nothing gets built or deployed without Dom saying "approved."**
-- Multi-item batches: plan mode first, clarify each item before writing
-  code — not a guess dressed up as a fix.
-- Vague or visual/mobile-only bug reports get a screenshot request before
-  a blind fix attempt.
-- **When addressing a bug, run the `mission-companion-deploy` skill (at
-  least its Code Audit phase) to investigate first** — not an ad hoc
-  read-and-guess.
-- "Compiles clean" isn't proof. Verify against the real dev server or the
-  live site, especially anything touching auth, RLS, or a third-party API.
-- After a big batch: run the `mission-companion-deploy` skill's audit
-  cycle — it's what keeps this file current, but only when invoked.
+`missionarycompanion.com` — a three-page static site whose only job is to
+play the voice memo in Dominic's weekly letter home.
 
----
+It used to be Mission Companion, a React + Vite + Supabase PWA. That app
+was retired on 2026-09-28 and the domain repurposed. **Nothing of it is
+lost**: it is at the tag `mission-companion-app-final`, and
+`git checkout mission-companion-app-final` brings all of it back.
 
-## Architecture
+```
+index.html      a front page that explains there is nothing to browse
+404.html        the same, for a wrong address
+voice/          the player - the only page that does anything
+favicon.png     kept from the old app
+sw.js           a tombstone, see below
+CNAME           missionarycompanion.com
+```
 
-- React 19 + Vite + TS + Tailwind v4 PWA. `react-components/src/` is the
-  only source — no vanilla HTML, no iframe (retired 2026-08-04). Ignore
-  anything describing `render<Tab>()` or postMessage.
-- Deploy: `cd react-components && npm run build`, copy `dist/*` to repo
-  root, commit, push.
-- Landing page: `/home` (`screens/HomeScreen.tsx`).
-- Hosting: GitHub Pages, public repo (free plan requires it) — no real
-  secret lives in the repo, so this is an accepted tradeoff.
+## How the player works
 
-## Accounts & Data
+`voice/index.html` is opened as `/voice/?v=<recording id>` from a link in
+the weekly letter. It is a bare static document on purpose.
 
-- Supabase Auth, soft-capped at 5 accounts (`lib/auth.ts`).
-- **Every table has `user_id default auth.uid()` + owner-scoped RLS — RLS
-  already does the access control, don't hand-write `.eq('user_id', ...)`
-  filters.** Exceptions: `app_settings` (unique on `user_id, key`),
-  `shared_programs` (open read; likes go through the
-  `increment_program_likes` RPC, not a direct UPDATE), `contact_leads`
-  (open insert for anonymous QR scans, scoped by
-  `auth.uid()::text = code`).
-- Demo Mode is fully local, never touches Supabase (`lib/demo.ts`).
-- Sign-out wipes local data (`AuthContext.tsx`) — required, since
-  localStorage is read before any cloud pull.
-- Supabase URL/publishable key are meant to be public — RLS enforces
-  access, not secrecy of that key.
-- **AI and food-search calls go through Supabase Edge Function proxies**
-  (`supabase/functions/claude-proxy`, `usda-proxy`) — the real API keys
-  live only as server-side secrets there. Never reintroduce a
-  client-side key; a prior attempt to embed one in the build got
-  GitHub's push protection blocked for exactly this reason.
+**The page it replaced was served by Apps Script, and the Gmail app's
+in-app browser showed it as raw source text.** That is not fixable:
+`HtmlService` always wraps a web app in Google's own javascript bootstrap
+document, and that browser gives up part way through running it. No
+setting removes the wrapper. Hence a plain file here.
 
-## Data & Sync
+The recording itself never moved. The page asks Dominic's Apps Script
+project for the week's data (title, artwork, the letter, where to stream
+the audio) over **JSONP** — a `<script>` tag, not `fetch()`, because a
+script tag is not subject to CORS and so cannot be broken by whatever
+headers Apps Script sends in future.
 
-- localStorage is canonical (`lib/storage.ts`'s `getLS`/`setLS`).
-- Every write also fires a `cloudSave*()` (`lib/supabase-sync.ts`),
-  non-blocking. `cloudSaveSettings()` batches several keys into one
-  upsert when they belong to one logical action (e.g. onboarding).
-- `lib/cloud-pull.ts`: only `pullBootSettings()` runs eagerly at login
-  (small, and the onboarding gate depends on it). Per-section data
-  (journal/miracles/scripture, workouts, health logs) pulls lazily on
-  first visit to that section via `pullSectionOnce()` — additive-only,
-  deduped by natural key, same as before, just deferred until needed.
-
-## Sections & Navigation
-
-- `lib/sections.ts`'s `SECTIONS` array is the single source —
-  `TopBar`/`BottomNav` build themselves from it.
-- Routing: `/:sectionId/:tabId` under `<AppShell>`; `/home`, `/contacts`,
-  `/contact/:code` are standalone routes.
-- Each section has its own CSS palette (`.section-<id>` in `index.css`)
-  plus a 4-step tint scale (`--tint-1..4`, via `color-mix`) for shading
-  cards within a section. Home always uses the base palette.
-
-## Making Changes
-
-- New screen: component under `screens/`; if it's a tab, add to
-  `SECTIONS` and `App.tsx`'s `TabRoute`.
-- New Supabase table: `user_id default auth.uid()` + RLS from the start,
-  a `cloudSave*()`, and a pull function if it should round-trip.
-- CSS: use the `var(--*)` tokens, never hardcode colors — source of truth
-  for the whole palette/type/spacing/component system is
-  `design-system/mission-companion/MASTER.md`.
-
----
-
-## Verify & Deploy
-
-1. Dev server: `mission-companion-react` launch config — full restart
-   after edits, not just reload (Vite HMR serves stale closures).
-2. `npx tsc -b` clean.
-3. Real write+read check (not just a clean console) for anything
-   touching a write/RLS path.
-4. Light + dark mode for any palette touched.
-5. `npm run build`, copy `dist/*` to repo root — **never delete old-hash
-   `assets/*.js`/`.css` first** (a `PreToolUse` hook in
-   `.claude/settings.local.json` blocks this; it caused a real
-   production crash once) — push, poll `missionarycompanion.com` for the
-   new hash.
+- The script side lives in `C:\Users\shan_\mission-email-system` —
+  `missionary-tools/Tools.gs`, documented in `REFERENCE.md` §4r.
+- **The two hardcode each other's addresses.** `EXEC` near the top of
+  `voice/index.html` is the deployment. Editing a deployment with "New
+  version" keeps that address; making a *brand new* deployment changes it
+  and this file must be edited to match.
+- No Supabase, no build step, no dependencies, no API keys. Don't
+  reintroduce any of them — the point of this site is that it keeps
+  working for two years with nobody maintaining it.
 
 ## Gotchas
 
-- `sw.js` exists at repo root **and** `react-components/public/sw.js` —
-  keep byte-identical by hand.
-- A migration adding `user_id` to an existing table runs with no
-  session, so `auth.uid()` is null — default to the owner's literal uuid
-  first, verify, then a second migration flips the default.
-- A "starts clean" feature (wipe/reset) needs both entry and exit
-  checked, not just one.
-- `git push` is blocked by a `PreToolUse` hook unless
-  `mission-companion-deploy` just ran clean against the current commit
-  (one-time bypass: create `.claude/.deploy-override`) — see that
-  skill's "Push gate" section.
-- `.claude/` is gitignored project-wide — only files force-added
-  (`git add -f`) are tracked (both skill `SKILL.md` files needed this).
-  Run `git ls-files .claude/` before assuming an edit under `.claude/`
-  is actually saved to history.
+- **`sw.js` must keep being served.** It is a tombstone that unregisters
+  the old app's service worker. Deleting it would strand phones that
+  installed the PWA on a cached shell pointing at deleted assets. Read
+  the comment at the top of it before touching it.
+- Pages are `noindex` — these are a missionary's letters to his family,
+  and the repo is only public because Pages on a free account requires
+  it. The recordings are **not** in this repo; they stay in his Drive.
+- `voice/` must not be cached or rewritten by anything. Each link is a
+  different week.
+- `.claude/` is gitignored project-wide — only force-added files (`git
+  add -f`) are tracked. The two `mission-companion-*` skills under it
+  refer to the retired app.
 
----
+## Deploying
+
+Commit and push to `main`. GitHub Pages builds it. There is no build
+step and nothing to compile — check `gh api
+repos/dombundy08-hue/Mission-Companion/pages/builds/latest` and then
+fetch the live URL.
 
 ## References
 
-- Supabase: https://app.supabase.com/projects (ref `mxlfwmwjkanvsjimralh`)
-- Live app: https://missionarycompanion.com
+- Live: https://missionarycompanion.com and
+  https://missionarycompanion.com/voice/
 - GitHub: https://github.com/dombundy08-hue/Mission-Companion (public,
-  free-tier — see Hosting)
-- Deploy/audit skill: `.claude/skills/mission-companion-deploy/SKILL.md`
-- Performance report skill (read-only, auto-runs after deploy):
-  `.claude/skills/mission-companion-optimize/SKILL.md`
-- Style/design source of truth: `design-system/mission-companion/MASTER.md`
-- Feature/build status: `react-components/docs/build-plan.md` (there is
-  no unified PRD — this + this file are the current sources)
+  free tier)
+- The retired app: tag `mission-companion-app-final`
+- The script that feeds the player:
+  `C:\Users\shan_\mission-email-system\REFERENCE.md` §4r
