@@ -14,17 +14,18 @@ lost**: it is at the tag `mission-companion-app-final`, and
 `git checkout mission-companion-app-final` brings all of it back.
 
 ```
-index.html      a front page that explains there is nothing to browse
-404.html        the same, for a wrong address
+index.html      "There's nothing here." Deliberately empty - see below
+404.html        a byte-identical copy, so a wrong address looks the same
+robots.txt      disallow everything
 voice/          the player - the only page that does anything
-favicon.png     kept from the old app
+m/              published memos: <slug>.json + <slug>.<ext>, one pair per week
 sw.js           a tombstone, see below
 CNAME           missionarycompanion.com
 ```
 
 ## How the player works
 
-`voice/index.html` is opened as `/voice/?v=<recording id>` from a link in
+`voice/index.html` is opened as `/voice/?m=<slug>` from a link in
 the weekly letter. It is a bare static document on purpose.
 
 **The page it replaced was served by Apps Script, and the Gmail app's
@@ -33,18 +34,27 @@ in-app browser showed it as raw source text.** That is not fixable:
 document, and that browser gives up part way through running it. No
 setting removes the wrapper. Hence a plain file here.
 
-The recording itself never moved. The page asks Dominic's Apps Script
-project for the week's data (title, artwork, the letter, where to stream
-the audio) over **JSONP** — a `<script>` tag, not `fetch()`, because a
-script tag is not subject to CORS and so cannot be broken by whatever
-headers Apps Script sends in future.
+**`/voice/?m=<slug>` is the live route.** Everything the player needs is
+committed into this repo by Dominic's Apps Script project at send time:
+`m/<slug>.json` (title, week, artwork, the letter, the audio path) and
+the recording beside it. The page fetches both from this same origin. No
+Drive link to expire, no sharing setting to reset, no Apps Script
+deployment to keep in step — the audio is simply a file on this site.
+
+`/voice/?v=<drive id>` is the older route, kept only because letters sent
+before 28 September 2026 are still in people's inboxes. It asks the Apps
+Script project over **JSONP** — a `<script>` tag, not `fetch()`, because a
+script tag is not subject to CORS.
 
 - The script side lives in `C:\Users\shan_\mission-email-system` —
   `missionary-tools/Tools.gs`, documented in `REFERENCE.md` §4r.
-- **The two hardcode each other's addresses.** `EXEC` near the top of
-  `voice/index.html` is the deployment. Editing a deployment with "New
-  version" keeps that address; making a *brand new* deployment changes it
-  and this file must be edited to match.
+- **`EXEC` near the top of `voice/index.html` only matters to the old
+  `?v=` route.** Editing a deployment with "New version" keeps that
+  address; a *brand new* deployment changes it and this file must match.
+  Published `?m=` memos do not depend on it at all.
+- Publishing needs a fine-grained GitHub token (Contents: read and write,
+  this repo only) in the Apps Script project's Script Properties as
+  `GITHUB_TOKEN`. No token just means memos fall back to the old route.
 - No Supabase, no build step, no dependencies, no API keys. Don't
   reintroduce any of them — the point of this site is that it keeps
   working for two years with nobody maintaining it.
@@ -55,9 +65,17 @@ headers Apps Script sends in future.
   the old app's service worker. Deleting it would strand phones that
   installed the PWA on a cached shell pointing at deleted assets. Read
   the comment at the top of it before touching it.
-- Pages are `noindex` — these are a missionary's letters to his family,
-  and the repo is only public because Pages on a free account requires
-  it. The recordings are **not** in this repo; they stay in his Drive.
+- **The front page gives nothing away on purpose.** A stranger who looks
+  up the domain sees "There's nothing here." and no name, link or
+  explanation; `404.html` is identical so a wrong address looks the same.
+  Everything is `noindex` and `robots.txt` disallows all. Don't add a
+  nav, a title, a favicon or a friendly explanation to `/` — the only
+  way to a memo is the letter it came in.
+- **A memo's address is its only protection.** Slugs are 32 hex
+  characters from a hash, and nothing links to them. The repo has to be
+  public for Pages on a free account, so anyone who finds *the repo* can
+  browse `m/` — that is the accepted tradeoff for the audio being served
+  from here rather than from Drive.
 - `voice/` must not be cached or rewritten by anything. Each link is a
   different week.
 - `.claude/` is gitignored project-wide — only force-added files (`git

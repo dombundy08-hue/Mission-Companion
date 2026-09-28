@@ -121,6 +121,31 @@ button:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
     return out;
   }
 
+  var answered = false;
+
+  // ?m= is a memo published onto this same site: two files sitting next to this one, the
+  // recording and its description, both fetched from here. Nothing in that chain touches
+  // Google - no Drive link to expire, no sharing setting to reset, no Apps Script
+  // deployment to keep in step. This is how every letter from 28 September 2026 works.
+  var slug = param('m');
+  if (slug && /^[A-Za-z0-9_-]{8,80}$/.test(slug)) {
+    fetch('/m/' + slug + '.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        answered = true;
+        if (!d || !d.ok) { sorry((d && d.note) || 'That recording is not here any more.'); return; }
+        render(d);
+      })
+      .catch(function () {
+        answered = true;
+        sorry('That recording is not here any more.');
+      });
+    return;
+  }
+
+  // ?v= is the older route, kept because letters sent before the change are still sitting
+  // in people's inboxes. It asks Dominic's Apps Script project for the recording, through
+  // a <script> tag rather than fetch(), because a script tag is not subject to CORS.
   var id = param('v');
   // Drive ids are letters, digits, dash and underscore. Anything else is somebody
   // playing with the address bar, and it never reaches the script tag.
@@ -128,8 +153,6 @@ button:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
     sorry('No recording was asked for.');
     return;
   }
-
-  var answered = false;
 
   window.mcVoice = function (d) {
     answered = true;
