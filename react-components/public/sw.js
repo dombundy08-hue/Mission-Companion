@@ -101,6 +101,14 @@ self.addEventListener('fetch', event => {
   // sync is never served stale. Offline failures are handled by the app.
   if (url.hostname.endsWith('.supabase.co')) return;
 
+  // /voice/ is not part of this app. It is Dominic's voice-memo player: a standalone
+  // static page that his family opens from a link in his weekly letter, showing whatever
+  // recording that link asks for. Two things must never happen to it — it must not be
+  // answered from a cache (last week's memo is not this week's), and it must never fall
+  // back to the app shell below, which would render Mission Companion at a letter's URL.
+  // Straight to the network, always.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/voice/')) return;
+
   // App shell navigations: SWR, keyed by the actual URL requested. The app is
   // entirely client-side-routed (React Router) now — every same-origin
   // navigation IS the app shell (just rendering a different view once the

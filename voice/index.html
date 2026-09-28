@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- These are Dominic's letters home. They are not for search engines. -->
+<meta name="robots" content="noindex,nofollow">
+<title>Elder Bundy</title>
+<!--
+  The voice-memo player, as a plain static page.
+
+  It used to be served by the Apps Script web app itself. Apps Script can only serve HTML
+  through HtmlService, and HtmlService always wraps the page in its own javascript
+  bootstrap document (the userCodeAppPanel iframe harness). The Gmail app's in-app browser
+  on Android stops running that bootstrap and paints it on screen as text - "a page with a
+  bunch of code". There is no Apps Script setting that removes the wrapper, so the page had
+  to leave Apps Script. This file is a bare HTML document on his own domain: nothing to
+  bootstrap, no Google account to pick, no Drive intent filter to dodge.
+
+  The data still comes from the web app, because the recording lives in his Drive and the
+  script is the only thing allowed to read it. It arrives through a <script> tag (JSONP),
+  not fetch(), on purpose: a script tag is not subject to CORS at all, so it cannot be
+  broken by whatever headers Apps Script decides to send this year.
+-->
+<style>
+:root{--dark:#22223b;--pop:#ef8354}
+*{box-sizing:border-box}
+body{margin:0;background:#0d1117;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Verdana,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:620px;margin:0 auto;padding:18px 14px 70px}
+.card{background:linear-gradient(160deg,var(--dark),#0d1117);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:clamp(18px,4.5vw,28px);box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.top{display:flex;gap:clamp(13px,3.5vw,20px);align-items:center}
+.art{width:clamp(84px,24vw,116px);height:clamp(84px,24vw,116px);border-radius:14px;object-fit:cover;flex:0 0 auto;background:var(--pop);display:flex;align-items:center;justify-content:center;font-size:38px}
+.kicker{font-size:clamp(10px,2.8vw,12px);letter-spacing:2px;text-transform:uppercase;color:var(--pop);font-weight:700}
+.title{font-size:clamp(19px,5.4vw,26px);font-weight:700;margin:6px 0 4px;line-height:1.2}
+.who{font-size:clamp(12.5px,3.3vw,15px);color:rgba(255,255,255,.6)}
+.eq{display:flex;gap:3px;align-items:flex-end;height:26px;margin-left:auto;opacity:.25;transition:opacity .25s}
+.eq.on{opacity:1}
+.eq i{width:3px;height:6px;background:var(--pop);border-radius:2px}
+.eq.on i{animation:bounce 1s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.12s}.eq i:nth-child(3){animation-delay:.24s}
+.eq i:nth-child(4){animation-delay:.36s}.eq i:nth-child(5){animation-delay:.48s}
+@keyframes bounce{0%,100%{height:6px}50%{height:24px}}
+canvas{display:block;width:100%;height:clamp(72px,19vw,104px);margin:clamp(18px,5vw,26px) 0 8px;cursor:pointer;touch-action:none}
+.times{display:flex;justify-content:space-between;font-size:clamp(12.5px,3.2vw,14px);color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;justify-content:center;gap:clamp(24px,8vw,40px);margin-top:clamp(16px,4.5vw,24px)}
+button{background:none;border:0;color:#fff;cursor:pointer;padding:8px;border-radius:50%;line-height:0;font-family:inherit}
+button:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
+.play{background:var(--pop);width:clamp(70px,19vw,88px);height:clamp(70px,19vw,88px);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.play:active{transform:scale(.96)}
+.skip{font-size:clamp(13px,3.4vw,15px);font-weight:700;color:rgba(255,255,255,.75);line-height:1.15;padding:12px}
+.words{margin:clamp(28px,7vw,40px) 4px 0;text-align:center}
+.words h2{font-size:clamp(11px,3vw,13px);letter-spacing:2px;text-transform:uppercase;color:var(--pop);margin:0 0 16px}
+.words p{font-size:clamp(17px,4.4vw,20px);line-height:1.75;color:rgba(255,255,255,.9);margin:0 0 20px}
+/* His own letter keeps his own colours, so it sits on paper rather than on the dark
+   page - otherwise the near-black text he writes in would be invisible here. */
+.asletter{background:#faf7f2;border-radius:16px;padding:clamp(20px,5vw,30px);text-align:left;color:#2b2b2b;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.asletter img{max-width:100%;height:auto;border-radius:10px}
+.asletter p{color:#2b2b2b;margin:0 0 16px}
+.asletter a{color:var(--dark)}
+.foot{margin:34px 4px 0;font-size:12.5px;line-height:1.6;color:rgba(255,255,255,.4);text-align:center}
+.sorry{max-width:460px;margin:0 auto;padding:60px 24px;text-align:center}
+.sorry h1{font-size:21px;margin:18px 0 10px}
+.sorry p{font-size:15px;line-height:1.6;color:rgba(255,255,255,.7);margin:0}
+.loading{text-align:center;padding:70px 24px;color:rgba(255,255,255,.5);font-size:15px}
+/* On a phone the sleeve goes on top and the words underneath it, the way a record
+   player looks, instead of a small square squeezing the title into two lines. */
+@media(max-width:430px){
+.top{flex-direction:column;text-align:center;gap:14px}
+.art{width:min(64vw,270px);height:min(64vw,270px);font-size:56px}
+.eq{margin:0 auto;height:22px}
+.title{font-size:25px}
+}
+@media(prefers-reduced-motion:reduce){.eq.on i{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="loading" id="loading">Fetching this week&rsquo;s recording&hellip;</div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // The web app that holds the recordings. Anonymous "Anyone" access, and it will only
+  // ever hand back a file that is audio AND sits in the Weekly letter archive folder -
+  // so publishing this address here gives nobody anything. The /a/~/ form is used
+  // everywhere else in this system and answers 200 anonymously with no redirect.
+  var EXEC = 'https://script.google.com/a/~/macros/s/AKfycbxUAW7tL31Wexf_Zt-_D-JkbptMeCw3oixhWWPR6kbmpc8xtJP12NjTwUDwSAlpVZyV8g/exec';
+  var BARS = 64;
+  var wrap = document.getElementById('wrap');
+
+  function param(name) {
+    var m = new RegExp('[?&]' + name + '=([^&]*)').exec(location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function sorry(line) {
+    wrap.innerHTML = '<div class="sorry"><div style="font-size:44px">&#9835;</div>' +
+      '<h1>Nothing to play here</h1><p>' + esc(line) +
+      ' Open the newest letter in your inbox and tap the play card there.</p></div>';
+  }
+
+  // The same bars the card in the letter draws, from the same seed, so the picture does
+  // not change when you tap through. A voice note is loudest in the middle and tails off.
+  function seededBars(seed, count) {
+    var n = 0, s = String(seed || 'memo'), i;
+    for (i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) % 2147483647;
+    var out = [];
+    for (i = 0; i < count; i++) {
+      n = (n * 1103515245 + 12345) % 2147483648;
+      var r = (n >>> 8) % 1000 / 1000;
+      var shape = 0.45 + 0.55 * Math.sin(Math.PI * (i + 0.5) / count);
+      out.push(Math.min(1, Math.max(0.12, (0.18 + r * 0.82) * shape)));
+    }
+    return out;
+  }
+
+  var id = param('v');
+  // Drive ids are letters, digits, dash and underscore. Anything else is somebody
+  // playing with the address bar, and it never reaches the script tag.
+  if (!id || !/^[A-Za-z0-9_-]{10,200}$/.test(id)) {
+    sorry('No recording was asked for.');
+    return;
+  }
+
+  var answered = false;
+
+  window.mcVoice = function (d) {
+    answered = true;
+    if (!d || !d.ok) { sorry((d && d.note) || 'That recording is not here any more.'); return; }
+    render(d);
+  };
+
+  var tag = document.createElement('script');
+  tag.src = EXEC + '?as=jsonp&cb=mcVoice&v=' + encodeURIComponent(id);
+  tag.onerror = function () {
+    if (!answered) sorry('The recording could not be fetched just now.');
+  };
+  document.head.appendChild(tag);
+
+  // Apps Script can be slow to wake up, but not this slow. Without this the page would
+  // sit on "Fetching..." for ever if the script were ever unpublished.
+  setTimeout(function () {
+    if (!answered) sorry('The recording could not be fetched just now.');
+  }, 30000);
+
+  function render(d) {
+    document.documentElement.style.setProperty('--dark', d.dark || '#22223b');
+    document.documentElement.style.setProperty('--pop', d.pop || '#ef8354');
+
+    var sources = (d.audio || []).map(function (s) {
+      return '<source src="' + esc(s.src) + '" type="' + esc(s.type) + '">';
+    }).join('');
+
+    // d.letter is his own writing, read back out of his own Google Doc by his own script,
+    // and it is deliberately inserted as HTML so it keeps his fonts, colours and pictures.
+    // Nothing a stranger can supply ever reaches it - the only thing this page takes from
+    // the address bar is the id, that is checked above, and it is only ever sent to Apps
+    // Script, which then decides for itself whether it is one of his recordings.
+    var letter = d.letter
+      ? '<div class="words"><h2>The letter, in words</h2>' + d.letter + '</div>'
+      : '';
+
+    wrap.innerHTML =
+      '<div class="card">' +
+        '<div class="top">' +
+          (d.art ? '<img class="art" src="' + esc(d.art) + '" alt="">' : '<div class="art">&#9835;</div>') +
+          '<div><div class="kicker">A word in my own voice</div>' +
+          '<div class="title">' + esc(d.title || 'This week, out loud') + '</div>' +
+          '<div class="who">Elder Bundy &middot; Georgia' + (d.when ? ' &middot; ' + esc(d.when) : '') + '</div></div>' +
+          '<div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div>' +
+        '</div>' +
+        '<canvas id="wave" height="124"></canvas>' +
+        '<div class="times"><span id="now">0:00</span><span id="left">-0:00</span></div>' +
+        '<div class="row">' +
+          '<button class="skip" id="back" aria-label="Back 15 seconds">&#8630;<br>15</button>' +
+          '<button class="play" id="play" aria-label="Play">' +
+            '<svg id="ip" width="26" height="26" viewBox="0 0 16 16" fill="#fff"><path d="M11.6 8.7L5.2 12.4c-.54.31-1.23-.07-1.23-.7V4.3c0-.63.69-1.01 1.23-.7l6.4 3.7a.8.8 0 0 1 0 1.4"/></svg>' +
+            '<svg id="ia" width="26" height="26" viewBox="0 0 16 16" fill="#fff" style="display:none"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/></svg>' +
+          '</button>' +
+          '<button class="skip" id="fwd" aria-label="Forward 15 seconds">&#8631;<br>15</button>' +
+        '</div>' +
+        '<audio id="a" preload="metadata" playsinline>' + sources + '</audio>' +
+      '</div>' + letter +
+      '<div class="foot">Georgia Atlanta North Mission</div>';
+
+    wire(d);
+  }
+
+  function wire(d) {
+    var a = document.getElementById('a'), c = document.getElementById('wave'), x = c.getContext('2d');
+    var play = document.getElementById('play'), ip = document.getElementById('ip'), ia = document.getElementById('ia');
+    var eq = document.getElementById('eq'), now = document.getElementById('now'), left = document.getElementById('left');
+    var pop = getComputedStyle(document.documentElement).getPropertyValue('--pop').trim() || '#ef8354';
+    var peaks = seededBars(d.seed || d.id || 'memo', BARS);
+
+    function fit() { c.width = c.clientWidth * 2; c.height = 124; draw(); }
+
+    function draw() {
+      var p = peaks, w = c.width, h = c.height, g = w / p.length, bw = Math.max(2, g * 0.55);
+      var done = a.duration ? a.currentTime / a.duration : 0;
+      x.clearRect(0, 0, w, h);
+      for (var i = 0; i < p.length; i++) {
+        var bh = Math.max(4, p[i] * h * 0.86);
+        x.fillStyle = (i / p.length) < done ? pop : 'rgba(255,255,255,0.32)';
+        x.beginPath();
+        var rx = i * g + (g - bw) / 2, ry = (h - bh) / 2, r = bw / 2;
+        if (x.roundRect) { x.roundRect(rx, ry, bw, bh, r); } else { x.rect(rx, ry, bw, bh); }
+        x.fill();
+      }
+    }
+
+    function mmss(s) {
+      s = Math.max(0, Math.floor(s || 0));
+      return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+    }
+
+    function tick() {
+      now.textContent = mmss(a.currentTime);
+      left.textContent = '-' + mmss((a.duration || 0) - a.currentTime);
+      draw();
+    }
+
+    play.addEventListener('click', function () { if (a.paused) { a.play(); } else { a.pause(); } });
+    a.addEventListener('play', function () {
+      ip.style.display = 'none'; ia.style.display = ''; eq.className = 'eq on';
+      play.setAttribute('aria-label', 'Pause');
+    });
+    a.addEventListener('pause', function () {
+      ip.style.display = ''; ia.style.display = 'none'; eq.className = 'eq';
+      play.setAttribute('aria-label', 'Play');
+    });
+    a.addEventListener('timeupdate', tick);
+    a.addEventListener('loadedmetadata', tick);
+    a.addEventListener('ended', tick);
+    document.getElementById('back').addEventListener('click', function () {
+      a.currentTime = Math.max(0, a.currentTime - 15);
+    });
+    document.getElementById('fwd').addEventListener('click', function () {
+      a.currentTime = Math.min(a.duration || 0, a.currentTime + 15);
+    });
+    c.addEventListener('click', function (e) {
+      if (!a.duration) return;
+      var r = c.getBoundingClientRect();
+      a.currentTime = Math.min(a.duration, Math.max(0, (e.clientX - r.left) / r.width * a.duration));
+      tick();
+    });
+    window.addEventListener('resize', fit);
+    fit();
+
+    // What the phone shows on the lock screen and in the pull-down, the way a music app
+    // does: his artwork, the week, and working skip buttons.
+    try {
+      if ('mediaSession' in navigator) {
+        var artEl = document.querySelector('img.art');
+        var md = {
+          title: (document.querySelector('.title') || {}).textContent || 'This week, out loud',
+          artist: 'Elder Bundy',
+          album: 'Georgia Atlanta North Mission'
+        };
+        if (artEl && artEl.src) {
+          md.artwork = [96, 192, 256, 384, 512].map(function (n) {
+            return { src: artEl.src, sizes: n + 'x' + n, type: 'image/jpeg' };
+          });
+        }
+        navigator.mediaSession.metadata = new MediaMetadata(md);
+        navigator.mediaSession.setActionHandler('play', function () { a.play(); });
+        navigator.mediaSession.setActionHandler('pause', function () { a.pause(); });
+        navigator.mediaSession.setActionHandler('seekbackward', function () { a.currentTime = Math.max(0, a.currentTime - 15); });
+        navigator.mediaSession.setActionHandler('seekforward', function () { a.currentTime = Math.min(a.duration || 0, a.currentTime + 15); });
+        a.addEventListener('timeupdate', function () {
+          try {
+            navigator.mediaSession.setPositionState({ duration: a.duration || 0, position: a.currentTime || 0, playbackRate: 1 });
+          } catch (pe) {}
+        });
+      }
+    } catch (msErr) {}
+
+    // When the recording is carried in the payload rather than streamed, it is worth two
+    // things: a blob: url, which every phone plays without asking which Google account it
+    // is, and a real waveform decoded from his actual voice.
+    var carried = (d.audio || []).filter(function (s) { return String(s.src).indexOf('data:') === 0; })[0];
+    if (carried) {
+      fetch(carried.src).then(function (r) { return r.arrayBuffer(); }).then(function (buf) {
+        try {
+          var blob = new Blob([buf], { type: carried.type || 'audio/mpeg' });
+          var wasPlaying = !a.paused, at = a.currentTime;
+          a.src = URL.createObjectURL(blob);
+          a.load();
+          if (at) { a.currentTime = at; }
+          if (wasPlaying) { a.play(); }
+        } catch (be) {}
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            new AC().decodeAudioData(buf.slice(0)).then(function (ab) {
+              var ch = ab.getChannelData(0), step = Math.floor(ch.length / BARS) || 1, p = [], max = 0.0001;
+              for (var i = 0; i < BARS; i++) {
+                var s = 0;
+                for (var j = 0; j < step; j += 16) {
+                  var v = Math.abs(ch[i * step + j] || 0);
+                  if (v > s) s = v;
+                }
+                p.push(s);
+                if (s > max) max = s;
+              }
+              peaks = p.map(function (v) { return Math.min(1, v / max); });
+              draw();
+            }).catch(function () {});
+          }
+        } catch (err) {}
+      }).catch(function () {});
+    }
+  }
+})();
+</script>
+</body>
+</html>
