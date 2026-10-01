@@ -131,17 +131,36 @@ button:focus-visible{outline:2px solid var(--pop);outline-offset:2px}
   // deployment to keep in step. This is how every letter from 28 September 2026 works.
   var slug = param('m');
   if (slug && /^[A-Za-z0-9_-]{8,80}$/.test(slug)) {
-    fetch('/m/' + slug + '.json', { cache: 'no-store' })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (d) {
-        answered = true;
-        if (!d || !d.ok) { sorry((d && d.note) || 'That recording is not here any more.'); return; }
-        render(d);
-      })
-      .catch(function () {
-        answered = true;
-        sorry('That recording is not here any more.');
-      });
+    // Always the newest copy, never a cached one. GitHub Pages tells browsers and its CDN
+    // to keep every file for 10 minutes, and the same address is reused when a memo is
+    // re-sent, so without this people saw the previous version until they hit refresh.
+    // A fresh query string is a cache miss everywhere; 'no-store' only covered the browser.
+    var fresh = 't=' + Date.now();
+    // The letter can land before GitHub has finished putting the files up (a minute or
+    // two after it is sent). Not there yet = keep checking quietly, not "nothing here".
+    var started = Date.now(), WAIT_MS = 4 * 60 * 1000, EVERY_MS = 5000;
+    var load = function () {
+      fetch('/m/' + slug + '.json?' + fresh + '-' + (Date.now() - started), { cache: 'no-store' })
+        .then(function (r) {
+          if (r.status === 404 && Date.now() - started < WAIT_MS) { setTimeout(load, EVERY_MS); return null; }
+          if (!r.ok) throw new Error(r.status);
+          return r.json();
+        })
+        .then(function (d) {
+          if (d === null) return;
+          answered = true;
+          if (!d || !d.ok) { sorry((d && d.note) || 'That recording is not here any more.'); return; }
+          (d.audio || []).forEach(function (s) {
+            if (s && /^\/m\//.test(String(s.src))) s.src = s.src + (s.src.indexOf('?') < 0 ? '?' : '&') + fresh;
+          });
+          render(d);
+        })
+        .catch(function () {
+          answered = true;
+          sorry('That recording is not here any more.');
+        });
+    };
+    load();
     return;
   }
 
